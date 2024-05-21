@@ -12,10 +12,7 @@ def find_files_thredds(floc,ext_in):
     return ids
 
 def find_files_local(floc,ext_in):
-    # local_base = 'D:/Projects/FY24/FY24_SMARTSEED/FRF_data/'
-    # local_base = 'F:/Projects/FY24/FY24_SMARTSEED/FRF_data/'
-    local_base = 'C:/Users/rdchlerh/Desktop/FRF_data/'
-    full_path = local_base + floc
+    full_path = floc
     ids = []
     for file in os.listdir(full_path):
         if file.endswith(ext_in):

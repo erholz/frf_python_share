@@ -38,17 +38,12 @@ def getthredds_lidar(full_path):
 def getlocal_lidar(full_path):
 
     """
-    :param full_path: consists of floc (path after .../FY24_SMARTSEED/FRF_data/) + filename
+    :param: full_path - consists of floc (full path to file) + filename
     :return: qaqc_fac, lidar_pmissing, lidar_elev, lidar_elevstd, lidar_time, lidar_xFRF, lidar_yFRF
     """
 
-    ## Get the date information from the input file name
-    # local_base = 'D:/Projects/FY24/FY24_SMARTSEED/FRF_data/'
-    # local_base = 'F:/Projects/FY24/FY24_SMARTSEED/FRF_data/'
-    local_base = 'C:/Users/rdchlerh/Desktop/FRF_data/'
-
     ## Lidar dataset
-    ds = Dataset(local_base + full_path, "r")
+    ds = Dataset(full_path, "r")
     qaqc_fac = ds.variables["beachProfileQCFlag"][:]
     lidar_pmissing = ds.variables["percentTimeSeriesMissing"][:, :]
     lidar_elev = ds.variables["elevation"][:, :]

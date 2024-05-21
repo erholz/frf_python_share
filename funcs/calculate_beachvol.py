@@ -1,12 +1,9 @@
 import matplotlib
 matplotlib.use("TKAgg")
 from matplotlib import pyplot as plt
-import matplotlib as mpl
 import pandas as pd
 import numpy as np
-import scipy as sp
-import datetime as dt
-from create_contours import lidar_xFRF,lidarelev,cont_elev,cont_ts,lidartime,time_beg,time_end
+from funcs.create_contours import lidar_xFRF,lidarelev,cont_elev,cont_ts,lidartime,time_beg,time_end
 
 
 # Ok, now calculate volume

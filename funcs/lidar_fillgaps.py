@@ -1,14 +1,11 @@
 import matplotlib
 matplotlib.use("TKAgg")
 from matplotlib import pyplot as plt
-import matplotlib as mpl
 import pandas as pd
 import numpy as np
 import scipy as sp
-import datetime as dt
 import time
-from create_contours import lidar_xFRF,lidarelev,time_beg,time_end,cont_elev,cmean,cstd,lidartime
-from lidar_check import daily_zstdev, daily_znum
+from funcs.create_contours import lidar_xFRF,lidarelev, lidartime
 
 timestartcode = time.time()
 
