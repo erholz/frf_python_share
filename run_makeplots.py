@@ -10,6 +10,7 @@ from funcs.create_contours import cont_ts,cmean,cstd
 from run_lidarcollect import lidartime,lidarelev,lidar_xFRF
 from run_hydrocollect import wltime_lidar,wlmax_lidar,wlmin_lidar
 from funcs.calculate_beachvol import beachVol, beachVol_xc, dBeachVol_dt, DT
+from funcs.lidar_fillgaps import lidar_gappy, lidar_filled
 
 
 # plot_ContourTimeSeries - Plot contour time series
@@ -173,4 +174,18 @@ def plot_BeachVolume():
     ax2.legend()
     plt.gcf().autofmt_xdate()
 
-
+def plot_PrefillPostfillTimestack():
+    tplot = pd.to_datetime(lidartime, unit='s', origin='unix')
+    XX, TT = np.meshgrid(lidar_xFRF, tplot)
+    timescatter = np.reshape(TT, TT.size)
+    xscatter = np.reshape(XX, XX.size)
+    fig7, ax7 = plt.subplots()
+    zscatter = np.reshape(lidar_gappy, lidar_gappy.size)
+    ph7 = ax7.scatter(timescatter, xscatter, s=1, c=zscatter)
+    cbar7 = fig7.colorbar(ph7, ax=ax7)
+    cbar7.set_label('z [m]')
+    fig8, ax8 = plt.subplots()
+    zscatter = np.reshape(lidar_filled, lidar_filled.size)
+    ph8 = ax8.scatter(timescatter, xscatter, s=1, c=zscatter)
+    cbar8 = fig8.colorbar(ph8, ax=ax8)
+    cbar8.set_label('z [m]')

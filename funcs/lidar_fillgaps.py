@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 import scipy as sp
 import time
-from funcs.create_contours import lidar_xFRF,lidarelev, lidartime
+from run_lidarcollect import lidar_xFRF,lidarelev, lidartime
 
 timestartcode = time.time()
 
@@ -57,26 +57,5 @@ for tt in np.arange(len(lidartime)-1):
 
 
 
-# fig, ax = plt.subplots()
-# ax.pcolormesh(lidar_gappy)
-# fig, ax = plt.subplots()
-# ax.pcolormesh(lidar_filled)
-
-tplot = pd.to_datetime(lidartime, unit='s', origin='unix')
-XX,TT = np.meshgrid(lidar_xFRF,tplot)
-timescatter = np.reshape(TT,TT.size)
-xscatter = np.reshape(XX,XX.size)
-fig7, ax7 = plt.subplots()
-zscatter = np.reshape(lidar_gappy,lidar_gappy.size)
-ph7 = ax7.scatter(timescatter,xscatter,s=1,c=zscatter)
-cbar7 = fig7.colorbar(ph7,ax=ax7)
-cbar7.set_label('z [m]')
-fig8, ax8 = plt.subplots()
-zscatter = np.reshape(lidar_filled,lidar_filled.size)
-ph8 = ax8.scatter(timescatter,xscatter,s=1,c=zscatter)
-cbar8 = fig8.colorbar(ph8,ax=ax8)
-cbar8.set_label('z [m]')
-
-
 codeduration = time.time() - timestartcode
-print('Done!  Duration = ' + str(codeduration))
+print('Done!  lidar_fillgaps Duration = ' + str(codeduration) + ' seconds')

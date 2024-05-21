@@ -59,10 +59,7 @@ exec(open('run_hydrocollect.py').read())
 # Run quality check script
 exec(open('funcs/lidar_check.py').read())
 
-# Try filling gaps??
-# exec(open('lidar_fillgaps.py').read())
-
-# Run quality check script
+# Run beach volume calculation script -- MUST RUN create_contours.py FIRST!
 exec(open('funcs/calculate_beachvol.py').read())
 
 # make some plots
@@ -70,10 +67,22 @@ from run_makeplots import *
 plot_QualityDataTimeSeries()
 plot_QualityDataWithContourPositions()
 plot_DailyVariationTimestack()
-
-
-# run file run_makeplots.py
 plot_ContourTimeSeries()
 plot_ProfilesSubset()
 plot_ProfilesTimestack()
+plot_BeachVolume()
+
+
+# Try filling gaps??
+exec(open('funcs/lidar_fillgaps.py').read())
+
+
+# Re-run file create_contours.py
+exec(open('funcs/create_contours.py').read())
+
+# Re-run beach volume calculation script
+exec(open('funcs/calculate_beachvol.py').read())
+
+# Re-run some plots
+plot_ContourTimeSeries()
 plot_BeachVolume()

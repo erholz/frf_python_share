@@ -3,18 +3,13 @@ matplotlib.use("TKAgg")
 from matplotlib import pyplot as plt
 import matplotlib as mpl
 import pandas as pd
-# from find_files import *
-# from getFRF_lidar import *
-# from getFRF_waves import *
-# from getFRF_waterlevels import *
-# from getFRF_17mWaverider import *
-# from wavefuncs import *
 import numpy as np
 import scipy as sp
 import datetime as dt
+from run_lidarcollect import lidartime,lidarelev,lidar_xFRF
+from run_code import cont_elev
 
 
-from run_code import cont_elev,lidartime,lidarelev,lidar_xFRF
 
 cont_ts = np.empty((cont_elev.size,lidartime.size))
 for tt in np.arange(lidartime.size):
