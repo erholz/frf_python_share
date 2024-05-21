@@ -1,8 +1,11 @@
 import matplotlib
 matplotlib.use("TKAgg")
-from funcs.getFRF_funcs.getFRF_waterlevels import *
-from funcs.getFRF_funcs.getFRF_lidar import *
-from run_code import find_files_in_range,noaawlfloc,noaawlext,epoch_end,epoch_beg,lidarhydrofloc,lidarhydroext
+from funcs.getFRF_funcs.getFRF_waterlevels import getlocal_waterlevels
+from funcs.getFRF_funcs.getFRF_lidar import getlocal_lidar
+from run_code import noaawlfloc,noaawlext,epoch_end,epoch_beg,lidarhydrofloc,lidarhydroext
+from funcs.find_files import find_files_in_range
+import numpy as np
+from netCDF4 import Dataset
 
 
 

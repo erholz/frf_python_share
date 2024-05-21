@@ -4,8 +4,11 @@ from matplotlib import pyplot as plt
 import pandas as pd
 import numpy as np
 import datetime as dt
-from run_code import cont_elev,num_profs_plot,lidartime,lidarelev,cont_ts,time_end,time_beg,wltime_lidar,wlmax_lidar,wlmin_lidar,TOI_duration,lidar_xFRF,tzinfo
-
+from run_code import cont_elev,num_profs_plot,time_end,time_beg,TOI_duration,tzinfo
+from funcs.lidar_check import daily_znum,daily_zstdev
+from funcs.create_contours import cont_ts,cmean,cstd
+from run_lidarcollect import lidartime,lidarelev,lidar_xFRF
+from run_hydrocollect import wltime_lidar,wlmax_lidar,wlmin_lidar
 
 
 # plot_ContourTimeSeries - Plot contour time series
@@ -35,9 +38,8 @@ def plot_ContourTimeSeries():
 # plot_ProfilesSubset - Make plots of profiles through time
 def plot_ProfilesSubset():
     numprofs = np.array(lidarelev.shape)[0]
-    print('hihi')
     print('There are ' + str(numprofs) + ' profiles in this subset')
-    print('How many do you want to plot? --> Set [numplot]')
+    print('How many do you want to plot? --> Set [num_profs_plot]')
     # numplot = numprofs
     numplot = num_profs_plot
     print('Ok, plotting ' + str(numplot) + ' profiles...')
@@ -77,3 +79,69 @@ def plot_ProfilesTimestack():
     ax.set_ylim(np.nanmin(xnotnan),np.nanmax(xnotnan))
     plt.gcf().autofmt_xdate()
     ax.set_xlim(min(tplot),max(tplot))
+
+# plot_QualityDataWithContourPositions - Availability of "quality" data (no-nans) as a func. of xFRF
+def plot_QualityDataWithContourPositions():
+    fig, ax = plt.subplots()
+    xplot = lidar_xFRF
+    yplot = np.sum(~np.isnan(lidarelev), axis=0) / np.array(lidarelev.shape)[0]
+    ax.plot(xplot, yplot, 'k', linewidth=2)
+    plt.xlabel('xFRF [m]')
+    plt.ylabel('fraction of data "passing" qaqc over time [0-1]')
+    plt.show()
+    plt.grid(which='major', axis='both')
+    plt.title(time_beg + ' to ' + time_end)
+    # add location of avg and stdev of contour xlocs
+    cmap = plt.cm.rainbow(np.linspace(0, 1, cont_elev.size))
+    ax.set_prop_cycle('color', cmap)
+    for cc in np.arange(cont_elev.size):
+        plt.plot([0, 0] + cmean[cc], [0, 1])
+    for cc in np.arange(cont_elev.size):
+        left, bottom, width, height = (cmean[cc] - cstd[cc], 0, cstd[cc] * 2, 1)
+        patch = plt.Rectangle((left, bottom), width, height, alpha=0.1, color=cmap[cc, :])
+        ax.add_patch(patch)
+
+# plot_QualityDataTimeSeries - Availability of "quality" data (no-nans) as a func. of time
+def plot_QualityDataTimeSeries():
+    fig, ax = plt.subplots()
+    tplot = pd.to_datetime(lidartime, unit='s', origin='unix')
+    yplot = np.sum(~np.isnan(lidarelev), axis=1) / np.array(lidarelev.shape)[1]
+    ax.scatter(tplot, yplot, s=1)
+    plt.xlabel('time')
+    plt.ylabel('fraction of data "passing" qaqc over profile [0-1]')
+    plt.title(time_beg + ' to ' + time_end)
+    plt.gcf().autofmt_xdate()
+
+# plot_DailyVariationTimestack - ok now plot elevation variation as a function of time and space...
+def plot_DailyVariationTimestack():
+    fig, (ax1,ax2,ax3) = plt.subplots(3)
+    yplot = list(reversed(lidar_xFRF))
+    tplot = pd.to_datetime(lidartime, unit='s', origin='unix')
+    vplot = np.rot90(daily_zstdev,1)
+    # vplot[vplot > 0.05] = np.nan
+    ph1 = ax1.pcolormesh(tplot, yplot, vplot)
+    cbar1 = fig.colorbar(ph1,ax=ax1)
+    cbar1.set_label('Z_std [m]')
+    ax1.set_ylabel('xFRF [m]')
+    ax1.set_title('24-hr moving average')
+    xnotnan = lidar_xFRF[np.sum(np.isnan(lidarelev),axis=0) != len(lidartime)]
+    ax1.set_ylim(np.nanmin(xnotnan),np.nanmax(xnotnan))
+    vplot = np.rot90(daily_znum/25)
+    # vplot[vplot < 0.3] = np.nan
+    ph2 = ax2.pcolormesh(tplot, yplot, vplot)
+    cbar2 = fig.colorbar(ph2,ax=ax2)
+    cbar2.set_label('frac avail')
+    ax2.set_ylabel('xFRF [m]')
+    ax2.set_ylim(np.nanmin(xnotnan),np.nanmax(xnotnan))
+    # ax2.set_title('24-hr moving average')
+    tmp1 = np.rot90(daily_zstdev,1)
+    tmp2 = np.rot90(daily_znum/25)
+    vplot = np.zeros(shape=tmp2.shape)
+    vplot[((tmp1 <= 0.05) & (tmp2 > 0.3))] = 1
+    vplot[vplot == 0] = np.nan
+    ph3 = ax3.pcolormesh(tplot, yplot, vplot)
+    cbar3 = fig.colorbar(ph3,ax=ax3)
+    cbar3.set_label('StDv < 5cm & Hrs/Day > 30% ')
+    ax3.set_ylabel('xFRF [m]')
+    ax3.set_ylim(np.nanmin(xnotnan),np.nanmax(xnotnan))
+    plt.gcf().autofmt_xdate()

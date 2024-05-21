@@ -1,7 +1,8 @@
-import matplotlib
-matplotlib.use("TKAgg")
-from funcs.getFRF_funcs.getFRF_lidar import *
-from run_code import find_files_in_range, lidarfloc, lidarext, epoch_end, epoch_beg
+from funcs.getFRF_funcs.getFRF_lidar import getlocal_lidar
+from run_code import lidarfloc,lidarext, epoch_end, epoch_beg
+from funcs.find_files import find_files_in_range,find_files_local
+import numpy as np
+from netCDF4 import Dataset
 
 
 floc = lidarfloc
