@@ -3,7 +3,9 @@ matplotlib.use("TKAgg")
 from matplotlib import pyplot as plt
 import pandas as pd
 import numpy as np
-from funcs.create_contours import lidar_xFRF,lidarelev,cont_elev,cont_ts,lidartime,time_beg,time_end
+from run_lidarcollect import lidar_xFRF,lidarelev
+from funcs.create_contours import cont_ts,lidartime
+from run_code import time_beg,time_end,cont_elev
 
 
 # Ok, now calculate volume
@@ -35,29 +37,4 @@ total_beachVol = np.nansum(beachVol, axis=0)
 total_dBeachVol_dt = (total_beachVol[1:len(lidartime)] - total_beachVol[0:len(lidartime)-1]) / DT
 total_obsBeachWid = np.nanmax(beachVol_xc,axis=0) - np.nanmin(beachVol_xc,axis=0)
 
-# Make some plots
-fig, (ax1,ax2) = plt.subplots(2)
-cmap = plt.cm.rainbow(np.linspace(0,1,cont_elev.size+1))
-ax1.set_prop_cycle('color', cmap[1:-1,:])
-tplot = pd.to_datetime(lidartime, unit='s', origin='unix')
-for cc in np.arange(cont_elev.size-1):
-    ax1.scatter(tplot, beachVol[cc, :], s=1, label='z = ' + str(cont_elev[cc]) + ' m')
-# ax1.scatter(tplot,total_beachVol/total_obsBeachWid,s=1,color='k',label='Total Vol/Total obs. width')
-ax1.grid(which='major',axis='both')
-ax1.legend()
-ax1.set_ylabel('Profile Vol [m^2]')
-plt.suptitle(time_beg+' to '+time_end)
-tmptime = lidartime[0:len(lidartime)-1] + DT/2
-tplot = pd.to_datetime(tmptime, unit='s', origin='unix')
-ax2.set_prop_cycle('color', cmap[1:-1,:])
-for cc in np.arange(cont_elev.size-1):
-    ax2.scatter(tplot, dBeachVol_dt[cc, :], s=1, label='z = ' + str(cont_elev[cc]) + ' m')
-# ax2.scatter(tplot,total_dBeachVol_dt/total_obsBeachWid[1:len(lidartime)],s=1,color='k',label='Total dV/dt / Total obs. width')
-ax2.set_xlabel('time')
-ax2.set_ylabel('dV/dt [m^2/hr]')
-ax2.grid(which='major',axis='both')
-ax2.legend()
-plt.gcf().autofmt_xdate()
-
-# What is average x-shore slope across profile?
 

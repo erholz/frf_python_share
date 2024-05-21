@@ -9,6 +9,7 @@ from funcs.lidar_check import daily_znum,daily_zstdev
 from funcs.create_contours import cont_ts,cmean,cstd
 from run_lidarcollect import lidartime,lidarelev,lidar_xFRF
 from run_hydrocollect import wltime_lidar,wlmax_lidar,wlmin_lidar
+from funcs.calculate_beachvol import beachVol, beachVol_xc, dBeachVol_dt, DT
 
 
 # plot_ContourTimeSeries - Plot contour time series
@@ -145,3 +146,31 @@ def plot_DailyVariationTimestack():
     ax3.set_ylabel('xFRF [m]')
     ax3.set_ylim(np.nanmin(xnotnan),np.nanmax(xnotnan))
     plt.gcf().autofmt_xdate()
+
+
+def plot_BeachVolume():
+    # Make some plots
+    fig, (ax1, ax2) = plt.subplots(2)
+    cmap = plt.cm.rainbow(np.linspace(0, 1, cont_elev.size + 1))
+    ax1.set_prop_cycle('color', cmap[1:-1, :])
+    tplot = pd.to_datetime(lidartime, unit='s', origin='unix')
+    for cc in np.arange(cont_elev.size - 1):
+        ax1.scatter(tplot, beachVol[cc, :], s=1, label='z = ' + str(cont_elev[cc]) + ' m')
+    # ax1.scatter(tplot,total_beachVol/total_obsBeachWid,s=1,color='k',label='Total Vol/Total obs. width')
+    ax1.grid(which='major', axis='both')
+    ax1.legend()
+    ax1.set_ylabel('Profile Vol [m^2]')
+    plt.suptitle(time_beg + ' to ' + time_end)
+    tmptime = lidartime[0:len(lidartime) - 1] + DT / 2
+    tplot = pd.to_datetime(tmptime, unit='s', origin='unix')
+    ax2.set_prop_cycle('color', cmap[1:-1, :])
+    for cc in np.arange(cont_elev.size - 1):
+        ax2.scatter(tplot, dBeachVol_dt[cc, :], s=1, label='z = ' + str(cont_elev[cc]) + ' m')
+    # ax2.scatter(tplot,total_dBeachVol_dt/total_obsBeachWid[1:len(lidartime)],s=1,color='k',label='Total dV/dt / Total obs. width')
+    ax2.set_xlabel('time')
+    ax2.set_ylabel('dV/dt [m^2/hr]')
+    ax2.grid(which='major', axis='both')
+    ax2.legend()
+    plt.gcf().autofmt_xdate()
+
+

@@ -13,7 +13,7 @@ time_end = '2023-09-24T00:00:00'     # 'YYYY-MM-DDThh:mm:ss (string), time of in
 tzinfo = dt.timezone(-dt.timedelta(hours=4))    # FRF = UTC-4
 
 # DEFINE CONTOUR ELEVATIONS OF INTEREST
-cont_elev = np.arange(-0.25,4.25,0.5)    # <<< MUST BE POSITIVELY INCREASING
+cont_elev = np.arange(-0.25,4.25,0.75)    # <<< MUST BE POSITIVELY INCREASING
 
 # DEFINE NUMBER OF PROFILES TO PLOT
 num_profs_plot = 15
@@ -59,17 +59,21 @@ exec(open('run_hydrocollect.py').read())
 # Run quality check script
 exec(open('funcs/lidar_check.py').read())
 
+# Try filling gaps??
+# exec(open('lidar_fillgaps.py').read())
+
+# Run quality check script
+exec(open('funcs/calculate_beachvol.py').read())
+
 # make some plots
 from run_makeplots import *
 plot_QualityDataTimeSeries()
 plot_QualityDataWithContourPositions()
 plot_DailyVariationTimestack()
 
-# Try filling gaps??
-# exec(open('lidar_fillgaps.py').read())
 
 # run file run_makeplots.py
 plot_ContourTimeSeries()
 plot_ProfilesSubset()
 plot_ProfilesTimestack()
-
+plot_BeachVolume()
