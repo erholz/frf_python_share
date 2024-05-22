@@ -1,10 +1,9 @@
 import os
 import numpy as np
 import datetime as dt
-from run_code import tzinfo
 
 # prep file collection
-def find_files_in_range(floc,ext,epoch_beg,epoch_end):
+def find_files_in_range(floc,ext,epoch_beg,epoch_end,tzinfo):
     list_of_files = np.array(find_files_local(floc, ext))
     fdate = []
     for fname_ii in list_of_files:
