@@ -10,10 +10,17 @@ import numpy as np
 # Divide the url you get from the data portal into two parts
 # Everything before "catalog/"
 server_url = 'https://chldata.erdc.dren.mil/thredds/'
+
 # Everything after "catalog/"
-request_url = 'catalog/frf/geomorphology/elevationTransects/duneLidarTransect/'
-local_dir = '/volumes/macDrive/lidarTransects/'
-years = np.arange(2015,2025)
+# # For lidar transects
+# request_url = 'catalog/frf/geomorphology/elevationTransects/duneLidarTransect/'
+# local_dir = '/volumes/macDrive/lidarTransects/'
+# years = np.arange(2015,2025)
+
+# For lidar hydro
+request_url = 'catalog/frf/oceanography/waves/lidarHydrodynamics/'
+local_dir = '/volumes/macDrive/FRF_Data/waves_lidar/lidar_hydro/'
+years = np.arange(2023,2025)
 
 def get_elements(url, tag_name, attribute_name):
     """Get elements from an XML file"""
