@@ -7,6 +7,7 @@ from funcs.lidar_check import *
 from funcs.calculate_beachvol import *
 from funcs.lidar_fillgaps import *
 from run_makeplots import *
+import pickle
 
 # DEFINE WHERE FRF DATA FILES ARE LOCATED
 local_base = 'C:/Users/rdchlerh/Desktop/FRF_data/'
@@ -44,9 +45,12 @@ time_format = '%Y-%m-%dT%H:%M:%S'
 epoch_beg = dt.datetime.strptime(time_beg,time_format).timestamp()
 epoch_end = dt.datetime.strptime(time_end,time_format).timestamp()
 TOI_duration = dt.datetime.fromtimestamp(epoch_end)-dt.datetime.fromtimestamp(epoch_beg)
+# Save timing variables
+with open('timeinfo.pickle','wb') as file:
+    pickle.dump([tzinfo,time_format,time_beg,time_end,epoch_beg,epoch_end,TOI_duration], file)
 
 # run file run_lidarcollect.py
-lidarelev,lidartime,lidar_xFRF,lidarelevstd,lidarmissing = run_lidarcollect(lidarfloc, lidarext, epoch_end, epoch_beg, tzinfo)
+lidarelev,lidartime,lidar_xFRF,lidarelevstd,lidarmissing = run_lidarcollect(lidarfloc, lidarext)
 
 # Remove weird data (first order filtering)
 stdthresh = 0.05        # [m], e.g., 0.05 equals 5cm standard deviation in hrly reading
@@ -69,13 +73,13 @@ daily_zstdev,daily_znum = lidar_check(elev_input,lidartime)
 beachVol, beachVol_xc, dBeachVol_dt = calculate_beachvol(elev_input,lidartime,lidar_xFRF,cont_elev,cont_ts)
 
 # make some plots
-plot_ContourTimeSeries(cont_elev,cont_ts,lidartime,wlmax_lidar,wlmin_lidar,wltime_lidar,time_beg,time_end)
-plot_ProfilesSubset(elev_input,lidartime,lidar_xFRF,num_profs_plot,time_beg,time_end,tzinfo,TOI_duration)
+plot_ContourTimeSeries(cont_elev,cont_ts,lidartime,wlmax_lidar,wlmin_lidar,wltime_lidar)
+plot_ProfilesSubset(elev_input,lidartime,lidar_xFRF,num_profs_plot)
 plot_ProfilesTimestack(elev_input,lidartime,lidar_xFRF)
-plot_QualityDataWithContourPositions(elev_input, lidar_xFRF, cont_elev, cmean, cstd, time_beg, time_end)
-plot_QualityDataTimeSeries(elev_input,lidartime,time_beg,time_end)
+plot_QualityDataWithContourPositions(elev_input, lidar_xFRF, cont_elev, cmean, cstd)
+plot_QualityDataTimeSeries(elev_input,lidartime)
 plot_DailyVariationTimestack(elev_input,lidartime,lidar_xFRF,daily_zstdev,daily_znum)
-plot_BeachVolume(lidartime,cont_elev,beachVol,dBeachVol_dt,time_beg,time_end)
+plot_BeachVolume(lidartime,cont_elev,beachVol,dBeachVol_dt)
 
 
 # Try filling gaps??
@@ -94,5 +98,5 @@ cont_ts, cmean, cstd = create_contours(elev_input,lidartime,lidar_xFRF,cont_elev
 beachVol, beachVol_xc, dBeachVol_dt = calculate_beachvol(elev_input,lidartime,lidar_xFRF,cont_elev,cont_ts)
 
 # Re-run some plots
-plot_ContourTimeSeries(cont_elev,cont_ts,lidartime,wlmax_lidar,wlmin_lidar,wltime_lidar,time_beg,time_end)
-plot_BeachVolume(lidartime,cont_elev,beachVol,dBeachVol_dt,time_beg,time_end)
+plot_ContourTimeSeries(cont_elev,cont_ts,lidartime,wlmax_lidar,wlmin_lidar,wltime_lidar)
+plot_BeachVolume(lidartime,cont_elev,beachVol,dBeachVol_dt)

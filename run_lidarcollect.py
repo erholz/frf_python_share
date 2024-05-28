@@ -1,11 +1,15 @@
 from funcs.getFRF_funcs.getFRF_lidar import getlocal_lidar
 from funcs.find_files import find_files_in_range, find_files_local
 import numpy as np
+from funcs.get_timeinfo import get_TimeInfo
 
 
-def run_lidarcollect(lidarfloc, lidarext, epoch_end, epoch_beg, tzinfo):
+def run_lidarcollect(lidarfloc, lidarext):
     floc = lidarfloc
     ext = lidarext
+
+    # Get timing info from run_code.py
+    tzinfo, time_format, time_beg, time_end, epoch_beg, epoch_end, TOI_duration = get_TimeInfo()
 
     # Get the data names of the LIDAR files...
     fname_in_range = find_files_in_range(floc, ext, epoch_beg, epoch_end, tzinfo)
