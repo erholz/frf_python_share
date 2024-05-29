@@ -17,6 +17,7 @@ def plot_ContourTimeSeries(cont_elev,cont_ts,lidartime,wlmax_lidar,wlmin_lidar,w
     for cc in np.arange(cont_elev.size):
         ax1.scatter(tplot, cont_ts[cc, :], s=1, label='z = ' + str(cont_elev[cc]) + ' m')
     ax1.grid(which='major',axis='both')
+    ax1.minorticks_on()
     ax1.legend()
     ax1.set_ylabel('xFRF [m]')
     ax1.set_xlim(min(tplot),max(tplot))
@@ -30,6 +31,8 @@ def plot_ContourTimeSeries(cont_elev,cont_ts,lidartime,wlmax_lidar,wlmin_lidar,w
     ax2.grid(which='major',axis='both')
     ax2.set_xlim(min(tplot),max(tplot))
     ax2.legend()
+    ax2.minorticks_on()
+    return fig, ax1, ax2
 
 
 # plot_ProfilesSubset - Make plots of profiles through time
@@ -59,9 +62,11 @@ def plot_ProfilesSubset(elev_input,lidartime,lidar_xFRF,num_profs_plot):
     plt.legend()
     plt.title(time_beg + ' to ' + time_end)
     plt.grid(which='major', axis='both')
+    ax.minorticks_on()
     plt.xlabel('xFRF [m]')
     plt.ylabel('z [m]')
     plt.gcf().autofmt_xdate()
+    return fig, ax
 
 # plot_ProfilesTimestack - Plot all profiles as timestacks
 def plot_ProfilesTimestack(elev_input,lidartime,lidar_xFRF):
@@ -76,6 +81,7 @@ def plot_ProfilesTimestack(elev_input,lidartime,lidar_xFRF):
     ax.set_ylim(np.nanmin(xnotnan),np.nanmax(xnotnan))
     plt.gcf().autofmt_xdate()
     ax.set_xlim(min(tplot),max(tplot))
+    return fig, ax
 
 # plot_QualityDataWithContourPositions - Availability of "quality" data (no-nans) as a func. of xFRF
 def plot_QualityDataWithContourPositions(elev_input,lidar_xFRF,cont_elev,cmean,cstd):
@@ -99,6 +105,7 @@ def plot_QualityDataWithContourPositions(elev_input,lidar_xFRF,cont_elev,cmean,c
         patch = plt.Rectangle((left, bottom), width, height, alpha=0.1, color=cmap[cc, :])
         ax.add_patch(patch)
     plt.legend()
+    return fig, ax
 
 # plot_QualityDataTimeSeries - Availability of "quality" data (no-nans) as a func. of time
 def plot_QualityDataTimeSeries(elev_input,lidartime):
@@ -111,6 +118,7 @@ def plot_QualityDataTimeSeries(elev_input,lidartime):
     plt.ylabel('fraction of data "passing" qaqc over profile [0-1]')
     plt.title(time_beg + ' to ' + time_end)
     plt.gcf().autofmt_xdate()
+    return fig, ax
 
 # plot_DailyVariationTimestack - ok now plot elevation variation as a function of time and space...
 def plot_DailyVariationTimestack(elev_input,lidartime,lidar_xFRF,daily_zstdev,daily_znum):
@@ -145,6 +153,7 @@ def plot_DailyVariationTimestack(elev_input,lidartime,lidar_xFRF,daily_zstdev,da
     ax3.set_ylabel('xFRF [m]')
     ax3.set_ylim(np.nanmin(xnotnan),np.nanmax(xnotnan))
     plt.gcf().autofmt_xdate()
+    return fig, ax1,ax2,ax3
 
 
 def plot_BeachVolume(lidartime,cont_elev,beachVol,dBeachVol_dt):
@@ -175,6 +184,7 @@ def plot_BeachVolume(lidartime,cont_elev,beachVol,dBeachVol_dt):
     ax2.grid(which='major', axis='both')
     ax2.legend()
     plt.gcf().autofmt_xdate()
+    return fig, ax1, ax2
 
 def plot_PrefillPostfillTimestack(elev_gappy,elev_filled,lidartime,lidar_xFRF):
     tplot = pd.to_datetime(lidartime, unit='s', origin='unix')
@@ -191,3 +201,4 @@ def plot_PrefillPostfillTimestack(elev_gappy,elev_filled,lidartime,lidar_xFRF):
     ph8 = ax8.scatter(timescatter, xscatter, s=1, c=zscatter)
     cbar8 = fig8.colorbar(ph8, ax=ax8)
     cbar8.set_label('z [m]')
+    return fig7, ax7, fig8, ax8

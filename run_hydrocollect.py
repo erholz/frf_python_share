@@ -4,24 +4,29 @@ from funcs.getFRF_funcs.getFRF_waterlevels import getlocal_waterlevels
 from funcs.find_files import find_files_in_range
 import numpy as np
 from netCDF4 import Dataset
+from funcs.get_timeinfo import get_TimeInfo
 
-def run_hydrocollect_func(noaawlfloc, noaawlext, lidarhydrofloc, lidarhydroext, epoch_end, epoch_beg, tzinfo):
-    # start with NOAA water level files
-    floc = noaawlfloc
-    ext = noaawlext
-    fname_in_range = find_files_in_range(floc,ext,epoch_beg,epoch_end, tzinfo)
-    wltime_noaa = []
-    wl_noaa = []
-    for fname_ii in fname_in_range:
-        print('reading... ' + fname_ii)
-        full_path = floc + fname_ii
-        waterlevel_noaa, time_noaa = getlocal_waterlevels(full_path)
-        wltime_noaa = np.append(wltime_noaa, time_noaa)
-        wl_noaa = np.append(wl_noaa, waterlevel_noaa)
-    # Trim full data set to just the obs of interest
-    ij_in_range = (wltime_noaa >= epoch_beg) & (wltime_noaa <= epoch_end)
-    wltime_noaa = wltime_noaa[ij_in_range]
-    wl_noaa = wl_noaa[ij_in_range]
+def run_hydrocollect_func(noaawlfloc, noaawlext, lidarhydrofloc, lidarhydroext):
+
+    # Get timing info from run_code.py
+    tzinfo, time_format, time_beg, time_end, epoch_beg, epoch_end, TOI_duration = get_TimeInfo()
+
+    # # start with NOAA water level files
+    # floc = noaawlfloc
+    # ext = noaawlext
+    # fname_in_range = find_files_in_range(floc,ext,epoch_beg,epoch_end, tzinfo)
+    # wltime_noaa = []
+    # wl_noaa = []
+    # for fname_ii in fname_in_range:
+    #     print('reading... ' + fname_ii)
+    #     full_path = floc + fname_ii
+    #     waterlevel_noaa, time_noaa = getlocal_waterlevels(full_path)
+    #     wltime_noaa = np.append(wltime_noaa, time_noaa)
+    #     wl_noaa = np.append(wl_noaa, waterlevel_noaa)
+    # # Trim full data set to just the obs of interest
+    # ij_in_range = (wltime_noaa >= epoch_beg) & (wltime_noaa <= epoch_end)
+    # wltime_noaa = wltime_noaa[ij_in_range]
+    # wl_noaa = wl_noaa[ij_in_range]
 
 
     # ok, now get water levels from lidarHydro files
