@@ -10,6 +10,7 @@ from run_makeplots import *
 
 # DEFINE WHERE FRF DATA FILES ARE LOCATED
 local_base = 'C:/Users/rdchlerh/Desktop/FRF_data/'
+local_base = '/volumes/macDrive/FRF_data/'
 
 # DEFINE TIME PERIOD OF INTEREST
 time_beg = '2023-09-11T00:00:00'     # 'YYYY-MM-DDThh:mm:ss' (string), time of interest BEGIN

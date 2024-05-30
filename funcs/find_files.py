@@ -26,7 +26,8 @@ def find_files_in_range(floc,ext,epoch_beg,epoch_end,tzinfo):
         if sum(ij_in_range) == 0:
             print('No data to see here, folks')
             print('Try another data range')
-            exit()
+            #exit()
+            return np.empty((0,0))
     if min(np.argwhere(ij_in_range)) > 0:
         ij_in_range[min(np.argwhere(ij_in_range))-1] = True
     if max(np.argwhere(ij_in_range)) < ij_in_range.size - 1:
