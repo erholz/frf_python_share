@@ -55,3 +55,25 @@ def lidar_fillgaps(elev_input,lidartime,lidar_xFRF,halfspan_time,halfspan_x):
     print('Done!  lidar_fillgaps Duration = ' + str(codeduration) + ' seconds')
 
     return lidar_filled
+
+def prof_extendfromlidarhydro(lidarelev,lidartime,lidar_xFRF,wlmin_lidar,cont_ts):
+    # map WL depths onto lowest contour position, if possible
+    prof_extended = np.empty(shape=lidarelev.shape)
+    wlmean_zmin = np.empty(shape=lidartime.shape)
+    hmean_zmin = np.empty(shape=lidartime.shape)
+    wlmean_zmin[:] = np.nan
+    hmean_zmin[:] = np.nan
+    prof_extended[:] = np.nan
+    for tt in np.arange(len(lidartime)):
+        prof_extended[~np.isnan(lidarelev)] = lidarelev[~np.isnan(lidarelev)]
+        xq = np.nanmax(cont_ts[:, tt])  # max (furthest seaward) contour position
+        ztmp = wlmin_lidar[tt, :]  # mean water elev observed across profile at time tt
+        xtmp = lidar_xFRF  # all x-coords of profile
+        if ~np.isnan(xq) & (len(ztmp[~np.isnan(ztmp)]) > 0):
+            if xq < np.nanmin(xtmp[~np.isnan(ztmp)]):
+                hmean_zmin[tt] = 0
+                N = 5
+                tmpWL = wlmin_lidar[tt, :]
+                tmpij = ~np.isnan(tmpWL)
+                new_elev = np.convolve(tmpWL[tmpij], np.ones(N) / N, 'valid')
+                prof_extended[tt, np.argwhere(tmpij)[int(np.floor(N / 2)):-(int(np.floor(N / 2)))].T] = new_elev[:]
