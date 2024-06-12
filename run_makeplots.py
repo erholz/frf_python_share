@@ -8,7 +8,7 @@ from funcs.get_timeinfo import get_TimeInfo
 
 
 # plot_ContourTimeSeries - Plot contour time series
-def plot_ContourTimeSeries(cont_elev,cont_ts,lidartime,wlmax_lidar,wlmin_lidar,wltime_lidar):
+def plot_ContourTimeSeries(cont_elev,cont_ts,lidartime,wlmean_lidar,wltime_lidar,lidar_xFRF):
     tzinfo, time_format, time_beg, time_end, epoch_beg, epoch_end, TOI_duration = get_TimeInfo()
     fig, (ax1,ax2) = plt.subplots(2)
     cmap = plt.cm.rainbow(np.linspace(0,1,cont_elev.size))
@@ -24,15 +24,14 @@ def plot_ContourTimeSeries(cont_elev,cont_ts,lidartime,wlmax_lidar,wlmin_lidar,w
     plt.suptitle(time_beg+' to '+time_end)
     plt.gcf().autofmt_xdate()
     tplot = pd.to_datetime(wltime_lidar, unit='s', origin='unix')
-    ax2.scatter(tplot,np.nanmin(wlmin_lidar,axis=1),s=1,color=[0.5,0.5,0.5],label='min WL')
-    ax2.scatter(tplot,np.nanmax(wlmax_lidar,axis=1),s=1,color='k',label='max WL')
+    ax2.scatter(tplot,np.nanmean(wlmean_lidar,axis=1),s=1,color='k',label='mean WL')
     ax2.set_xlabel('time')
     ax2.set_ylabel('z [m]')
     ax2.grid(which='major',axis='both')
     ax2.set_xlim(min(tplot),max(tplot))
     ax2.legend()
     ax2.minorticks_on()
-    return fig, ax1, ax2
+    return fig, ax1, ax2#, fig2, ax11, ax12
 
 
 # plot_ProfilesSubset - Make plots of profiles through time
@@ -168,7 +167,7 @@ def plot_BeachVolume(lidartime,cont_elev,beachVol,dBeachVol_dt):
     DT = (lidartime[2] - lidartime[1]) / 3600  # time step [hr]
     for cc in np.arange(cont_elev.size - 1):
         ax1.scatter(tplot, beachVol[cc, :], s=1, label='z = ' + str(cont_elev[cc]) + ' m')
-    # ax1.scatter(tplot,total_beachVol/total_obsBeachWid,s=1,color='k',label='Total Vol/Total obs. width')
+    ax1.scatter(tplot,total_beachVol/total_obsBeachWid,s=1,color='k',label='Total Vol/Total obs. width')
     ax1.grid(which='major', axis='both')
     ax1.legend()
     ax1.set_ylabel('Profile Vol [m^2]')
@@ -178,7 +177,7 @@ def plot_BeachVolume(lidartime,cont_elev,beachVol,dBeachVol_dt):
     ax2.set_prop_cycle('color', cmap[1:-1, :])
     for cc in np.arange(cont_elev.size - 1):
         ax2.scatter(tplot, dBeachVol_dt[cc, :], s=1, label='z = ' + str(cont_elev[cc]) + ' m')
-    # ax2.scatter(tplot,total_dBeachVol_dt/total_obsBeachWid[1:len(lidartime)],s=1,color='k',label='Total dV/dt / Total obs. width')
+    ax2.scatter(tplot,total_dBeachVol_dt/total_obsBeachWid[1:len(lidartime)],s=1,color='k',label='Total dV/dt / Total obs. width')
     ax2.set_xlabel('time')
     ax2.set_ylabel('dV/dt [m^2/hr]')
     ax2.grid(which='major', axis='both')
@@ -196,9 +195,11 @@ def plot_PrefillPostfillTimestack(elev_gappy,elev_filled,lidartime,lidar_xFRF):
     ph7 = ax7.scatter(timescatter, xscatter, s=1, c=zscatter)
     cbar7 = fig7.colorbar(ph7, ax=ax7)
     cbar7.set_label('z [m]')
+    ax7.set_title('Num nans = ' + str(sum(sum(np.isnan(elev_gappy)))))
     fig8, ax8 = plt.subplots()
     zscatter = np.reshape(elev_filled, elev_filled.size)
     ph8 = ax8.scatter(timescatter, xscatter, s=1, c=zscatter)
     cbar8 = fig8.colorbar(ph8, ax=ax8)
     cbar8.set_label('z [m]')
+    ax8.set_title('Num nans = ' + str(sum(sum(np.isnan(elev_filled)))))
     return fig7, ax7, fig8, ax8

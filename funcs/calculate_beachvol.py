@@ -34,4 +34,4 @@ def calculate_beachvol(elev_input,lidartime,lidar_xFRF,cont_elev,cont_ts):
     total_dBeachVol_dt = (total_beachVol[1:len(lidartime)] - total_beachVol[0:len(lidartime)-1]) / DT
     total_obsBeachWid = np.nanmax(beachVol_xc,axis=0) - np.nanmin(beachVol_xc,axis=0)
 
-    return beachVol, beachVol_xc, dBeachVol_dt
+    return beachVol, beachVol_xc, dBeachVol_dt, total_beachVol, total_dBeachVol_dt, total_obsBeachWid

@@ -36,25 +36,31 @@ def run_hydrocollect_func(noaawlfloc, noaawlext, lidarhydrofloc, lidarhydroext):
     wltime_lidar = []
     wlmin_lidar = []
     wlmax_lidar = []
+    wlmean_lidar = []
     for fname_ii in fname_in_range:
         fullpath = floc + fname_ii
         ds = Dataset(fullpath, "r")
         minWL = ds.variables["minWaterLevel"][:]
         maxWL = ds.variables["maxWaterLevel"][:]
+        meanWL = ds.variables["waterLevel"][:]
         time = ds.variables["time"][:]
         wltime_lidar = np.append(wltime_lidar, time)
         if len(wlmax_lidar) < 1:    # if matrix is empty, then initialize
             wlmax_lidar = maxWL
             wlmin_lidar = minWL
+            wlmean_lidar = meanWL
         else:
             wlmax_lidar = np.append(wlmax_lidar, maxWL, axis=0)
             wlmin_lidar = np.append(wlmin_lidar, minWL, axis=0)
+            wlmean_lidar = np.append(wlmean_lidar, meanWL, axis=0)
     # Trim full data set to just the obs of interest
     ij_in_range = (wltime_lidar >= epoch_beg) & (wltime_lidar <= epoch_end)
     wltime_lidar = wltime_lidar[ij_in_range]
     wlmax_lidar = wlmax_lidar[ij_in_range]
     wlmin_lidar = wlmin_lidar[ij_in_range]
+    wlmean_lidar = wlmean_lidar[ij_in_range]
     wlmin_lidar[wlmin_lidar < -99] = np.nan
     wlmax_lidar[wlmax_lidar < -99] = np.nan
+    wlmean_lidar[wlmean_lidar < -99] = np.nan
 
-    return wlmax_lidar,wlmin_lidar,wltime_lidar
+    return wlmax_lidar,wlmin_lidar,wltime_lidar,wlmean_lidar

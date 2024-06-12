@@ -13,8 +13,8 @@ import pickle
 local_base = 'C:/Users/rdchlerh/Desktop/FRF_data/'
 
 # DEFINE TIME PERIOD OF INTEREST
-time_beg = '2015-01-11T00:00:00'     # 'YYYY-MM-DDThh:mm:ss' (string), time of interest BEGIN
-time_end = '2017-09-24T00:00:00'     # 'YYYY-MM-DDThh:mm:ss (string), time of interest END
+time_beg = '2016-10-01T00:00:00'     # 'YYYY-MM-DDThh:mm:ss' (string), time of interest BEGIN
+time_end = '2017-01-01T00:00:00'     # 'YYYY-MM-DDThh:mm:ss (string), time of interest END
 tzinfo = dt.timezone(-dt.timedelta(hours=4))    # FRF = UTC-4
 
 # DEFINE CONTOUR ELEVATIONS OF INTEREST
@@ -63,17 +63,17 @@ elev_input = lidarelev
 cont_ts, cmean, cstd = create_contours(elev_input,lidartime,lidar_xFRF,cont_elev)
 
 # run file run_hydrocollect.py
-wlmax_lidar,wlmin_lidar,wltime_lidar = run_hydrocollect_func(noaawlfloc, noaawlext, lidarhydrofloc, lidarhydroext)
+wlmax_lidar,wlmin_lidar,wltime_lidar,wlmean_lidar = run_hydrocollect_func(noaawlfloc, noaawlext, lidarhydrofloc, lidarhydroext)
 
 # Run quality check script
 # exec(open('funcs/lidar_check.py').read())
 daily_zstdev,daily_znum = lidar_check(elev_input,lidartime)
 
 # Run beach volume calculation script -- MUST RUN create_contours.py FIRST!
-beachVol, beachVol_xc, dBeachVol_dt = calculate_beachvol(elev_input,lidartime,lidar_xFRF,cont_elev,cont_ts)
+beachVol, beachVol_xc, dBeachVol_dt,total_beachVol, total_dBeachVol_dt, total_obsBeachWid = calculate_beachvol(elev_input,lidartime,lidar_xFRF,cont_elev,cont_ts)
 
 # make some plots
-fig, ax1, ax2 = plot_ContourTimeSeries(cont_elev,cont_ts,lidartime,wlmax_lidar,wlmin_lidar,wltime_lidar)
+fig, ax1, ax2 = plot_ContourTimeSeries(cont_elev,cont_ts,lidartime,wlmean_lidar,wltime_lidar,lidar_xFRF)
 ax2.grid(which='minor',axis='x')
 ax1.grid(which='minor',axis='x')
 # fig, ax = plot_ProfilesSubset(elev_input,lidartime,lidar_xFRF,num_profs_plot)
@@ -84,13 +84,13 @@ ax1.grid(which='minor',axis='x')
 # fig, ax1, ax2 = plot_BeachVolume(lidartime,cont_elev,beachVol,dBeachVol_dt)
 
 
-# # Try filling gaps??
-# halfspan_time = 4
-# halfspan_x = 5
-# lidar_filled = lidar_fillgaps(lidarelev,lidartime,lidar_xFRF,halfspan_time,halfspan_x)
+# Try filling gaps??
+halfspan_time = 6
+halfspan_x = 10
+lidar_filled = lidar_fillgaps(lidarelev,lidartime,lidar_xFRF,halfspan_time,halfspan_x)
 #
 # # Plot the new lidar, filled in gaps
-# fig1, ax1, fig2, ax2 = plot_PrefillPostfillTimestack(lidarelev,lidar_filled,lidartime,lidar_xFRF)
+fig1, ax1, fig2, ax2 = plot_PrefillPostfillTimestack(lidarelev,lidar_filled,lidartime,lidar_xFRF)
 #
 # # Re-run file create_contours.py
 # # elev_input = lidar_filled
