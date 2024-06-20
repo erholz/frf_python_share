@@ -91,7 +91,7 @@ for param_ii in param_list:
     imagename = imagedir + param_ii + '_pdf.svg'
     if os.path.exists(imagedir) == False:
         os.makedirs(imagedir)
-    fig.savefig(imagename, format='svg', dpi=1200)
+    # fig.savefig(imagename, format='svg', dpi=1200)
 # plot and save distributions of lidar_wg data
 wavegaugenames = ['lidarwg080','lidarwg090','lidarwg100','lidarwg110','lidarwg140']
 lblstrs = ['80m','90m','100m','110m','140m']
@@ -155,7 +155,7 @@ plt.ylabel('density')
 plt.legend()
 imagedir = './figs/data/allavailabledata/'
 imagename = imagedir + 'DXcDt' + '_pdf.svg'
-fig.savefig(imagename, format='svg', dpi=1200)
+# fig.savefig(imagename, format='svg', dpi=1200)
 
 # What is temporal alignment of datasets
 param_list = ['lidartime','lidarrunup_time','lidarwg080_time',
@@ -174,7 +174,7 @@ plt.legend()
 ax.grid(which='major', axis='both')
 imagedir = './figs/data/allavailabledata/'
 imagename = imagedir + 'data_availability_times.png'
-fig.savefig(imagename, format='png', dpi=1200)
+# fig.savefig(imagename, format='png', dpi=1200)
 
 # Interp all data to full time series with identical sampling times
 dt = 3600
@@ -188,16 +188,16 @@ wave8m_dir_fullspan = align_data_fullspan(time_fullspan, wave8m_time, wave8m_dir
 wl_noaa_fullspan = align_data_fullspan(time_fullspan, wltime_noaa, wl_noaa)
 lidarrunup_elev2p_fullspan = align_data_fullspan(time_fullspan, lidarrunup_time, lidarrunup_elev2p)
 # Xc and DXc/Dt time series
-cont_ts_fullspan = np.empty(shape=(cont_elev.size,time_fullspan.size))
-dXContdt_fullspan = np.empty(shape=(cont_elev.size,time_fullspan.size))
-cont_ts_fullspan[:] = np.nan
-dXContdt_fullspan[:] = np.nan
+xc_fullspan = np.empty(shape=(cont_elev.size,time_fullspan.size))
+dXcdt_fullspan = np.empty(shape=(cont_elev.size,time_fullspan.size))
+xc_fullspan[:] = np.nan
+dXcdt_fullspan[:] = np.nan
 for ii in np.arange(cont_elev.size):
     time_available = lidartime
     data_fullspan = align_data_fullspan(time_fullspan, time_available, cont_ts[ii,:])
-    cont_ts_fullspan[ii,:] = data_fullspan
+    xc_fullspan[ii,:] = data_fullspan
     data_fullspan = align_data_fullspan(time_fullspan, time_available[0:-1], dXContdt[ii, :])
-    dXContdt_fullspan[ii, :] = data_fullspan
+    dXcdt_fullspan[ii, :] = data_fullspan
 # lidar wave gauges...
 wavegaugenames = ['lidarwg080','lidarwg090','lidarwg100','lidarwg110','lidarwg140']
 varnames = ['Tp','TmIG','Hs','HsIG','HsIN']
@@ -267,16 +267,16 @@ plt.tight_layout()
 plt.show()
 imagedir = './figs/data/allavailabledata/'
 imagename = imagedir + 'data_availability_timeoverlap.svg'
-fig.savefig(imagename, format='svg', dpi=1200)
+# fig.savefig(imagename, format='svg', dpi=1200)
 
 # Define when we have contour positions relative to hydro data
-datavail_Xc = np.ones(shape=cont_ts_fullspan.shape)
-datavail_dXcdt = np.ones(shape=dXContdt_fullspan.shape)
+datavail_Xc = np.ones(shape=xc_fullspan.shape)
+datavail_dXcdt = np.ones(shape=dXcdt_fullspan.shape)
 fig, (ax1,ax2) = plt.subplots(2)
 for ii in np.arange(cont_elev.size):
-    tmp = np.isnan(cont_ts_fullspan[ii,:])
+    tmp = np.isnan(xc_fullspan[ii,:])
     datavail_Xc[ii, tmp] = 0
-    tmp = np.isnan(dXContdt_fullspan[ii, :])
+    tmp = np.isnan(dXcdt_fullspan[ii, :])
     datavail_dXcdt[ii, tmp] = 0
     tplot = pd.to_datetime(time_fullspan, unit='s', origin='unix')
     ax1.plot(tplot,(ii+1)*datavail_Xc[ii, :],'o',label='Zc = '+str(cont_elev[ii]))
@@ -286,7 +286,6 @@ ax1.plot(tplot,datavail_all*10,'ok')
 ax2.grid(which='both', axis='both')
 ax2.plot(tplot,datavail_all*10,'ok')
 ax1.legend()
-# tmp = np.append(datavail_Xc.T,np.reshape(datavail_all,(time_fullspan.size,1)),axis=1)
 
 fig, (ax1,ax2) = plt.subplots(2)
 for ii in np.arange(cont_elev.size):
@@ -310,9 +309,13 @@ ax2.set_title('dXc/dt overlap with hydro data')
 plt.tight_layout()
 imagedir = './figs/data/allavailabledata/'
 imagename = imagedir + 'data&Xc_availability_timeoverlap.png'
-fig.savefig(imagename, format='png', dpi=1200)
+# fig.savefig(imagename, format='png', dpi=1200)
 
-
+# SAVE temporally aligned time series and data_availability variables !!!!!!!!!!!!
+with open('IO_alignedintime.pickle','wb') as file:
+    pickle.dump([data_wave8m,data_wave17m,data_tidegauge,data_lidar_elev2p,data_lidarwg080,data_lidarwg090,data_lidarwg100,data_lidarwg110,data_lidarwg140,xc_fullspan,dXcdt_fullspan],file)
+with open('IO_datavail.pickle','wb') as file:
+    pickle.dump([datavail_wave8m,datavail_wave17m,datavail_tidegauge,datavail_lidar_elev2p,datavail_lidarwg080,datavail_lidarwg090,datavail_lidarwg100,datavail_lidarwg110,datavail_lidarwg140,datavail_Xc,datavail_dXcdt],file)
 
 
 
