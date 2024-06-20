@@ -13,8 +13,8 @@ import pickle
 local_base = 'C:/Users/rdchlerh/Desktop/FRF_data/'
 
 # DEFINE TIME PERIOD OF INTEREST
-time_beg = '2016-10-01T00:00:00'     # 'YYYY-MM-DDThh:mm:ss' (string), time of interest BEGIN
-time_end = '2017-01-01T00:00:00'     # 'YYYY-MM-DDThh:mm:ss (string), time of interest END
+time_beg = '2015-10-01T00:00:00'     # 'YYYY-MM-DDThh:mm:ss' (string), time of interest BEGIN
+time_end = '2025-01-01T00:00:00'     # 'YYYY-MM-DDThh:mm:ss (string), time of interest END
 tzinfo = dt.timezone(-dt.timedelta(hours=4))    # FRF = UTC-4
 
 # DEFINE CONTOUR ELEVATIONS OF INTEREST
@@ -36,9 +36,7 @@ lidarhydrofloc = local_base + 'waves_lidar/lidar_hydro/'
 lidarhydroext = 'nc'  # << change not recommended; defines file type to look for
 
 
-
-
-# -------------------- BEGIN RUN_CODE.PY --------------------
+# -------------------- SAVE VARIABLES AS PICKLE --------------------
 
 # convert period of interest to datenum
 time_format = '%Y-%m-%dT%H:%M:%S'
@@ -48,6 +46,13 @@ TOI_duration = dt.datetime.fromtimestamp(epoch_end)-dt.datetime.fromtimestamp(ep
 # Save timing variables
 with open('timeinfo.pickle','wb') as file:
     pickle.dump([tzinfo,time_format,time_beg,time_end,epoch_beg,epoch_end,TOI_duration], file)
+
+# Save file locations
+with open('fileinfo.pickle','wb') as file:
+    pickle.dump([local_base,lidarfloc,lidarext,noaawlfloc,noaawlext,lidarhydrofloc,lidarhydroext],file)
+
+
+# -------------------- BEGIN RUN_CODE.PY --------------------
 
 # run file run_lidarcollect.py
 lidarelev,lidartime,lidar_xFRF,lidarelevstd,lidarmissing = run_lidarcollect(lidarfloc, lidarext)

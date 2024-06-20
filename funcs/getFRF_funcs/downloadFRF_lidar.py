@@ -6,10 +6,19 @@ from xml.dom import minidom
 from urllib.request import urlopen
 from urllib.request import urlretrieve
 import numpy as np
+import os
+import sys
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.dirname(SCRIPT_DIR))
+from funcs.get_timeinfo import get_FileInfo
+
+local_base, lidarfloc, lidarext, noaawlfloc, noaawlext, lidarhydrofloc, lidarhydroext = get_FileInfo()
 
 # Divide the url you get from the data portal into two parts
 # Everything before "catalog/"
 server_url = 'https://chldata.erdc.dren.mil/thredds/'
+
+
 
 # Everything after "catalog/"
 # # For lidar transects
@@ -18,9 +27,10 @@ server_url = 'https://chldata.erdc.dren.mil/thredds/'
 # years = np.arange(2015,2025)
 
 # For lidar hydro
-request_url = 'catalog/frf/oceanography/waves/lidarHydrodynamics/'
-local_dir = '/volumes/macDrive/FRF_Data/waves_lidar/lidar_hydro/'
-years = np.arange(2023,2025)
+request_url = 'catalog/frf/oceanography/waterlevel/eopNoaaTide/'
+local_dir = local_base + '/waterlevel/eopNOAA/'
+# local_dir = lidarfloc
+years = np.arange(2015,2025)
 
 def get_elements(url, tag_name, attribute_name):
     """Get elements from an XML file"""
@@ -59,6 +69,8 @@ def main():
             print('Downloaing file %d of %d' % (count, len(file_subset)))
             print(file_url)
             print(file_name)
+            if not os.path.isdir(local_dir):
+                os.makedirs(local_dir)
             a = urlretrieve(file_url, local_dir + file_name)
             print(a)
 

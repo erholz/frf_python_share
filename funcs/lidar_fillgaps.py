@@ -67,7 +67,7 @@ def prof_extendfromlidarhydro(lidarelev,lidartime,lidar_xFRF,wlmin_lidar,cont_ts
     for tt in np.arange(len(lidartime)):
         prof_extended[~np.isnan(lidarelev)] = lidarelev[~np.isnan(lidarelev)]
         xq = np.nanmax(cont_ts[:, tt])  # max (furthest seaward) contour position
-        ztmp = wlmin_lidar[tt, :]  # mean water elev observed across profile at time tt
+        ztmp = wlmin_lidar[tt, :]  # min water elev observed across profile at time tt
         xtmp = lidar_xFRF  # all x-coords of profile
         if ~np.isnan(xq) & (len(ztmp[~np.isnan(ztmp)]) > 0):
             if xq < np.nanmin(xtmp[~np.isnan(ztmp)]):
