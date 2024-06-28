@@ -18,7 +18,7 @@ time_end = '2025-01-01T00:00:00'     # 'YYYY-MM-DDThh:mm:ss (string), time of in
 tzinfo = dt.timezone(-dt.timedelta(hours=4))    # FRF = UTC-4
 
 # DEFINE CONTOUR ELEVATIONS OF INTEREST
-cont_elev = np.arange(-0.25,4.25,0.5)    # <<< MUST BE POSITIVELY INCREASING
+cont_elev = np.arange(0,2.5,0.5)    # <<< MUST BE POSITIVELY INCREASING
 
 # DEFINE NUMBER OF PROFILES TO PLOT
 num_profs_plot = 15

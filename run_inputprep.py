@@ -6,6 +6,8 @@ from matplotlib import pyplot as plt
 import numpy as np
 import os
 from funcs.align_data_time import align_data_fullspan
+import pickle
+
 
 # define constants/file directories
 local_base, lidarfloc, lidarext, noaawlfloc, noaawlext, lidarhydrofloc, lidarhydroext = get_FileInfo()
@@ -311,21 +313,16 @@ imagedir = './figs/data/allavailabledata/'
 imagename = imagedir + 'data&Xc_availability_timeoverlap.png'
 # fig.savefig(imagename, format='png', dpi=1200)
 
-# SAVE temporally aligned time series and data_availability variables !!!!!!!!!!!!
-with open('IO_alignedintime.pickle','wb') as file:
-    pickle.dump([data_wave8m,data_wave17m,data_tidegauge,data_lidar_elev2p,data_lidarwg080,data_lidarwg090,data_lidarwg100,data_lidarwg110,data_lidarwg140,xc_fullspan,dXcdt_fullspan],file)
-with open('IO_datavail.pickle','wb') as file:
-    pickle.dump([datavail_wave8m,datavail_wave17m,datavail_tidegauge,datavail_lidar_elev2p,datavail_lidarwg080,datavail_lidarwg090,datavail_lidarwg100,datavail_lidarwg110,datavail_lidarwg140,datavail_Xc,datavail_dXcdt],file)
+# reshape for ease of combining into single data matrix/frame
+data_lidar_elev2p = np.reshape(data_lidar_elev2p,(time_fullspan.size,1))
+data_tidegauge = np.reshape(data_tidegauge,(time_fullspan.size,1))
+
+
+# # SAVE temporally aligned time series and data_availability variables !!!!!!!!!!!!
+# with open('IO_alignedintime.pickle','wb') as file:
+#     pickle.dump([time_fullspan,data_wave8m,data_wave17m,data_tidegauge,data_lidar_elev2p,data_lidarwg080,data_lidarwg090,data_lidarwg100,data_lidarwg110,data_lidarwg140,xc_fullspan,dXcdt_fullspan],file)
+# with open('IO_datavail.pickle','wb') as file:
+#     pickle.dump([datavail_wave8m,datavail_wave17m,datavail_tidegauge,datavail_lidar_elev2p,datavail_lidarwg080,datavail_lidarwg090,datavail_lidarwg100,datavail_lidarwg110,datavail_lidarwg140,datavail_Xc,datavail_dXcdt],file)
 
 
 
-
-
-
-# Normalize output, simple method (remove mean, divide by standard deviatiion)
-# *** NOTE!! this should technically be done *after* partitioning data into train-test sets
-
-# Normalize input, simple method (remove mean, divide by standard deviatiion)
-# *** NOTE!! this should technically be done *after* partitioning data into train-test sets
-
-# Create arrays indicating data availability (1 = presence, 0 = absence)
