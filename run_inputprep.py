@@ -6,6 +6,7 @@ from matplotlib import pyplot as plt
 import numpy as np
 import os
 from funcs.align_data_time import align_data_fullspan
+from funcs.create_contours import *
 import pickle
 
 
@@ -69,7 +70,9 @@ cont_elev = np.arange(0,2.5,0.5)    # <<< MUST BE POSITIVELY INCREASING
 cont_ts, cmean, cstd = create_contours(elev_input,lidartime,lidar_xFRF,cont_elev)
 
 # Define output as DeltaX_contour(i) = X_contour(i+1) - X_contour(i)
-dXContdt = cont_ts[:,1:] - cont_ts[:,0:-1]
+tmp = cont_ts[:,1:] - cont_ts[:,0:-1]
+dXContdt = np.hstack((tmp,np.empty((5,1))))
+dXContdt[:,-1] = np.nan
 
 # Make histograms of input data
 param_list = ['wave8m_dir','wave17m_dir','wave8m_Tp','wave17m_Tp','wave8m_Hs',
@@ -125,7 +128,7 @@ for wg_ii in wavegaugenames:
             imagedir = './figs/data/allavailabledata/'
             imagename = imagedir + 'lidarwg_' + var_jj + '_pdf.svg'
             imageformat = 'svg'
-            eval('fig'+str(varcount)+'.savefig(imagename, format=imageformat, dpi=1200)')
+            # eval('fig'+str(varcount)+'.savefig(imagename, format=imageformat, dpi=1200)')
         varcount = varcount+1
     wgcount = wgcount + 1
 # plot and save distributions of contour position (Xc)
@@ -141,7 +144,7 @@ plt.ylabel('density')
 plt.legend()
 imagedir = './figs/data/allavailabledata/'
 imagename = imagedir + 'Xc' + '_pdf.svg'
-fig.savefig(imagename, format='svg', dpi=1200)
+# fig.savefig(imagename, format='svg', dpi=1200)
 # plot and save distributions of contour gradients (DXc/DT)
 fig, ax = plt.subplots()
 for ii in np.arange(cont_elev.size):
@@ -189,18 +192,33 @@ wave8m_Hs_fullspan = align_data_fullspan(time_fullspan, wave8m_time, wave8m_Hs)
 wave8m_dir_fullspan = align_data_fullspan(time_fullspan, wave8m_time, wave8m_dir)
 wl_noaa_fullspan = align_data_fullspan(time_fullspan, wltime_noaa, wl_noaa)
 lidarrunup_elev2p_fullspan = align_data_fullspan(time_fullspan, lidarrunup_time, lidarrunup_elev2p)
-# Xc and DXc/Dt time series
-xc_fullspan = np.empty(shape=(cont_elev.size,time_fullspan.size))
-dXcdt_fullspan = np.empty(shape=(cont_elev.size,time_fullspan.size))
-xc_fullspan[:] = np.nan
-dXcdt_fullspan[:] = np.nan
-for ii in np.arange(cont_elev.size):
-    time_available = lidartime
-    data_fullspan = align_data_fullspan(time_fullspan, time_available, cont_ts[ii,:])
-    xc_fullspan[ii,:] = data_fullspan
-    data_fullspan = align_data_fullspan(time_fullspan, time_available[0:-1], dXContdt[ii, :])
-    dXcdt_fullspan[ii, :] = data_fullspan
-# lidar wave gauges...
+
+# expand lidarelev surface to full span of time...
+lidarelev_fullspan = np.empty((lidar_xFRF.size,time_fullspan.size))
+lidarelev_fullspan[:] = np.nan
+for ii in np.arange(lidar_xFRF.size):
+    lidarelev_fullspan[ii,:] = align_data_fullspan(time_fullspan, lidartime, lidarelev[:,ii])
+
+# Now we have to recalculate Xc and DXc/Dt time series
+elev_input = lidarelev_fullspan.T
+cont_ts, cmean, cstd = create_contours(elev_input,time_fullspan,lidar_xFRF,cont_elev)
+tmp = cont_ts[:,1:] - cont_ts[:,0:-1]
+dXContdt = np.hstack((tmp,np.empty((cont_elev.size,1))))
+dXContdt[:,-1] = np.nan
+xc_fullspan = cont_ts
+dXcdt_fullspan = dXContdt
+# xc_fullspan = np.empty(shape=(cont_elev.size,time_fullspan.size))
+# dXcdt_fullspan = np.empty(shape=(cont_elev.size,time_fullspan.size))
+# xc_fullspan[:] = np.nan
+# dXcdt_fullspan[:] = np.nan
+# for ii in np.arange(cont_elev.size):
+#     time_available = lidartime
+#     data_fullspan = align_data_fullspan(time_fullspan, time_available, cont_ts[ii,:])
+#     xc_fullspan[ii,:] = data_fullspan
+#     data_fullspan = align_data_fullspan(time_fullspan, time_available[0:-1], dXContdt[ii, :])
+#     dXcdt_fullspan[ii, :] = data_fullspan
+
+# map lidar wave gauges to full time span...
 wavegaugenames = ['lidarwg080','lidarwg090','lidarwg100','lidarwg110','lidarwg140']
 varnames = ['Tp','TmIG','Hs','HsIG','HsIN']
 for wg_ii in wavegaugenames:
@@ -255,15 +273,15 @@ plt.plot(tplot,datavail_wave8m,'o',label='8m array, N = '+str(sum(datavail_wave8
 plt.plot(tplot,datavail_wave17m*2,'o',label='17m waverider, N = '+str(sum(datavail_wave17m)))
 plt.plot(tplot,datavail_tidegauge*3,'o',label='NOAA tidegauge, N = '+str(sum(datavail_tidegauge)))
 plt.plot(tplot,datavail_lidar_elev2p*4,'o',label='lidar runup, N = '+str(sum(datavail_lidar_elev2p)))
-plt.plot(tplot,datavail_lidarwg080*5,'o',label='lidarwg x = 80m, N = '+str(sum(datavail_lidarwg080)))
-plt.plot(tplot,datavail_lidarwg090*6,'o',label='lidarwg x = 90m, N = '+str(sum(datavail_lidarwg090)))
-plt.plot(tplot,datavail_lidarwg100*7,'o',label='lidarwg x = 100m, N = '+str(sum(datavail_lidarwg100)))
+# plt.plot(tplot,datavail_lidarwg080*5,'o',label='lidarwg x = 80m, N = '+str(sum(datavail_lidarwg080)))
+# plt.plot(tplot,datavail_lidarwg090*6,'o',label='lidarwg x = 90m, N = '+str(sum(datavail_lidarwg090)))
+# plt.plot(tplot,datavail_lidarwg100*7,'o',label='lidarwg x = 100m, N = '+str(sum(datavail_lidarwg100)))
 plt.plot(tplot,datavail_lidarwg110*8,'o',label='lidarwg x = 110m, N = '+str(sum(datavail_lidarwg110)))
-plt.plot(tplot,datavail_lidarwg140*9,'o',label='lidarwg x = 140m, N = '+str(sum(datavail_lidarwg140)))
-tmp = datavail_wave8m + datavail_wave17m + datavail_tidegauge + datavail_lidar_elev2p  + datavail_lidarwg100 + datavail_lidarwg110
+# plt.plot(tplot,datavail_lidarwg140*9,'o',label='lidarwg x = 140m, N = '+str(sum(datavail_lidarwg140)))
+tmp = datavail_wave8m + datavail_wave17m + datavail_tidegauge + datavail_lidar_elev2p  + datavail_lidarwg110
 datavail_all = np.ones(shape=time_fullspan.shape)
-datavail_all[tmp < 6] = 0
-plt.plot(tplot,datavail_all*10,'o',label='all but WG-80,90,140, N = '+str(sum(datavail_all)))
+datavail_all[tmp < 5] = 0
+plt.plot(tplot,datavail_all*10,'o',label='all, N = '+str(sum(datavail_all)))
 plt.legend(bbox_to_anchor=(1.05, 1.0), loc='upper left')
 plt.tight_layout()
 plt.show()
@@ -318,11 +336,23 @@ data_lidar_elev2p = np.reshape(data_lidar_elev2p,(time_fullspan.size,1))
 data_tidegauge = np.reshape(data_tidegauge,(time_fullspan.size,1))
 
 
-# # SAVE temporally aligned time series and data_availability variables !!!!!!!!!!!!
-# with open('IO_alignedintime.pickle','wb') as file:
-#     pickle.dump([time_fullspan,data_wave8m,data_wave17m,data_tidegauge,data_lidar_elev2p,data_lidarwg080,data_lidarwg090,data_lidarwg100,data_lidarwg110,data_lidarwg140,xc_fullspan,dXcdt_fullspan],file)
+# # # SAVE temporally aligned time series and data_availability variables !!!!!!!!!!!!
+with open('IO_alignedintime.pickle','wb') as file:
+    pickle.dump([time_fullspan,data_wave8m,data_wave17m,data_tidegauge,data_lidar_elev2p,data_lidarwg080,data_lidarwg090,data_lidarwg100,data_lidarwg110,data_lidarwg140,xc_fullspan,dXcdt_fullspan,lidarelev_fullspan],file)
 # with open('IO_datavail.pickle','wb') as file:
 #     pickle.dump([datavail_wave8m,datavail_wave17m,datavail_tidegauge,datavail_lidar_elev2p,datavail_lidarwg080,datavail_lidarwg090,datavail_lidarwg100,datavail_lidarwg110,datavail_lidarwg140,datavail_Xc,datavail_dXcdt],file)
+# with open('tmp_lidarelev_fullspan.pickle','wb') as file:
+#     pickle.dump([lidarelev_fullspan],file)
 
+fig, ax = plt.subplots()
+tplot = pd.to_datetime(time_fullspan, unit='s', origin='unix')
+TT,XX = np.meshgrid(tplot,lidar_xFRF)
+timescatter = np.reshape(TT, TT.size)
+xscatter = np.reshape(XX, XX.size)
+zscatter = np.reshape(lidarelev_fullspan, lidarelev_fullspan.size)
+tt = timescatter[~np.isnan(zscatter)]
+xx = xscatter[~np.isnan(zscatter)]
+zz = zscatter[~np.isnan(zscatter)]
+plt.scatter(tt,xx,s=3,c=zz)
 
 
