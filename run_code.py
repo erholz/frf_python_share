@@ -10,12 +10,12 @@ from run_makeplots import *
 import pickle
 
 # DEFINE WHERE FRF DATA FILES ARE LOCATED
-local_base = 'C:/Users/rdchlerh/Desktop/FRF_data/'
+# local_base = 'C:/Users/rdchlerh/Desktop/FRF_data/'
 local_base = '/volumes/macDrive/FRF_data/'
 
 # DEFINE TIME PERIOD OF INTEREST
-time_beg = '2016-10-01T00:00:00'     # 'YYYY-MM-DDThh:mm:ss' (string), time of interest BEGIN
-time_end = '2017-01-01T00:00:00'     # 'YYYY-MM-DDThh:mm:ss (string), time of interest END
+time_beg = '2016-01-01T00:00:00'     # 'YYYY-MM-DDThh:mm:ss' (string), time of interest BEGIN
+time_end = '2024-01-01T00:00:00'     # 'YYYY-MM-DDThh:mm:ss (string), time of interest END
 tzinfo = dt.timezone(-dt.timedelta(hours=4))    # FRF = UTC-4
 
 # DEFINE CONTOUR ELEVATIONS OF INTEREST
@@ -63,43 +63,44 @@ lidarelev[tmpii] = np.nan
 elev_input = lidarelev
 cont_ts, cmean, cstd = create_contours(elev_input,lidartime,lidar_xFRF,cont_elev)
 
-# run file run_hydrocollect.py
-wlmax_lidar,wlmin_lidar,wltime_lidar,wlmean_lidar = run_hydrocollect_func(noaawlfloc, noaawlext, lidarhydrofloc, lidarhydroext)
-
-# Run quality check script
-# exec(open('funcs/lidar_check.py').read())
-daily_zstdev,daily_znum = lidar_check(elev_input,lidartime)
-
-# Run beach volume calculation script -- MUST RUN create_contours.py FIRST!
-beachVol, beachVol_xc, dBeachVol_dt,total_beachVol, total_dBeachVol_dt, total_obsBeachWid = calculate_beachvol(elev_input,lidartime,lidar_xFRF,cont_elev,cont_ts)
-
-# make some plots
-fig, ax1, ax2 = plot_ContourTimeSeries(cont_elev,cont_ts,lidartime,wlmean_lidar,wltime_lidar,lidar_xFRF)
-ax2.grid(which='minor',axis='x')
-ax1.grid(which='minor',axis='x')
-# fig, ax = plot_ProfilesSubset(elev_input,lidartime,lidar_xFRF,num_profs_plot)
-# fig, ax = plot_ProfilesTimestack(elev_input,lidartime,lidar_xFRF)
-# fig, ax = plot_QualityDataWithContourPositions(elev_input, lidar_xFRF, cont_elev, cmean, cstd)
-# fig, ax = plot_QualityDataTimeSeries(elev_input,lidartime)
-# fig, ax1,ax2,ax3 = plot_DailyVariationTimestack(elev_input,lidartime,lidar_xFRF,daily_zstdev,daily_znum)
-# fig, ax1, ax2 = plot_BeachVolume(lidartime,cont_elev,beachVol,dBeachVol_dt)
-
-
-# Try filling gaps??
-halfspan_time = 6
-halfspan_x = 10
-lidar_filled = lidar_fillgaps(lidarelev,lidartime,lidar_xFRF,halfspan_time,halfspan_x)
 #
-# # Plot the new lidar, filled in gaps
-fig1, ax1, fig2, ax2 = plot_PrefillPostfillTimestack(lidarelev,lidar_filled,lidartime,lidar_xFRF)
+# # run file run_hydrocollect.py
+# wlmax_lidar,wlmin_lidar,wltime_lidar,wlmean_lidar = run_hydrocollect_func(noaawlfloc, noaawlext, lidarhydrofloc, lidarhydroext)
 #
-# # Re-run file create_contours.py
-# # elev_input = lidar_filled
-# cont_ts, cmean, cstd = create_contours(elev_input,lidartime,lidar_xFRF,cont_elev)
+# # Run quality check script
+# # exec(open('funcs/lidar_check.py').read())
+# daily_zstdev,daily_znum = lidar_check(elev_input,lidartime)
 #
-# # Re-run beach volume calculation script
-# beachVol, beachVol_xc, dBeachVol_dt = calculate_beachvol(elev_input,lidartime,lidar_xFRF,cont_elev,cont_ts)
+# # Run beach volume calculation script -- MUST RUN create_contours.py FIRST!
+# beachVol, beachVol_xc, dBeachVol_dt,total_beachVol, total_dBeachVol_dt, total_obsBeachWid = calculate_beachvol(elev_input,lidartime,lidar_xFRF,cont_elev,cont_ts)
 #
-# # Re-run some plots
-# fig, ax1, ax2 = plot_ContourTimeSeries(cont_elev,cont_ts,lidartime,wlmax_lidar,wlmin_lidar,wltime_lidar)
-# fig, ax1, ax2 = plot_BeachVolume(lidartime,cont_elev,beachVol,dBeachVol_dt)
+# # make some plots
+# fig, ax1, ax2 = plot_ContourTimeSeries(cont_elev,cont_ts,lidartime,wlmean_lidar,wltime_lidar,lidar_xFRF)
+# ax2.grid(which='minor',axis='x')
+# ax1.grid(which='minor',axis='x')
+# # fig, ax = plot_ProfilesSubset(elev_input,lidartime,lidar_xFRF,num_profs_plot)
+# # fig, ax = plot_ProfilesTimestack(elev_input,lidartime,lidar_xFRF)
+# # fig, ax = plot_QualityDataWithContourPositions(elev_input, lidar_xFRF, cont_elev, cmean, cstd)
+# # fig, ax = plot_QualityDataTimeSeries(elev_input,lidartime)
+# # fig, ax1,ax2,ax3 = plot_DailyVariationTimestack(elev_input,lidartime,lidar_xFRF,daily_zstdev,daily_znum)
+# # fig, ax1, ax2 = plot_BeachVolume(lidartime,cont_elev,beachVol,dBeachVol_dt)
+#
+#
+# # Try filling gaps??
+# halfspan_time = 6
+# halfspan_x = 10
+# lidar_filled = lidar_fillgaps(lidarelev,lidartime,lidar_xFRF,halfspan_time,halfspan_x)
+# #
+# # # Plot the new lidar, filled in gaps
+# fig1, ax1, fig2, ax2 = plot_PrefillPostfillTimestack(lidarelev,lidar_filled,lidartime,lidar_xFRF)
+# #
+# # # Re-run file create_contours.py
+# # # elev_input = lidar_filled
+# # cont_ts, cmean, cstd = create_contours(elev_input,lidartime,lidar_xFRF,cont_elev)
+# #
+# # # Re-run beach volume calculation script
+# # beachVol, beachVol_xc, dBeachVol_dt = calculate_beachvol(elev_input,lidartime,lidar_xFRF,cont_elev,cont_ts)
+# #
+# # # Re-run some plots
+# # fig, ax1, ax2 = plot_ContourTimeSeries(cont_elev,cont_ts,lidartime,wlmax_lidar,wlmin_lidar,wltime_lidar)
+# # fig, ax1, ax2 = plot_BeachVolume(lidartime,cont_elev,beachVol,dBeachVol_dt)

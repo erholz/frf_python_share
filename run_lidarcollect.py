@@ -4,7 +4,7 @@ import numpy as np
 from funcs.get_timeinfo import get_TimeInfo
 
 
-def run_lidarcollect(lidarfloc, lidarext):
+def run_lidarcollect(lidarfloc, lidarext):#,epoch_beg,epoch_end,tzinfo):
     floc = lidarfloc
     ext = lidarext
 

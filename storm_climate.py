@@ -133,7 +133,7 @@ timeWave26 = [round_to_nearest_half_hour(tt) for tt in tWave26]
 
 from dateutil.relativedelta import relativedelta
 st = dt.datetime(2016, 1, 1)
-end = dt.datetime(2024,1,1)
+end = dt.datetime(2024,7,1)
 step = relativedelta(minutes=30)
 waveTimes = []
 while st < end:
@@ -172,7 +172,7 @@ cHs = combinedHs[reindex]
 cTp = combinedTp[reindex]
 cDp = combinedDp[reindex]
 
-cutOff = np.where(cTime < DT.datetime(2024,1,1))
+cutOff = np.where(cTime < DT.datetime(2024,7,1))
 cTime = cTime[cutOff]
 cHs = cHs[cutOff]
 cTp = cTp[cutOff]
@@ -201,6 +201,7 @@ hs95 = np.nanpercentile(cHs,95)
 hs90 = np.nanpercentile(cHs,90)
 hs85 = np.nanpercentile(cHs,85)
 hsSmooth = moving_average(cHs,3)#np.asarray([avgHs,moving_average(hs,3),avgHs])
+# stormHsInd = np.where((hsSmooth > 1.5))
 stormHsInd = np.where((hsSmooth > hs90))
 stormHsList = [list(group) for group in mit.consecutive_groups(stormHsInd[0])]
 
@@ -229,21 +230,33 @@ while c < len(stormHsList)-1:
     nexti1 = cTime[stormHsList[c+1][0]]
     diff = nexti1 - t2
 
-    if diff < timedelta(hours=1):
-        i2 = stormHsList[c+1][-1]
-        t2 = cTime[i2]
-        nexti1 = stormHsList[c+2][0]
-        diff2 = nexti1-t2
-        c = c + 1
-        print('we combined a storm')
-        if diff2 < timedelta(hours=1):
-            i2 = stormHsList[c + 1][-1]
-            t2 = cTime[i2]
-            c = c + 1
+    # if diff < timedelta(hours=6):
+    #     i2 = stormHsList[c+1][-1]
+    #     t2 = cTime[i2]
+    #     nexti1 = cTime[stormHsList[c+2][0]]
+    #     diff2 = nexti1-t2
+    #     c = c + 1
+    #     print('we combined a storm')
+    #     if diff2 < timedelta(hours=6):
+    #         i2 = stormHsList[c + 2][-1]
+    #         t2 = cTime[i2]
+    #         nexti1 = cTime[stormHsList[c + 3][0]]
+    #         diff3 = nexti1 - t2
+    #         c = c + 1
+    #         print('we stacked 3 of them together')
+    #
+    #         if diff3 < timedelta(hours=6):
+    #             i2 = stormHsList[c + 3][-1]
+    #             t2 = cTime[i2]
+    #             nexti1 = cTime[stormHsList[c + 4][0]]
+    #             diff4 = nexti1 - t2
+    #             c = c + 1
+    #             if diff4 < timedelta(hours=6):
+    #                 print('bummer, need another loop')
     c = c + 1
     tempWave = np.where((cTime <= t2) & (cTime >= t1))
     newDiff = t2-t1
-    if newDiff > timedelta(hours=12):
+    if newDiff >= timedelta(hours=12):
         # print(newDiff)
         tempWave = np.where((cTime <= t2) & (cTime >= t1))
         indices = np.arange(i1,i2)
@@ -548,37 +561,37 @@ for ppp in range(len(allStormContours)):
     tempTime = [dt.datetime.fromtimestamp(pp) for pp in intTime]
     subplot1.plot(np.asarray(tempTime),allStormContours[ppp][3,:],'.',color=cmap[ppp,:])#,color='red')
 
-
-
-clusterPickle = 'stormRecoveryPeriods.pickle'
-output = {}
-output['allRecoveryProfileTimes'] = allRecoveryProfileTimes
-output['allRecoveryContours'] = allRecoveryContours
-output['allRecoveryProfiles'] = allRecoveryProfiles
-output['allStormContours'] = allStormContours
-output['allStormProfileTimes'] = allStormProfileTimes
-output['allStormProfiles'] = allStormProfiles
-output['timeStormList'] = timeStormList
-output['preProfile'] = preProfile
-output['postProfile'] = postProfile
-output['hsStormList'] = hsStormList
-output['hsMaxStormList'] = hsMaxStormList
-output['tpStormList'] = tpStormList
-output['dmStormList'] = dmStormList
-output['hourStormList'] = hourStormList
-output['indStormList'] = indStormList
-output['durationStormList'] = durationStormList
-output['wavePowerStormList'] = wavePowerStormList
-output['longshorePowerStormList'] = longshorePowerStormList
-output['startTimeStormList'] = startTimeStormList
-output['endTimeStormList'] = endTimeStormList
-output['lidar_xFRF'] = lidar_xFRF
-output['cont_elev'] = cont_elev
-output['cHs'] = cHs
-output['cTp'] = cTp
-output['cDp'] = cDp
-output['waveNorm'] = waveNorm
-import pickle
-with open(clusterPickle,'wb') as f:
-    pickle.dump(output, f)
+#
+# 
+# clusterPickle = 'stormRecoveryPeriodsWaveHeightHs90with24hours.pickle'
+# output = {}
+# output['allRecoveryProfileTimes'] = allRecoveryProfileTimes
+# output['allRecoveryContours'] = allRecoveryContours
+# output['allRecoveryProfiles'] = allRecoveryProfiles
+# output['allStormContours'] = allStormContours
+# output['allStormProfileTimes'] = allStormProfileTimes
+# output['allStormProfiles'] = allStormProfiles
+# output['timeStormList'] = timeStormList
+# output['preProfile'] = preProfile
+# output['postProfile'] = postProfile
+# output['hsStormList'] = hsStormList
+# output['hsMaxStormList'] = hsMaxStormList
+# output['tpStormList'] = tpStormList
+# output['dmStormList'] = dmStormList
+# output['hourStormList'] = hourStormList
+# output['indStormList'] = indStormList
+# output['durationStormList'] = durationStormList
+# output['wavePowerStormList'] = wavePowerStormList
+# output['longshorePowerStormList'] = longshorePowerStormList
+# output['startTimeStormList'] = startTimeStormList
+# output['endTimeStormList'] = endTimeStormList
+# output['lidar_xFRF'] = lidar_xFRF
+# output['cont_elev'] = cont_elev
+# output['cHs'] = cHs
+# output['cTp'] = cTp
+# output['cDp'] = cDp
+# output['waveNorm'] = waveNorm
+# import pickle
+# with open(clusterPickle,'wb') as f:
+#     pickle.dump(output, f)
 
