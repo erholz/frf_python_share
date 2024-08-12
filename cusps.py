@@ -3,7 +3,8 @@ import scipy.io as sio
 import matplotlib.pyplot as plt
 
 # Set data directory
-data_dir = r'/Users/dylananderson/Downloads/cuspCodesForDylan/'
+# data_dir = r'/Users/dylananderson/Downloads/cuspCodesForDylan/'
+data_dir = r'C:/Users/RDCHLDLA/Documents/cuspCodesForDylan/'
 
 # Load data
 t1 = '20160310-0700'
@@ -100,8 +101,8 @@ def extractContourFromDEM(ys, xs, DEM, contourL, filterSizeLarge, filterSizeSmal
     return contour_smSmall, contour_smLarge, elevation_smSmall, elevation_smLarge, noContour
 
 
-from scipy.signal import hamming, fftpack
-
+from scipy.signal import hamming
+import scipy.fft as fft
 import numpy as np
 from scipy.interpolate import interp1d
 
@@ -210,8 +211,8 @@ def fft_cusps(yn, yn_smoothed, delT, dof):
         fn = 1 / (2 * delT)
 
         # Fourier transform
-        Yj_original = (1 / N) * fftpack.fft(yn_demeaned, N)
-        Yj = (1 / N) * fftpack.fft(yn_windowed, N)
+        Yj_original = (1 / N) * fft(yn_demeaned, N)
+        Yj = (1 / N) * fft(yn_windowed, N)
 
         # Spectral density
         Sj = np.real(N * delT * Yj[:N // 2] * np.conj(Yj[:N // 2]))

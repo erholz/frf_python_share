@@ -10,8 +10,8 @@ from run_makeplots import *
 import pickle
 
 # DEFINE WHERE FRF DATA FILES ARE LOCATED
-# local_base = 'C:/Users/rdchlerh/Desktop/FRF_data/'
-local_base = '/volumes/macDrive/FRF_data/'
+local_base = 'D:/FRF_data/'
+# local_base = '/volumes/macDrive/FRF_data/'
 
 # DEFINE TIME PERIOD OF INTEREST
 time_beg = '2016-01-01T00:00:00'     # 'YYYY-MM-DDThh:mm:ss' (string), time of interest BEGIN
@@ -157,7 +157,8 @@ def round_to_nearest_half_hour(t):
 #         t.replace(hour=new_hour, minute=new_minute, second=0, microsecond=0)
 #     return t
 
-local_base = '/volumes/macDrive/FRF_data/'
+# local_base = '/volumes/macDrive/FRF_data/'
+local_base = 'D:/FRF_data/'
 
 wave_base17 = 'waverider-17m/'
 files17 = sorted((f for f in os.listdir(local_base+wave_base17) if not f.startswith(".")), key=str.lower) #os.listdir(local_base+wave_base17)
@@ -497,13 +498,15 @@ while c < len(stormHsList)-1:
         timeStormList.append(cTime[tempWave])
 
 
+        # duration = (int(t2.strftime('%s'))-int(t1.strftime('%H')))/60/60
 
-        duration = (int(t2.strftime('%s'))-int(t1.strftime('%s')))/60/60
+        duration = (t2.timestamp()-t1.timestamp())/60/60
         durationStormList.append(duration)
         indStormList.append(indices)
-        startTimeStormList.append(int(t1.strftime('%s')))
-        endTimeStormList.append(int(t2.strftime('%s')))
-
+        # startTimeStormList.append(int(t1.strftime('%S')))
+        # endTimeStormList.append(int(t2.strftime('%S')))
+        startTimeStormList.append(t1.timestamp())
+        endTimeStormList.append(t2.timestamp())
 
 
 
