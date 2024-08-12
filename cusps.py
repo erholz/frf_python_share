@@ -1,10 +1,11 @@
 import numpy as np
 import scipy.io as sio
 import matplotlib.pyplot as plt
+import mat73
 
 # Set data directory
-# data_dir = r'/Users/dylananderson/Downloads/cuspCodesForDylan/'
-data_dir = r'C:/Users/RDCHLDLA/Documents/cuspCodesForDylan/'
+data_dir = r'/Users/dylananderson/Downloads/cuspCodesForDylan/'
+# data_dir = r'C:/Users/RDCHLDLA/Documents/cuspCodesForDylan/'
 
 # Load data
 t1 = '20160310-0700'
@@ -16,6 +17,10 @@ from scipy.interpolate import interp1d
 from scipy.ndimage import uniform_filter1d
 from matplotlib import pyplot as plt
 
+from scipy.signal.windows import hamming
+import scipy.fft as fft
+import numpy as np
+from scipy.interpolate import interp1d
 
 def extractContourFromDEM(ys, xs, DEM, contourL, filterSizeLarge, filterSizeSmall):
     """
@@ -39,7 +44,7 @@ def extractContourFromDEM(ys, xs, DEM, contourL, filterSizeLarge, filterSizeSmal
     contours = plt.contour(xs, ys, DEM, levels=[contourL])
     plt.close()  # Close the plot to avoid displaying
 
-    contourOut = contours.allsegs[0][0]
+    contourOut = [np.concatenate(x) for x in contours.allsegs][0]
     C_x, C_y = contourOut[:, 0], contourOut[:, 1]
 
     if len(C_x) != 0:
@@ -101,10 +106,7 @@ def extractContourFromDEM(ys, xs, DEM, contourL, filterSizeLarge, filterSizeSmal
     return contour_smSmall, contour_smLarge, elevation_smSmall, elevation_smLarge, noContour
 
 
-from scipy.signal import hamming
-import scipy.fft as fft
-import numpy as np
-from scipy.interpolate import interp1d
+
 
 
 def interp1nan(x, y, xi):
@@ -211,8 +213,9 @@ def fft_cusps(yn, yn_smoothed, delT, dof):
         fn = 1 / (2 * delT)
 
         # Fourier transform
-        Yj_original = (1 / N) * fft(yn_demeaned, N)
-        Yj = (1 / N) * fft(yn_windowed, N)
+        Yj_original = (1 / N) * fft.fft(yn_demeaned)
+        # Yj = (1 / N) * fft(yn_windowed, N)
+        Yj = (1 / N) * fft.fft(yn_windowed)
 
         # Spectral density
         Sj = np.real(N * delT * Yj[:N // 2] * np.conj(Yj[:N // 2]))
@@ -222,6 +225,7 @@ def fft_cusps(yn, yn_smoothed, delT, dof):
 
         # Boost the magnitudes of the PSD
         var_original = np.sum(np.abs(Yj_original) ** 2)
+
         var_windowed = np.sum(np.abs(Yj) ** 2)
         Sj_final = Sj_f * np.sqrt(var_original ** 2 / var_windowed ** 2)
 
@@ -320,10 +324,10 @@ def findContoursRunFFT(ys, xs, DEM, contourLine, largeFilter, smallFilter, delT,
     )
 
     if zOrX == 'Z':
-        fj_final, Sj_final, Sj_ave, fj_ave = fft_cusps(elevation_smSmall.T, elevation_smLarge.T, delT, dof)
+        fj_final, Sj_final, Sj_ave, fj_ave = fft_cusps(elevation_smSmall, elevation_smLarge, delT, dof)
         ED_RG = demeanedElevation(elevation_smSmall, elevation_smLarge, ys)
     elif zOrX == 'X':
-        fj_final, Sj_final, Sj_ave, fj_ave = fft_cusps(contour_smSmall.T, contour_smLarge.T, delT, dof)
+        fj_final, Sj_final, Sj_ave, fj_ave = fft_cusps(contour_smSmall, contour_smLarge, delT, dof)
         ED_RG = demeanedElevation(contour_smSmall, contour_smLarge, ys)
     else:
         raise ValueError("zOrX must be 'Z' or 'X'")
@@ -342,20 +346,20 @@ def findContoursRunFFT(ys, xs, DEM, contourLine, largeFilter, smallFilter, delT,
 
 
 # Load threshold
-threshold_data = sio.loadmat(data_dir + 'threshold\\threshold.mat')
+threshold_data = sio.loadmat(data_dir + 'threshold/threshold.mat')
 threshold = threshold_data['threshold'].flatten()  # Adjust depending on the structure of your .mat file
 
 # Load example DEMs
-dem1_data = sio.loadmat(data_dir + 'exampleDEMs\\' + t1 + '-01.FRFNProp.frame.data.mat')
-DEM1 = dem1_data['frameGriddedData']['data'][0][0]
-xs = dem1_data['frameGriddedData']['xs'][0][0].flatten()
-ys = dem1_data['frameGriddedData']['as'][0][0].flatten()
+dem1_data = mat73.loadmat(data_dir + 'exampleDEMs/' + t1 + '-01.FRFNProp.frame.data.mat')
+DEM1 = dem1_data['frameGriddedData']['data']
+xs = dem1_data['frameGriddedData']['xs']
+ys = dem1_data['frameGriddedData']['as']
 
-dem2_data = sio.loadmat(data_dir + 'exampleDEMs\\' + t2 + '-01.FRFNProp.frame.data.mat')
-DEM2 = dem2_data['frameGriddedData']['data'][0][0]
+dem2_data = mat73.loadmat(data_dir + 'exampleDEMs/' + t2 + '-01.FRFNProp.frame.data.mat')
+DEM2 = dem2_data['frameGriddedData']['data']
 
-dem3_data = sio.loadmat(data_dir + 'exampleDEMs\\' + t3 + '-01.FRFNProp.frame.data.mat')
-DEM3 = dem3_data['frameGriddedData']['data'][0][0]
+dem3_data = mat73.loadmat(data_dir + 'exampleDEMs/' + t3 + '-01.FRFNProp.frame.data.mat')
+DEM3 = dem3_data['frameGriddedData']['data']
 
 # Use only 400m of 500m DEM to focus on area with best data coverage
 idx_y = np.arange(50, 451)  # MATLAB is 1-indexed, Python is 0-indexed
@@ -377,6 +381,8 @@ contourOI = 1      # Contour of interest in meters
  fj_final1, Sj_final1, fj_ave1, Sj_ave1, ED_RG1) = findContoursRunFFT(ysC, xs, DEMC1, contourOI,
                                                                       filter_large, filter_small, delT, dof, 'X')
 
+
+
 (contour_smSmall2, contour_smLarge2, elevation_smSmall2, elevation_smLarge2,
  fj_final2, Sj_final2, fj_ave2, Sj_ave2, ED_RG2) = findContoursRunFFT(ysC, xs, DEMC2, contourOI,
                                                                       filter_large, filter_small, delT, dof, 'X')
@@ -386,48 +392,49 @@ contourOI = 1      # Contour of interest in meters
                                                                       filter_large, filter_small, delT, dof, 'X')
 
 # Plot
-plt.figure(figsize=(15, 10))
+plt.figure(figsize=(11, 8))
 
 # DEM1 plot
-plt.subplot(3, 3, [1, 4])
-plt.pcolor(xs, ysC, DEMC1, shading='flat')
+plt.subplot2grid((3,3),(0,0),rowspan=2,colspan=1)
+plt.pcolor(xs, ysC, DEMC1)
 plt.plot(contour_smSmall1, ysC, 'k-', linewidth=1.5)
 plt.plot(contour_smLarge1, ysC, 'k--', linewidth=1)
 plt.xlabel('Cross-shore x (m)')
 plt.ylabel('Alongshore y (m)')
-plt.axis([50, 120, 750, 1150])
-plt.title(t1)
+# plt.axis([50, 120, 750, 1150])
+# plt.title(t1)
 
 # DEM2 plot
-plt.subplot(3, 3, [2, 5])
-plt.pcolor(xs, ysC, DEMC2, shading='flat')
+plt.subplot2grid((3,3),(0,1),rowspan=2,colspan=1)
+plt.pcolor(xs, ysC, DEMC2)
 plt.plot(contour_smSmall2, ysC, 'k-', linewidth=1.5)
 plt.plot(contour_smLarge2, ysC, 'k--', linewidth=1)
 plt.xlabel('Cross-shore x (m)')
 plt.ylabel('Alongshore y (m)')
-plt.axis([50, 120, 750, 1150])
-plt.title(t2)
+# plt.axis([50, 120, 750, 1150])
+# plt.title(t2)
 
 # DEM3 plot
-plt.subplot(3, 3, [3, 6])
-plt.pcolor(xs, ysC, DEMC3, shading='flat')
+plt.subplot2grid((3,3),(0,2),rowspan=2,colspan=1)
+plt.pcolor(xs, ysC, DEMC3)
 plt.plot(contour_smSmall3, ysC, 'k-', linewidth=1.5)
 plt.plot(contour_smLarge3, ysC, 'k--', linewidth=1)
 plt.xlabel('Cross-shore x (m)')
 plt.ylabel('Alongshore y (m)')
-plt.axis([50, 120, 750, 1150])
-plt.title(t3)
+# plt.axis([50, 120, 750, 1150])
+# plt.title(t3)
 
 # Spectral density plot
-plt.subplot(3, 3, [7, 8, 9])
+plt.subplot2grid((3,3),(2,0),rowspan=1,colspan=3)
 plt.plot(fj_final1, Sj_final1, linewidth=1.5)
 plt.plot(fj_final2, Sj_final2, linewidth=1.5)
 plt.plot(fj_final3, Sj_final3, linewidth=1.5)
 plt.plot(fj_final1, threshold, 'k--')
 plt.xlabel('Wavenumber (m^{-1})')
 plt.ylabel('Spectral density (m^2 m)')
-plt.axis([0, 0.1, 0, 1000])
-plt.legend([t1, t2, t3])
+plt.xlim([0, 0.1])
+plt.ylim([0, 1000])
+# plt.legend([t1, t2, t3])
 
 plt.tight_layout()
 plt.show()
