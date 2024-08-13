@@ -104,8 +104,8 @@ cont_ts, cmean, cstd = create_contours(lidarelev_fullspan.T,time_fullspan,lidar_
 tmp = cont_ts[:,1:] - cont_ts[:,0:-1]
 dXContdt = np.hstack((tmp,np.empty((cont_elev.size,1))))
 dXContdt[:,-1] = np.nan
-xc_fullspan = cont_ts
-dXcdt_fullspan = dXContdt
+xc_fullspan = cont_ts[:]
+dXcdt_fullspan = dXContdt[:]
 # Plot the range of contour positions
 fig, ax = plt.subplots(1,3)
 ax[0].hist(xc_fullspan[0,:],density=True)
@@ -305,9 +305,6 @@ cbar.set_label('avg. slope [m/m]')
 ax.set_title('Avg. Slope for profile beyond XCsea')
 
 
-
-
-
 # fig, ax = plt.subplots()
 # ax.plot(xtmp,ztmp,'*y')
 # ax.plot(xtmp[np.isnan(ztmp)], np.zeros(shape=(xtmp[np.isnan(ztmp)].size,)), '*r')
@@ -324,7 +321,6 @@ fig, ax = plt.subplots()
 ax.plot(lidar_xFRF,lidarelev_fullspan[:,flag])
 fig, ax = plt.subplots()
 ax.plot(lidar_xFRF,zsmooth_fullspan)
-
 
 
 # find the number of profiles that are full between Xc(0) and Xc(end), scale them
@@ -345,6 +341,7 @@ scaled_profiles[:] = np.nan
 scaled_avgslope[:] = np.nan
 shift_avgslope[:] = np.nan
 shift_avgslope_beyondXCsea[:] = np.nan
+shift_zsmooth[:] = np.nan
 for tt in np.arange(nt):
     xc_shore = xc_fullspan[-1,tt]
     xc_sea = xc_fullspan[0,tt]
@@ -370,11 +367,40 @@ for tt in np.arange(nt):
         slptmp = avgslope_beyondXCsea[:,tt]
         shift_avgslope_beyondXCsea[tt,np.arange(slptmp[~np.isnan(slptmp)].size)] = slptmp[~np.isnan(slptmp)]
 
+# SAVE - smoothed, shifted, convoluted Z and Slope data
+# with open('lidar_elev&slope_processed.pickle','wb') as file:
+#     pickle.dump([profile_width,zsmooth_fullspan,shift_zsmooth,avgslope_fullspan,avgslope_withinXCs,avgslope_beyondXCsea,
+#                  shift_avgslope,shift_avgslope_beyondXCsea,maxgap_fullspan,xc_fullspan,dXcdt_fullspan,time_fullspan,lidar_xFRF,
+#                  scaled_profiles,scaled_avgslope,unscaled_profile],file)
+with open('elev_processed_base.pickle', 'wb') as file:
+    pickle.dump([time_fullspan,lidar_xFRF,profile_width,maxgap_fullspan,xc_fullspan,dXcdt_fullspan], file)
+with open('elev_processed_slopes.pickle', 'wb') as file:
+    pickle.dump([avgslope_fullspan, avgslope_withinXCs,avgslope_beyondXCsea], file)
+with open('elev_processed_slopes_shift.pickle', 'wb') as file:
+    pickle.dump([shift_avgslope,shift_avgslope_beyondXCsea], file)
+with open('elev_processed_elev.pickle', 'wb') as file:
+    pickle.dump([zsmooth_fullspan,shift_zsmooth,unscaled_profile], file)
+with open('elev_processed_elev&slopes_scaled.pickle', 'wb') as file:
+    pickle.dump([scaled_profiles,scaled_avgslope], file)
+
+
+# LOAD  - smoothed, shifted, convoluted Z and Slope data
+with open('elev_processed_base.pickle', 'rb') as file:
+    time_fullspan,lidar_xFRF,profile_width,maxgap_fullspan,xc_fullspan,dXcdt_fullspan = pickle.load(file)
+with open('elev_processed_slopes.pickle', 'rb') as file:
+    avgslope_fullspan, avgslope_withinXCs,avgslope_beyondXCsea = pickle.load(file)
+with open('elev_processed_slopes_shift.pickle', 'rb') as file:
+    shift_avgslope,shift_avgslope_beyondXCsea = pickle.load(file)
+with open('elev_processed_elev.pickle', 'rb') as file:
+    zsmooth_fullspan,shift_zsmooth,unscaled_profile = pickle.load(file)
+with open('elev_processed_elev&slopes_scaled.pickle', 'rb') as file:
+    scaled_profiles,scaled_avgslope = pickle.load(file)
+
 # Plot the range of beach widths
 var = profile_width[~np.isnan(profile_width)]
 fig, ax = plt.subplots()
 ax.hist(var, density=True, cumulative=True)
-ax.set_title('max gapsize, N = ' + str(sum(~np.isnan(var))))
+ax.set_title('profile width, N = ' + str(sum(~np.isnan(var))))
 ax.plot([np.nanmean(var), np.nanmean(var)], [0, 1], 'k')
 ax.grid(which='both',axis='both')
 # PLOT - avgslope for profile between XCshore and XCsea, shifted to same x-origin
@@ -405,7 +431,6 @@ ph = ax.scatter(xx, tt, s=5, c=zz, cmap='viridis')
 cbar = fig.colorbar(ph, ax=ax)
 cbar.set_label('z [m]')
 ax.set_title('Elev. between XCshore and XCsea - Shifted')
-
 
 # PLOT - avgslope for profile between XCshore and XCsea, SCALED
 xplot = np.linspace(0,1,nx)
@@ -439,25 +464,32 @@ cbar.set_label('avg. slope [m/m]')
 ax.set_title('Avg. Slope for profile beyond XCsea - Shifted')
 
 
-
-
-
-
-
-
-# plot the unscaled profiles
+# check horz/vertical bounds on zsmooth_shift
+nx = 2000
+dx = 0.1
+tplot = pd.to_datetime(time_fullspan, unit='s', origin='unix')
+xplot = np.arange(nx)*dx
+XX, TT = np.meshgrid(xplot, tplot)
+timescatter = np.reshape(TT, TT.size)
+xscatter = np.reshape(XX, XX.size)
+zscatter = np.reshape(shift_zsmooth,shift_zsmooth.size)
+tt = timescatter[~np.isnan(zscatter)]
+xx = xscatter[~np.isnan(zscatter)]
+zz = zscatter[~np.isnan(zscatter)]
 fig, ax = plt.subplots()
-xplot = np.arange(nkeep)
-ax.plot(xplot,unscaled_profile.T)
+ph = ax.scatter(xx, tt, s=5, c=zz, cmap='rainbow')
+cbar = fig.colorbar(ph, ax=ax)
+# cbar.set_label('avg. slope [m/m]')
+# ax.set_title('Avg. Slope for profile beyond XCsea - Shifted')
+
 fig, ax = plt.subplots()
-xplot = np.arange(nx)
-ax.plot(xplot,scaled_profiles.T)
+ax.scatter(tplot,profile_width,4)
+
 
 
 # RECALL there are still GAPS in data, even if NO BAD DATA was removed
 check_data = scaled_profiles
-tmp = np.sum(np.isnan(check_data),axis=1 ) == 0
-notnanrow = np.where(tmp)[0]
+rowsnonans_scaled = np.where(np.sum(np.isnan(check_data),axis=1 ) == 0)[0]
 
 
 
