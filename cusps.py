@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 import mat73
 
 # Set data directory
-data_dir = r'/Users/dylananderson/Downloads/cuspCodesForDylan/'
-# data_dir = r'C:/Users/RDCHLDLA/Documents/cuspCodesForDylan/'
+# data_dir = r'/Users/dylananderson/Downloads/cuspCodesForDylan/'
+data_dir = r'C:/Users/RDCHLDLA/Documents/cuspCodesForDylan/'
 
 # Load data
 t1 = '20160310-0700'
@@ -41,10 +41,12 @@ def extractContourFromDEM(ys, xs, DEM, contourL, filterSizeLarge, filterSizeSmal
         noContour: 1 if more than 50 of 400 m along the contour line are nans
     """
     # Find the contour
-    contours = plt.contour(xs, ys, DEM, levels=[contourL])
+    contours = plt.contour(xs, ys, DEM, levels=[contourL],algorithm='threaded')
     plt.close()  # Close the plot to avoid displaying
-
+    # if len(contours.allsegs)>1:
     contourOut = [np.concatenate(x) for x in contours.allsegs][0]
+    # else:
+    #     contourOut = contours.allsegs[0]
     C_x, C_y = contourOut[:, 0], contourOut[:, 1]
 
     if len(C_x) != 0:
@@ -376,12 +378,14 @@ N = 512            # Zero-padded to N = 512
 delT = 1           # DEM spatial resolution
 contourOI = 1      # Contour of interest in meters
 
+
+
 # Extract contour and run FFT
 (contour_smSmall1, contour_smLarge1, elevation_smSmall1, elevation_smLarge1,
  fj_final1, Sj_final1, fj_ave1, Sj_ave1, ED_RG1) = findContoursRunFFT(ysC, xs, DEMC1, contourOI,
                                                                       filter_large, filter_small, delT, dof, 'X')
 
-
+#
 
 (contour_smSmall2, contour_smLarge2, elevation_smSmall2, elevation_smLarge2,
  fj_final2, Sj_final2, fj_ave2, Sj_ave2, ED_RG2) = findContoursRunFFT(ysC, xs, DEMC2, contourOI,
@@ -390,6 +394,8 @@ contourOI = 1      # Contour of interest in meters
 (contour_smSmall3, contour_smLarge3, elevation_smSmall3, elevation_smLarge3,
  fj_final3, Sj_final3, fj_ave3, Sj_ave3, ED_RG3) = findContoursRunFFT(ysC, xs, DEMC3, contourOI,
                                                                       filter_large, filter_small, delT, dof, 'X')
+
+
 
 # Plot
 plt.figure(figsize=(11, 8))
@@ -401,7 +407,7 @@ plt.plot(contour_smSmall1, ysC, 'k-', linewidth=1.5)
 plt.plot(contour_smLarge1, ysC, 'k--', linewidth=1)
 plt.xlabel('Cross-shore x (m)')
 plt.ylabel('Alongshore y (m)')
-# plt.axis([50, 120, 750, 1150])
+plt.axis([50, 120, 750, 1150])
 # plt.title(t1)
 
 # DEM2 plot
@@ -411,7 +417,7 @@ plt.plot(contour_smSmall2, ysC, 'k-', linewidth=1.5)
 plt.plot(contour_smLarge2, ysC, 'k--', linewidth=1)
 plt.xlabel('Cross-shore x (m)')
 plt.ylabel('Alongshore y (m)')
-# plt.axis([50, 120, 750, 1150])
+plt.axis([50, 120, 750, 1150])
 # plt.title(t2)
 
 # DEM3 plot
@@ -421,7 +427,7 @@ plt.plot(contour_smSmall3, ysC, 'k-', linewidth=1.5)
 plt.plot(contour_smLarge3, ysC, 'k--', linewidth=1)
 plt.xlabel('Cross-shore x (m)')
 plt.ylabel('Alongshore y (m)')
-# plt.axis([50, 120, 750, 1150])
+plt.axis([50, 120, 750, 1150])
 # plt.title(t3)
 
 # Spectral density plot
@@ -438,3 +444,124 @@ plt.ylim([0, 1000])
 
 plt.tight_layout()
 plt.show()
+
+
+
+
+#
+#
+local_base = 'D:/FRF_data/'
+# DEFINE SUBDIR WITH NOAA WATERLEVEL FILES
+demfloc = local_base + 'dune_lidar/lidar_dems/'
+demext = 'nc'  # << change not recommended; defines file type to look for
+
+
+import os
+def find_files_local(floc,ext_in):
+    full_path = floc
+    ids = []
+    for file in os.listdir(full_path):
+        if file.endswith(ext_in):
+            ids.append(file)
+    return ids
+
+fname_in_range = find_files_local(demfloc,demext)
+
+from netCDF4 import Dataset
+
+import datetime as DT
+
+contour_Small = []
+contour_Large = []
+elevation_Small = []
+elevation_Large = []
+fj_final = []
+Sj_final = []
+fj_ave = []
+Sj_ave = []
+ED_RG = []
+contourTime = []
+maxSjFinal = []
+thresholdAtMaxSj = []
+maxFjFinal = []
+
+for fname_ii in fname_in_range:
+    print('reading... ' + fname_ii)
+    full_path = demfloc + fname_ii
+    ## Lidar dataset
+    ds = Dataset(full_path, "r")
+    # qaqc_fac = ds.variables["beachProfileQCFlag"][:]
+    # lidar_pmissing = ds.variables["percentTimeSeriesMissing"][:, :]
+    lidar_elev = ds.variables["elevation"][:,:,:]
+    # lidar_elevstd = ds.variables["elevationSigma"][:]
+    lidar_time = ds.variables["time"][:]
+    lidar_xFRF = ds.variables["xFRF"][:].filled(fill_value=np.NaN)
+    lidar_yFRF = ds.variables["yFRF"][:].filled(fill_value=np.NaN)
+    # Use only 400m of 500m DEM to focus on area with best data coverage
+    idx_y = np.arange(50, 451)  # MATLAB is 1-indexed, Python is 0-indexed
+    for hh in range(len(lidar_time)):
+
+        DEMtemp = lidar_elev[hh,idx_y, :].filled(fill_value=np.NaN)
+        ysC = lidar_yFRF[idx_y]
+        (contour_smSmall, contour_smLarge, elevation_smSmall, elevation_smLarge,
+         fj_finalTemp, Sj_finalTemp, fj_aveTemp, Sj_aveTemp, ED_RGTemp) = findContoursRunFFT(ysC, xs, DEMtemp, contourOI,
+                                                                                             filter_large, filter_small, delT, dof, 'X')
+        maxSj = np.max(Sj_finalTemp)
+        if np.isnan(maxSj):
+            print('processed {}'.format(DT.datetime.fromtimestamp(lidar_time[hh])))
+
+        else:
+            maxSjIndex = np.argmax(Sj_finalTemp)
+            maxFj = fj_finalTemp[maxSjIndex]
+            maxSj = Sj_finalTemp[maxSjIndex]
+            maxThreshold = threshold[maxSjIndex]
+
+            if maxSj > maxThreshold:
+                print('processed {}: CUSP!'.format(DT.datetime.fromtimestamp(lidar_time[hh])))
+            else:
+                print('processed {}'.format(DT.datetime.fromtimestamp(lidar_time[hh])))
+
+        maxFjFinal.append(maxFj)
+        thresholdAtMaxSj.append(maxThreshold)
+        maxSjFinal.append(maxSj)
+        contour_Small.append(contour_smSmall)
+        contour_Large.append(contour_smLarge)
+        elevation_Small.append(elevation_smSmall)
+        elevation_Large.append(elevation_smLarge)
+        fj_final.append(fj_finalTemp)
+        Sj_final.append(Sj_finalTemp)
+        fj_ave.append(fj_aveTemp)
+        Sj_ave.append(Sj_aveTemp)
+        ED_RG.append(ED_RGTemp)
+        contourTime.append(lidar_time[hh])
+
+
+
+
+
+clusterPickle = 'cuspsOverTime.pickle'
+output = {}
+output['contourTime'] = contourTime
+output['ED_RG'] = ED_RG
+output['Sj_ave'] = Sj_ave
+output['fj_ave'] = fj_ave
+output['Sj_final'] = Sj_final
+output['fj_final'] = fj_final
+output['elevation_Large'] = elevation_Large
+output['elevation_Small'] = elevation_Small
+output['contour_Large'] = contour_Large
+output['contour_Small'] = contour_Small
+output['lidar_yFRF'] = lidar_yFRF
+output['lidar_xFRF'] = lidar_xFRF
+output['ysC'] = ysC
+output['filter_large'] = filter_large
+output['filter_small'] = filter_small
+output['dof'] = dof
+output['N'] = N
+output['delT'] = delT
+output['contourOI'] = contourOI
+
+import pickle
+with open(clusterPickle,'wb') as f:
+    pickle.dump(output, f)
+

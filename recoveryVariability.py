@@ -89,6 +89,49 @@ while st < end:
     st += step
 
 
+def find_files_local(floc,ext_in):
+    full_path = floc
+    ids = []
+    for file in os.listdir(full_path):
+        if file.endswith(ext_in):
+            ids.append(file)
+    return ids
+
+#start with NOAA water level files
+floc = noaawlfloc
+ext = noaawlext
+fname_in_range = find_files_local(floc,ext)#find_files_in_range(floc,ext,epoch_beg,epoch_end, tzinfo)
+wltime_noaa = []
+wl_noaa = []
+for fname_ii in fname_in_range:
+    print('reading... ' + fname_ii)
+    #full_path = floc + fname_ii
+    waterlevel_noaa, time_noaa = getlocal_waterlevels(fname_ii)
+    wltime_noaa = np.append(wltime_noaa, time_noaa)
+    wl_noaa = np.append(wl_noaa, waterlevel_noaa)
+
+
+from dateutil.relativedelta import relativedelta
+st = dt.datetime(2016, 1, 1)
+end = dt.datetime(2024,7,1)
+step = relativedelta(hours=12.5)
+wlTimes = []
+while st < end:
+    wlTimes.append(st)#.strftime('%Y-%m-%d'))
+    st += step
+
+highTideIndices = []
+highTideTimes = []
+highTides = []
+for qq in range(len(wlTimes)):
+    inder = np.where((wlTimes[qq] > wltime_noaa) & (wlTimes[qq] < wltime_noaa))
+    subsetWLind = np.nanargmax(wl_noaa[inder])
+    subsetTime = wltime_noaa[inder]
+    highTideTimes.append(subsetTime[subsetWLind])
+    highTides.append(np.nanmax(wl_noaa[inder]))
+
+
+
 dailyAverage = np.nan * np.ones((len(dayTime),len(lidar_xFRF)))
 dailyStd = np.nan * np.ones((len(dayTime),len(lidar_xFRF)))
 

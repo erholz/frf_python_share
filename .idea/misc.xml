@@ -3,5 +3,5 @@
   <component name="Black">
     <option name="sdkName" value="frf_python" />
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="frf_python" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="beachRecovery" project-jdk-type="Python SDK" />
 </project>
