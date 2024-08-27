@@ -10,6 +10,7 @@ from funcs.getFRF_funcs.getFRF_lidar import *
 from funcs.create_contours import *
 import scipy as sp
 from astropy.convolution import convolve
+import seaborn as sns
 
 
 # Load temporally aligned data - need to add lidarelev_fullspan
@@ -372,16 +373,16 @@ for tt in np.arange(nt):
 #     pickle.dump([profile_width,zsmooth_fullspan,shift_zsmooth,avgslope_fullspan,avgslope_withinXCs,avgslope_beyondXCsea,
 #                  shift_avgslope,shift_avgslope_beyondXCsea,maxgap_fullspan,xc_fullspan,dXcdt_fullspan,time_fullspan,lidar_xFRF,
 #                  scaled_profiles,scaled_avgslope,unscaled_profile],file)
-with open('elev_processed_base.pickle', 'wb') as file:
-    pickle.dump([time_fullspan,lidar_xFRF,profile_width,maxgap_fullspan,xc_fullspan,dXcdt_fullspan], file)
-with open('elev_processed_slopes.pickle', 'wb') as file:
-    pickle.dump([avgslope_fullspan, avgslope_withinXCs,avgslope_beyondXCsea], file)
-with open('elev_processed_slopes_shift.pickle', 'wb') as file:
-    pickle.dump([shift_avgslope,shift_avgslope_beyondXCsea], file)
-with open('elev_processed_elev.pickle', 'wb') as file:
-    pickle.dump([zsmooth_fullspan,shift_zsmooth,unscaled_profile], file)
-with open('elev_processed_elev&slopes_scaled.pickle', 'wb') as file:
-    pickle.dump([scaled_profiles,scaled_avgslope], file)
+# with open('elev_processed_base.pickle', 'wb') as file:
+#     pickle.dump([time_fullspan,lidar_xFRF,profile_width,maxgap_fullspan,xc_fullspan,dXcdt_fullspan], file)
+# with open('elev_processed_slopes.pickle', 'wb') as file:
+#     pickle.dump([avgslope_fullspan, avgslope_withinXCs,avgslope_beyondXCsea], file)
+# with open('elev_processed_slopes_shift.pickle', 'wb') as file:
+#     pickle.dump([shift_avgslope,shift_avgslope_beyondXCsea], file)
+# with open('elev_processed_elev.pickle', 'wb') as file:
+#     pickle.dump([zsmooth_fullspan,shift_zsmooth,unscaled_profile], file)
+# with open('elev_processed_elev&slopes_scaled.pickle', 'wb') as file:
+#     pickle.dump([scaled_profiles,scaled_avgslope], file)
 
 
 # LOAD  - smoothed, shifted, convoluted Z and Slope data
@@ -427,10 +428,12 @@ tt = timescatter[~np.isnan(zscatter)]
 xx = xscatter[~np.isnan(zscatter)]
 zz = zscatter[~np.isnan(zscatter)]
 fig, ax = plt.subplots()
-ph = ax.scatter(xx, tt, s=5, c=zz, cmap='viridis')
+ph = ax.scatter(xx, tt, s=5, c=zz, cmap='rainbow')
 cbar = fig.colorbar(ph, ax=ax)
-cbar.set_label('z [m]')
-ax.set_title('Elev. between XCshore and XCsea - Shifted')
+cbar.set_label('z [m, NAVD88]')
+# ax.set_title('Elev. between XCshore and XCsea - Shifted')
+ax.set_xlabel('x [m, FRF]')
+ax.set_ylabel('time')
 
 # PLOT - avgslope for profile between XCshore and XCsea, SCALED
 xplot = np.linspace(0,1,nx)
@@ -530,8 +533,9 @@ ax.set_title('Profiles, smoothed & scaled')
 
 
 # FROM DYLAN
-# data = zgood_smooth[fullrow[goodrow],:] # where shorelines is matrix with dimensions of: time (rows) x alongshore transect number (columns)
-data = scaled_profiles[ikeep,:]
+profiles_to_process = scaled_profiles
+tkeep = np.where(np.sum(~np.isnan(profiles_to_process),axis=1 ) == profiles_to_process.shape[1])[0]
+data = scaled_profiles[tkeep,:]
 dataMean = np.mean(data,axis=0) # this will give you an average for each cross-shore transect
 dataStd = np.std(data,axis=0)
 dataNorm = (data[:,:] - dataMean) / dataStd
@@ -540,7 +544,22 @@ tmp2 = np.min(dataNorm,axis=1)
 ikeep = np.where((tmp1<3.5)&(tmp2>-3.5))[0]
 
 fig, ax = plt.subplots()
-ax.plot(xinterp,dataNorm[ikeep,:].T)
+# ax.plot(dataNorm[ikeep,:].T)
+xplot = np.linspace(0,1,nx)
+ax.plot(xplot,scaled_profiles[:,:].T)
+# ax.set_ylim(-5,5)
+# ax.set_title('Normalized equi-length profiles')
+ax.set_title('Scaled profiles')
+ax.set_xlabel('x/b_w [-]')
+ax.set_ylabel('z [m, NAVD88]')
+ax.plot([0, 1],[mhw, mhw],'k--')
+ax.plot([0, 1],[mwl, mwl],'k--')
+ax.set_xlim(0,1)
+
+
+
+fig, ax = plt.subplots()
+ax.plot(dataNorm[ikeep,:].T)
 # ax.plot(xinterp,dataNorm[:,:].T)
 ax.set_ylim(-5,5)
 ax.set_title('Normalized equi-length profiles')
@@ -611,21 +630,22 @@ zplot = np.flip(scaled_PCAprofiles.T)
 ax.plot(xplot,zplot)
 
 fig, ax = plt.subplots()
-xplot = PCs[:,1]
-yplot = PCs[:,2]
+xplot = PCs[:,0]
+yplot = PCs[:,1]
 # cplot = np.arange(xplot.size)
-cplot = rescaled_width
+cplot = profile_width[tkeep[ikeep]]
 # cmap = plt.cm.rainbow(np.linspace(0, 1, xplot.size))
 # ax.set_prop_cycle('color', cmap)
 ph = ax.scatter(xplot,yplot,4,cplot,cmap='plasma')
-ax.set_xlabel('Mode 1*')
-ax.set_ylabel('Mode 2*')
-plt.colorbar(ph)
+ax.set_xlabel('Mode 1')
+ax.set_ylabel('Mode 2')
+cbar = plt.colorbar(ph)
 ph.set_clim(30,75)
-ax.set_ylim(-75,75)
+ax.set_ylim(-100,100)
 # ax.set_xlim(-100,100)
-ax.set_xlim(-75,75)
+ax.set_xlim(-110,110)
 plt.grid(which='both', axis='both')
+cbar.set_label('beach width [m]')
 
 
 fig, ax = plt.subplots(2,1)
@@ -743,3 +763,83 @@ ph4 = ax[1,1].scatter(rescaled_xplot[:,idemo4],rescaled_PCAprofiles[:,idemo4],4,
 # ch = plt.colorbar(ph4)
 ph4.set_clim(-40, 40)
 
+# Calculate correlation between CHANGE in PCs and environmental variables
+with open('elev_processed_elev&slopes_scaled.pickle', 'rb') as file:
+    scaled_profiles,_ = pickle.load(file)
+with open('elev_processed_base.pickle', 'rb') as file:
+    _,lidar_xFRF,profile_width,_,_,_ = pickle.load(file)
+with open('elev_processed_elev.pickle', 'rb') as file:
+    zsmooth_fullspan, _, _ = pickle.load(file)
+with open('IO_alignedintime.pickle', 'rb') as file:
+    time_fullspan,data_wave8m,data_wave17m,data_tidegauge,data_lidar_elev2p,_,_,_,data_lidarwg110,_,_,_,_ = pickle.load(file)
+with open('beach_stats.pickle', 'rb') as file:
+    var_beachwid,var_beachvol,var_beachslp = pickle.load(file)
+var_wave8m_Hs = data_wave8m[:,0]
+var_wave8m_Tp = data_wave8m[:,1]
+var_wave8m_dir = data_wave8m[:,2]
+var_wave17m_Hs = data_wave17m[:,0]
+var_wave17m_Tp = data_wave17m[:,1]
+var_wave17m_dir = data_wave17m[:,2]
+var_lidar_elev2p = data_lidar_elev2p[:].flatten()
+var_tidegauge = data_tidegauge[:].flatten()
+var_wg110_Hs = data_lidarwg110[:,0]
+var_wg110_HsIN = data_lidarwg110[:,1]
+var_wg110_HsIG = data_lidarwg110[:,2]
+var_wg110_Tp = data_lidarwg110[:,3]
+var_wg110_TmIG = data_lidarwg110[:,4]
+var_beachwid = profile_width
+var_beachvol = np.empty(shape=var_beachwid.shape)
+var_beachslp = np.empty(shape=var_beachwid.shape)
+var_beachvol[:] = np.nan
+var_beachslp[:] = np.nan
+for ii in np.arange(time_fullspan.size):
+    if sum(~np.isnan(zsmooth_fullspan[:,ii])) > 0:
+        tmp = np.abs(zsmooth_fullspan[:,ii] - var_tidegauge[ii])
+        if sum(~np.isnan(tmp)) > 0:
+            ix_shoreline = np.where(tmp == np.nanmin(tmp))[0][0]
+            iix = np.arange(-50,50)+ix_shoreline
+            ztmp = zsmooth_fullspan[iix,ii]
+            ztmp = ztmp[~np.isnan(ztmp)]
+            slptmp = (ztmp[-1]-ztmp[0])/(dx*ztmp.size)
+            var_beachslp[ii] = slptmp
+            delx = var_beachwid[ii]/nx
+            var_beachvol[ii] = np.sum(scaled_profiles[ii,:])*delx
+
+# with open('beach_stats.pickle', 'wb') as file:
+#     pickle.dump([var_beachwid,var_beachvol,var_beachslp], file)
+varnames = ['beachwid','beachvol','beachslp','tidegauge','wave8m_Hs','wave8m_Tp','wave8m_dir','wave17m_Hs',
+            'wave17m_Tp','wave17m_dir','wg110_HsIN','wg110_HsIG','wg110_Tp','wg110_TmIG','lidar_elev2p']
+PC_fullspan = np.empty((4,time_fullspan.size))
+PC_fullspan[:] = np.nan
+PC_fullspan[0,[tkeep[ikeep]]] = PCs[:,0]
+PC_fullspan[1,[tkeep[ikeep]]] = PCs[:,1]
+PC_fullspan[2,[tkeep[ikeep]]] = PCs[:,2]
+PC_fullspan[3,[tkeep[ikeep]]] = PCs[:,3]
+fig, ax = plt.subplots()
+ax.plot(time_fullspan,PC_fullspan[0,:],'o')
+ax.plot(time_fullspan[tkeep[ikeep]],PCs[:,0],'o')
+
+
+delPC_fullspan = np.empty((4,time_fullspan.size))
+delPC_fullspan[:] = np.nan
+delPC_fullspan[:,1:] = PC_fullspan[:,1:] - PC_fullspan[:,0:-1]
+pcorrvals = np.empty((4,len(varnames)))
+for ii in np.arange(len(varnames)):
+    for jj in np.arange(4):
+        exec('varx = var_' + varnames[ii])
+        vary = delPC_fullspan[jj,:]
+        ijok = ~np.isnan(vary) & ~np.isnan(varx)
+        # pearsons = np.cov(varx[ijok],vary[ijok])/(np.std(varx[ijok])*np.std(vary[ijok]))
+        # numerator = np.sum((varx[ijok] - np.mean(varx[ijok])) * (vary[ijok] - np.mean(vary[ijok])))
+        # denominator = np.sqrt(np.sum(varx[ijok] - np.mean(varx[ijok])) ** 2) * np.sqrt(np.sum(vary[ijok] - np.mean(vary[ijok])) ** 2)
+        pearsons = np.corrcoef(varx[ijok],vary[ijok])
+        pcorrvals[jj,ii] = pearsons[0,1]
+# with open('pearsons_values.pickle', 'wb') as file:
+#     pickle.dump([pcorrvals], file)
+fig, ax = plt.subplots()
+iplot = (np.arange(len(varnames)) < 6) + (np.arange(len(varnames)) > 9)
+sns.heatmap(pcorrvals[:,iplot].T, annot=True, linewidth=.5, fmt=".2f", cmap='RdBu', vmin=-0.5, vmax=0.5)
+ax.set_xlabel('D/Dt of Mode [1/hr]')
+
+fig, ax = plt.subplots()
+ax.hist(var_beachslp,bins=50)
