@@ -305,16 +305,6 @@ cbar = fig.colorbar(ph, ax=ax)
 cbar.set_label('avg. slope [m/m]')
 ax.set_title('Avg. Slope for profile beyond XCsea')
 
-
-# fig, ax = plt.subplots()
-# ax.plot(xtmp,ztmp,'*y')
-# ax.plot(xtmp[np.isnan(ztmp)], np.zeros(shape=(xtmp[np.isnan(ztmp)].size,)), '*r')
-# ax.plot(xtmp,zgood,'ob')
-# ax.plot(xtmp,zbad,'xr')
-# ax.plot(lidar_xFRF[ix_notnan],zpass_fullspan[ix_notnan,tt],'tab:green')
-# fig, ax = plt.subplots()
-# ax.plot(lidar_xFRF[np.arange(ix_notnan[0],ix_notnan[-1])], lidarelev_fullspan[np.arange(ix_notnan[0],ix_notnan[-1]),tt], '*y')
-
 # Plot the results of the filtering/convolution
 fig, ax = plt.subplots()
 ax.plot(lidar_xFRF,zpass_fullspan)
@@ -333,7 +323,7 @@ scaled_avgslope = np.empty((nt,nx))
 shift_avgslope = np.empty((nt,nx))
 shift_avgslope_beyondXCsea = np.empty((nt,nx))
 shift_zsmooth = np.empty((nt,nx))
-Lkeep = 80
+Lkeep = 95
 dx = 0.1
 nkeep = int(np.ceil(Lkeep / dx))
 unscaled_profile = np.empty((nt,nkeep))
@@ -343,6 +333,9 @@ scaled_avgslope[:] = np.nan
 shift_avgslope[:] = np.nan
 shift_avgslope_beyondXCsea[:] = np.nan
 shift_zsmooth[:] = np.nan
+unscaled_profile[:] = np.nan
+unscaled_xi = np.empty((nt,))
+unscaled_xi[:] = np.nan
 for tt in np.arange(nt):
     xc_shore = xc_fullspan[-1,tt]
     xc_sea = xc_fullspan[0,tt]
@@ -358,6 +351,7 @@ for tt in np.arange(nt):
         scaled_profiles[tt, :] = zinterp
         profile_width[tt] = xc_sea - xc_shore
         unscaled_profile[tt, :] = zsmooth_fullspan[itrim[0]:itrim[0]+nkeep,tt]
+        unscaled_xi[tt] = lidar_xFRF[itrim[0]]
         slptmp = avgslope_withinXCs[:, tt]
         xtmp = lidar_xFRF[~np.isnan(slptmp)]
         slpinterp = np.interp(xinterp, xtmp, slptmp[~np.isnan(slptmp)])
@@ -367,6 +361,7 @@ for tt in np.arange(nt):
         shift_zsmooth[tt,np.arange(ztmp[~np.isnan(slptmp)].size)] = ztmp[~np.isnan(slptmp)]
         slptmp = avgslope_beyondXCsea[:,tt]
         shift_avgslope_beyondXCsea[tt,np.arange(slptmp[~np.isnan(slptmp)].size)] = slptmp[~np.isnan(slptmp)]
+
 
 # SAVE - smoothed, shifted, convoluted Z and Slope data
 # with open('lidar_elev&slope_processed.pickle','wb') as file:
@@ -378,16 +373,19 @@ for tt in np.arange(nt):
 # with open('elev_processed_slopes.pickle', 'wb') as file:
 #     pickle.dump([avgslope_fullspan, avgslope_withinXCs,avgslope_beyondXCsea], file)
 # with open('elev_processed_slopes_shift.pickle', 'wb') as file:
-#     pickle.dump([shift_avgslope,shift_avgslope_beyondXCsea], file)
+# #     pickle.dump([shift_avgslope,shift_avgslope_beyondXCsea], file)
 # with open('elev_processed_elev.pickle', 'wb') as file:
 #     pickle.dump([zsmooth_fullspan,shift_zsmooth,unscaled_profile], file)
 # with open('elev_processed_elev&slopes_scaled.pickle', 'wb') as file:
 #     pickle.dump([scaled_profiles,scaled_avgslope], file)
-
+# with open('elev_processed_unscaled_xi.pickle', 'wb') as file:
+#     pickle.dump([unscaled_xi], file)
 
 # LOAD  - smoothed, shifted, convoluted Z and Slope data
+# with open('elev_processed_base.pickle', 'rb') as file:
+#     time_fullspan,lidar_xFRF,profile_width,maxgap_fullspan,xc_fullspan,dXcdt_fullspan = pickle.load(file)
 with open('elev_processed_base.pickle', 'rb') as file:
-    time_fullspan,lidar_xFRF,profile_width,maxgap_fullspan,xc_fullspan,dXcdt_fullspan = pickle.load(file)
+    time_fullspan,lidar_xFRF,profile_width,maxgap_fullspan,_,_ = pickle.load(file)
 with open('elev_processed_slopes.pickle', 'rb') as file:
     avgslope_fullspan, avgslope_withinXCs,avgslope_beyondXCsea = pickle.load(file)
 with open('elev_processed_slopes_shift.pickle', 'rb') as file:
