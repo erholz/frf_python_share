@@ -10,6 +10,11 @@ from funcs.getFRF_funcs.getFRF_lidar import *
 from funcs.create_contours import *
 import scipy as sp
 from astropy.convolution import convolve
+<<<<<<< HEAD
+=======
+from funcs.wavefuncs import *
+from scipy.stats import pearsonr
+>>>>>>> 14507f9 (backup RD work, but may be unimportant)
 import seaborn as sns
 
 
@@ -323,7 +328,13 @@ scaled_avgslope = np.empty((nt,nx))
 shift_avgslope = np.empty((nt,nx))
 shift_avgslope_beyondXCsea = np.empty((nt,nx))
 shift_zsmooth = np.empty((nt,nx))
+<<<<<<< HEAD
 Lkeep = 95
+=======
+shift_zsmooth_beyondXCsea = np.empty((nt,nx))
+shift_zsmooth_extend = np.empty((nt,nx))
+Lkeep = 80
+>>>>>>> 14507f9 (backup RD work, but may be unimportant)
 dx = 0.1
 nkeep = int(np.ceil(Lkeep / dx))
 unscaled_profile = np.empty((nt,nkeep))
@@ -332,10 +343,15 @@ scaled_profiles[:] = np.nan
 scaled_avgslope[:] = np.nan
 shift_avgslope[:] = np.nan
 shift_avgslope_beyondXCsea[:] = np.nan
+shift_zsmooth_extend[:] = np.nan
 shift_zsmooth[:] = np.nan
+<<<<<<< HEAD
 unscaled_profile[:] = np.nan
 unscaled_xi = np.empty((nt,))
 unscaled_xi[:] = np.nan
+=======
+shift_zsmooth_beyondXCsea[:] = np.nan
+>>>>>>> 14507f9 (backup RD work, but may be unimportant)
 for tt in np.arange(nt):
     xc_shore = xc_fullspan[-1,tt]
     xc_sea = xc_fullspan[0,tt]
@@ -359,8 +375,12 @@ for tt in np.arange(nt):
         shift_avgslope[tt,np.arange(slptmp[~np.isnan(slptmp)].size)] = slptmp[~np.isnan(slptmp)]
         ztmp = zsmooth_fullspan[:, tt]
         shift_zsmooth[tt,np.arange(ztmp[~np.isnan(slptmp)].size)] = ztmp[~np.isnan(slptmp)]
+        rngstrt = np.where(~np.isnan(slptmp))[0][0]
+        rngend = ztmp.size-rngstrt
+        shift_zsmooth_extend[tt,np.arange(rngend)] = ztmp[np.arange(rngstrt,ztmp.size)]
         slptmp = avgslope_beyondXCsea[:,tt]
         shift_avgslope_beyondXCsea[tt,np.arange(slptmp[~np.isnan(slptmp)].size)] = slptmp[~np.isnan(slptmp)]
+        shift_zsmooth_beyondXCsea[tt,np.arange(ztmp[~np.isnan(slptmp)].size)] = ztmp[~np.isnan(slptmp)]
 
 
 # SAVE - smoothed, shifted, convoluted Z and Slope data
@@ -373,11 +393,16 @@ for tt in np.arange(nt):
 # with open('elev_processed_slopes.pickle', 'wb') as file:
 #     pickle.dump([avgslope_fullspan, avgslope_withinXCs,avgslope_beyondXCsea], file)
 # with open('elev_processed_slopes_shift.pickle', 'wb') as file:
+<<<<<<< HEAD
 # #     pickle.dump([shift_avgslope,shift_avgslope_beyondXCsea], file)
+=======
+#     pickle.dump([shift_avgslope,shift_avgslope_beyondXCsea], file)
+>>>>>>> 14507f9 (backup RD work, but may be unimportant)
 # with open('elev_processed_elev.pickle', 'wb') as file:
 #     pickle.dump([zsmooth_fullspan,shift_zsmooth,unscaled_profile], file)
 # with open('elev_processed_elev&slopes_scaled.pickle', 'wb') as file:
 #     pickle.dump([scaled_profiles,scaled_avgslope], file)
+<<<<<<< HEAD
 # with open('elev_processed_unscaled_xi.pickle', 'wb') as file:
 #     pickle.dump([unscaled_xi], file)
 
@@ -387,13 +412,35 @@ for tt in np.arange(nt):
 with open('elev_processed_base.pickle', 'rb') as file:
     time_fullspan,lidar_xFRF,profile_width,maxgap_fullspan,_,_ = pickle.load(file)
 with open('elev_processed_slopes.pickle', 'rb') as file:
+=======
+
+
+# LOAD  - smoothed, shifted, convoluted Z and Slope data
+fdir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/2024Aug08_MLpreprocess/'
+with open(fdir+'elev_processed_base.pickle', 'rb') as file:
+    time_fullspan,lidar_xFRF,profile_width,maxgap_fullspan,xc_fullspan,dXcdt_fullspan = pickle.load(file)
+with open(fdir+'elev_processed_slopes.pickle', 'rb') as file:
+>>>>>>> 14507f9 (backup RD work, but may be unimportant)
     avgslope_fullspan, avgslope_withinXCs,avgslope_beyondXCsea = pickle.load(file)
-with open('elev_processed_slopes_shift.pickle', 'rb') as file:
+with open(fdir+'elev_processed_slopes_shift.pickle', 'rb') as file:
     shift_avgslope,shift_avgslope_beyondXCsea = pickle.load(file)
-with open('elev_processed_elev.pickle', 'rb') as file:
+with open(fdir+'elev_processed_elev.pickle', 'rb') as file:
     zsmooth_fullspan,shift_zsmooth,unscaled_profile = pickle.load(file)
-with open('elev_processed_elev&slopes_scaled.pickle', 'rb') as file:
+with open(fdir+'elev_processed_elev&slopes_scaled.pickle', 'rb') as file:
     scaled_profiles,scaled_avgslope = pickle.load(file)
+
+# Extend Zsmooth to beyond XCsea
+last_xii = np.sum(~np.isnan(shift_zsmooth),axis=1).astype(float)
+last_xii[np.where(last_xii == 0)] = np.nan
+last_xpos = last_xii*dx
+shift_zsmooth_extend = np.empty((tplot.size,4000))
+shift_zsmooth_extend[:] = np.nan
+for tt in np.arange(tplot.size):
+    ztmp = shift_zsmooth[tt,:]
+    shift_zsmooth_extend[tt,np.arange(np.sum(~np.isnan(ztmp)))] = ztmp[~np.isnan(ztmp)]
+    if ~np.isnan(last_xii[tt]) & (sum(~np.isnan(shift_zsmooth_beyondXCsea[tt,:])) > 0):
+        ztmp = shift_zsmooth_beyondXCsea[tt,:]
+        shift_zsmooth_extend[tt,last_xii[tt].astype(int)+np.arange(np.sum(~np.isnan(ztmp)))] = ztmp[~np.isnan(ztmp)]
 
 # Plot the range of beach widths
 var = profile_width[~np.isnan(profile_width)]
@@ -418,6 +465,7 @@ cbar = fig.colorbar(ph, ax=ax)
 cbar.set_label('avg. slope [m/m]')
 ax.set_title('Avg. Slope for profile between XCshore and XCsea - Shifted')
 # PLOT - profile elevations between XCshore and XCsea - shifted
+xplot = np.arange(nx)*dx
 XX, TT = np.meshgrid(xplot, tplot)
 timescatter = np.reshape(TT, TT.size)
 xscatter = np.reshape(XX, XX.size)
@@ -426,12 +474,44 @@ tt = timescatter[~np.isnan(zscatter)]
 xx = xscatter[~np.isnan(zscatter)]
 zz = zscatter[~np.isnan(zscatter)]
 fig, ax = plt.subplots()
+<<<<<<< HEAD
 ph = ax.scatter(xx, tt, s=5, c=zz, cmap='rainbow')
 cbar = fig.colorbar(ph, ax=ax)
 cbar.set_label('z [m, NAVD88]')
 # ax.set_title('Elev. between XCshore and XCsea - Shifted')
 ax.set_xlabel('x [m, FRF]')
 ax.set_ylabel('time')
+=======
+ph = ax.scatter(xx, tt, s=5, c=zz, cmap='viridis',vmin=-1.5, vmax=3.5)
+cbar = fig.colorbar(ph, ax=ax)
+cbar.set_label('z [m]')
+ax.set_title('Elev. between XCshore and XCsea - Shifted')
+ax.set_xlim(0,120)
+# PLOT - profile elevations starting with XCshore and extending seaward
+xplot = np.arange(shift_zsmooth_extend.shape[1])*dx
+XX, TT = np.meshgrid(xplot, tplot)
+timescatter = np.reshape(TT, TT.size)
+xscatter = np.reshape(XX, XX.size)
+zscatter = np.reshape(shift_zsmooth_extend, shift_zsmooth_extend.size)
+tt = timescatter[~np.isnan(zscatter)]
+xx = xscatter[~np.isnan(zscatter)]
+zz = zscatter[~np.isnan(zscatter)]
+fig, ax = plt.subplots()
+ph = ax.scatter(xx, tt, s=5, c=zz, cmap='viridis',vmin=-1.5, vmax=3.5)
+cbar = fig.colorbar(ph, ax=ax)
+cbar.set_label('z [m]')
+ax.set_title('Elev. from XCshore seaward')
+ax.set_xlim(0,120)
+# PLOT - number of profiles available as a function of length
+yplot = np.sum(~np.isnan(shift_zsmooth_extend),axis=0)
+fig, ax = plt.subplots()
+ax.plot(xplot,yplot,'o')
+plt.grid(which='both', axis='both')
+fig, ax = plt.subplots()
+ax.plot(xplot,yplot/np.max(yplot),'o')
+plt.grid(which='both', axis='both')
+
+>>>>>>> 14507f9 (backup RD work, but may be unimportant)
 
 # PLOT - avgslope for profile between XCshore and XCsea, SCALED
 xplot = np.linspace(0,1,nx)
@@ -451,10 +531,10 @@ ax.set_title('Avg. Slope for profile between XCshore and XCsea - SCALED')
 # PLOT - avgslope for profile beyond XCsea, shifted to same x-origin
 tplot = pd.to_datetime(time_fullspan, unit='s', origin='unix')
 xplot = np.arange(nx)*dx
-XX, TT = np.meshgrid(lidar_xFRF, tplot)
+XX, TT = np.meshgrid(xplot, tplot)
 timescatter = np.reshape(TT, TT.size)
 xscatter = np.reshape(XX, XX.size)
-zscatter = np.reshape(shift_avgslope_beyondXCsea.T,shift_avgslope_beyondXCsea.size)
+zscatter = np.reshape(shift_avgslope_beyondXCsea,shift_avgslope_beyondXCsea.size)
 tt = timescatter[~np.isnan(zscatter)]
 xx = xscatter[~np.isnan(zscatter)]
 zz = zscatter[~np.isnan(zscatter)]
@@ -463,6 +543,22 @@ ph = ax.scatter(xx, tt, s=5, c=zz, cmap='rainbow', vmin=-0.1, vmax=0.25)
 cbar = fig.colorbar(ph, ax=ax)
 cbar.set_label('avg. slope [m/m]')
 ax.set_title('Avg. Slope for profile beyond XCsea - Shifted')
+# PLOT - elevation for profile beyond XCsea, shifted to same x-origin
+tplot = pd.to_datetime(time_fullspan, unit='s', origin='unix')
+xplot = np.arange(nx)*dx
+XX, TT = np.meshgrid(xplot, tplot)
+timescatter = np.reshape(TT, TT.size)
+xscatter = np.reshape(XX, XX.size)
+zscatter = np.reshape(shift_zsmooth_beyondXCsea,shift_zsmooth_beyondXCsea.size)
+tt = timescatter[~np.isnan(zscatter)]
+xx = xscatter[~np.isnan(zscatter)]
+zz = zscatter[~np.isnan(zscatter)]
+fig, ax = plt.subplots()
+ph = ax.scatter(xx, tt, s=5, c=zz, cmap='viridis')
+cbar = fig.colorbar(ph, ax=ax)
+cbar.set_label('avg. slope [m/m]')
+ax.set_title('Elev for profile beyond XCsea - Shifted')
+
 
 
 # check horz/vertical bounds on zsmooth_shift
@@ -530,18 +626,32 @@ ax.set_title('Profiles, smoothed & scaled')
 
 
 
+<<<<<<< HEAD
 # FROM DYLAN
 profiles_to_process = scaled_profiles
 tkeep = np.where(np.sum(~np.isnan(profiles_to_process),axis=1 ) == profiles_to_process.shape[1])[0]
 data = scaled_profiles[tkeep,:]
+=======
+# PCA V1 - apply to SCALED data
+xplot = np.linspace(0,1,nx)
+profiles_to_process = scaled_profiles
+tkeep = np.sum(~np.isnan(profiles_to_process),axis=1 ) == profiles_to_process.shape[1]
+ikeep = np.where(tkeep)[0]
+data = scaled_profiles[ikeep,:]
+fig, ax = plt.subplots()
+ax.plot(xplot,data.T)
+>>>>>>> 14507f9 (backup RD work, but may be unimportant)
 dataMean = np.mean(data,axis=0) # this will give you an average for each cross-shore transect
 dataStd = np.std(data,axis=0)
 dataNorm = (data[:,:] - dataMean) / dataStd
+fig, ax = plt.subplots()
+ax.plot(xplot,dataNorm.T)
 tmp1 = np.max(dataNorm,axis=1)
 tmp2 = np.min(dataNorm,axis=1)
-ikeep = np.where((tmp1<3.5)&(tmp2>-3.5))[0]
+tmpkeep = (tmp1<3.5)&(tmp2>-3.5)
 
 fig, ax = plt.subplots()
+<<<<<<< HEAD
 # ax.plot(dataNorm[ikeep,:].T)
 xplot = np.linspace(0,1,nx)
 ax.plot(xplot,scaled_profiles[:,:].T)
@@ -559,12 +669,17 @@ ax.set_xlim(0,1)
 fig, ax = plt.subplots()
 ax.plot(dataNorm[ikeep,:].T)
 # ax.plot(xinterp,dataNorm[:,:].T)
+=======
+ax.plot(xplot[1:-1],dataNorm[tmpkeep,1:-1].T)
+fig, ax = plt.subplots()
+ax.plot(xplot,dataNorm[tmpkeep,:].T)
+>>>>>>> 14507f9 (backup RD work, but may be unimportant)
 ax.set_ylim(-5,5)
 ax.set_title('Normalized equi-length profiles')
 
 # principal components analysis
-ipca = PCA(n_components=min(dataNorm[ikeep,:].shape[0], dataNorm[ikeep,:].shape[1]))
-PCs = ipca.fit_transform(dataNorm[ikeep,:])  # these are the temporal magnitudes of the spatial modes where PCs[:,0] are the varying amplitude of mode 1 with respect to time
+ipca = PCA(n_components=min(dataNorm[tmpkeep,:].shape[0], dataNorm[tmpkeep,:].shape[1]))
+PCs = ipca.fit_transform(dataNorm[tmpkeep,:])  # these are the temporal magnitudes of the spatial modes where PCs[:,0] are the varying amplitude of mode 1 with respect to time
 EOFs = ipca.components_  # these are the spatial modes where EOFs[0,:] is mode 1, EOFs[1,:] is mode 2, and so on...
 variance = ipca.explained_variance_ # this is the variance explained by each mode
 nPercent = variance / np.sum(variance)  # this is the percent explained (the first mode will explain the greatest percentage of your data)
@@ -573,18 +688,18 @@ nterm = np.where(APEV <= 0.95 * 100)[0][-1]
 
 fig, ax = plt.subplots(2,4)
 tplot = pd.to_datetime(time_fullspan, unit='s', origin='unix')
-tmp = tplot[notnanrow]
+tmp = tplot[ikeep[tmpkeep]]
 xplot = xinterp
-ax[0,0].scatter(tmp[ikeep],PCs[:,0],4)
+ax[0,0].scatter(tmp,PCs[:,0],4)
 ax[0,0].set_title('Mode 1')
 ax[1,0].plot(xplot,EOFs[0,:])
-ax[0,1].scatter(tmp[ikeep],PCs[:,1],4)
+ax[0,1].scatter(tmp,PCs[:,1],4)
 ax[0,1].set_title('Mode 2')
 ax[1,1].plot(xplot,EOFs[1,:])
-ax[0,2].scatter(tmp[ikeep],PCs[:,2],4)
+ax[0,2].scatter(tmp,PCs[:,2],4)
 ax[0,2].set_title('Mode 3')
 ax[1,2].plot(xplot,EOFs[2,:])
-ax[0,3].scatter(tmp[ikeep],PCs[:,3],4)
+ax[0,3].scatter(tmp,PCs[:,3],4)
 ax[0,3].set_title('Mode 4')
 ax[1,3].plot(xplot,EOFs[3,:])
 
@@ -592,33 +707,83 @@ fig, ax = plt.subplots()
 mode1_alltimes = PCs[:,0]
 mode2_alltimes = PCs[:,1]
 mode3_alltimes = PCs[:,2]
-ax.scatter(profile_width[notnanrow[ikeep]],mode1_alltimes,4,alpha=0.1)
+ax.scatter(profile_width[ikeep[tmpkeep]],mode1_alltimes,4,alpha=0.1)
 plt.grid(which='major', axis='both')
 fig, ax = plt.subplots(3,1)
-ax[0].scatter(tmp[ikeep],mode1_alltimes,4)
-ax[1].scatter(tmp[ikeep],mode2_alltimes,4)
-ax[2].scatter(tmp[ikeep],mode3_alltimes,4)
+ax[0].scatter(tmp,mode1_alltimes,4)
+ax[1].scatter(tmp,mode2_alltimes,4)
+ax[2].scatter(tmp,mode3_alltimes,4)
 
-
-# Calcs for Kate
-print(tplot[-1]-tplot[0])
-days_fullspan = 3178+16/24
-days_avail = 18758/24
-
+# ###############  Ok, what does this look like for set width
+# profiles_to_process = shift_zsmooth_extend[:,np.arange(600)]
+# tkeep = np.sum(~np.isnan(profiles_to_process),axis=1 ) == profiles_to_process.shape[1]
+# ikeep = np.where(tkeep)[0]
+# data = profiles_to_process[ikeep,:]
+# dataMean = np.mean(data,axis=0) # this will give you an average for each cross-shore transect
+# dataStd = np.std(data,axis=0)
+# dataNorm = (data[:,:] - dataMean) / dataStd
+# fig, ax = plt.subplots()
+# ax.plot(dataNorm.T)
+# tmp1 = np.max(dataNorm,axis=1)
+# tmp2 = np.min(dataNorm,axis=1)
+# tmpkeep = (tmp1<3.5)&(tmp2>-3.5)
+#
+# fig, ax = plt.subplots()
+# ax.plot(dataNorm[tmpkeep,:].T)
+# # ax.plot(xinterp,dataNorm[:,:].T)
+# ax.set_ylim(-5,5)
+# ax.set_title('Normalized equi-length profiles')
+#
+# # principal components analysis
+# ipca = PCA(n_components=min(dataNorm[tmpkeep,:].shape[0], dataNorm[tmpkeep,:].shape[1]))
+# PCs = ipca.fit_transform(dataNorm[tmpkeep,:])  # these are the temporal magnitudes of the spatial modes where PCs[:,0] are the varying amplitude of mode 1 with respect to time
+# EOFs = ipca.components_  # these are the spatial modes where EOFs[0,:] is mode 1, EOFs[1,:] is mode 2, and so on...
+# variance = ipca.explained_variance_ # this is the variance explained by each mode
+# nPercent = variance / np.sum(variance)  # this is the percent explained (the first mode will explain the greatest percentage of your data)
+# APEV = np.cumsum(variance) / np.sum(variance) * 100.0   # this is the cumulative variance
+# nterm = np.where(APEV <= 0.95 * 100)[0][-1]
+#
+# fig, ax = plt.subplots(2,4)
+# tplot = pd.to_datetime(time_fullspan, unit='s', origin='unix')
+# tmp = tplot[ikeep[tmpkeep]]
+# xplot = np.arange(600)*dx
+# ax[0,0].scatter(tmp,PCs[:,0],4)
+# ax[0,0].set_title('Mode 1')
+# ax[1,0].plot(xplot,EOFs[0,:])
+# ax[0,1].scatter(tmp,PCs[:,1],4)
+# ax[0,1].set_title('Mode 2')
+# ax[1,1].plot(xplot,EOFs[1,:])
+# ax[0,2].scatter(tmp,PCs[:,2],4)
+# ax[0,2].set_title('Mode 3')
+# ax[1,2].plot(xplot,EOFs[2,:])
+# ax[0,3].scatter(tmp,PCs[:,3],4)
+# ax[0,3].set_title('Mode 4')
+# ax[1,3].plot(xplot,EOFs[3,:])
+#
+# fig, ax = plt.subplots()
+# mode1_alltimes = PCs[:,0]
+# mode2_alltimes = PCs[:,1]
+# mode3_alltimes = PCs[:,2]
+# ax.scatter(profile_width[ikeep[tmpkeep]],mode1_alltimes,4,alpha=0.1)
+# plt.grid(which='major', axis='both')
+# fig, ax = plt.subplots(3,1)
+# ax[0].scatter(tmp,mode1_alltimes,4)
+# ax[1].scatter(tmp,mode2_alltimes,4)
+# ax[2].scatter(tmp,mode3_alltimes,4)
 
 
 # Rescale profiles used for PCA:
-scaled_PCAprofiles = data
-fig, ax = plt.subplots()
+scaled_PCAprofiles = data[tmpkeep,:]
 xplot = np.linspace(0,1,nx)
-a = profile_width[notnanrow[:]].T
+a = profile_width[ikeep[tmpkeep]].T
 b = np.tile(xplot,(a.size,1))
 xplot_scaled = a.T*b.T
 zplot = np.flip(scaled_PCAprofiles.T)
-ax.plot(xplot_scaled[:,ikeep],zplot[:,ikeep])
-rescaled_PCAprofiles = zplot[:,ikeep]
-rescaled_xplot = xplot_scaled[:,ikeep]
-rescaled_width = a[ikeep]
+fig, ax = plt.subplots()
+ax.plot(xplot_scaled,zplot)
+rescaled_PCAprofiles = zplot
+rescaled_xplot = xplot_scaled
+rescaled_width = a
 fig, ax = plt.subplots()
 ax.hist(rescaled_width)
 
@@ -644,6 +809,143 @@ ax.set_ylim(-100,100)
 ax.set_xlim(-110,110)
 plt.grid(which='both', axis='both')
 cbar.set_label('beach width [m]')
+
+
+fig, ax = plt.subplots()
+xplot = PCs[:,0]
+yplot = PCs[:,1]
+# cplot = np.arange(xplot.size)
+cplot = rescaled_width
+# cmap = plt.cm.rainbow(np.linspace(0, 1, xplot.size))
+# ax.set_prop_cycle('color', cmap)
+ph = ax.scatter(xplot,yplot,3,cplot,cmap='plasma')
+ax.set_xlabel('Mode 1')
+ax.set_ylabel('Mode 2')
+cbar = plt.colorbar(ph)
+ph.set_clim(25,75)
+# ax.set_ylim(-75,75)
+# ax.set_xlim(-75,75)
+ax.set_xlim(-110,110)
+ax.set_ylim(-100,100)
+plt.grid(which='both', axis='both')
+cbar.set_label('Active beach width [m]')
+# ax.plot([-200,200],[0,0],'k')
+# ax.plot([0,0],[-200,200],'k')
+
+imagedir = './figs/smartseed_review/'
+imagename = imagedir + 'pca_mode1_vs_mode2.svg'
+if os.path.exists(imagedir) == False:
+    os.makedirs(imagedir)
+# fig.savefig(imagename, format='svg', dpi=900)
+
+
+fig, ax = plt.subplots()
+xplot = PCs[:,2]
+yplot = PCs[:,3]
+# cplot = np.arange(xplot.size)
+cplot = rescaled_width
+# cmap = plt.cm.rainbow(np.linspace(0, 1, xplot.size))
+# ax.set_prop_cycle('color', cmap)
+ph = ax.scatter(xplot,yplot,4,cplot,cmap='plasma')
+ax.set_xlabel('Mode 3')
+ax.set_ylabel('Mode 4')
+plt.colorbar(ph)
+ph.set_clim(25,75)
+# ax.set_ylim(-75,75)
+# ax.set_xlim(-75,75)
+ax.set_xlim(-110,110)
+ax.set_ylim(-100,100)
+plt.grid(which='both', axis='both')
+
+
+##############################################################
+# PLOT correlation between PCs and forcing conditions
+
+fdir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/2024Aug08_MLpreprocess/'
+with open(fdir+'IO_alignedintime.pickle', 'rb') as file:
+    time_fullspan,data_wave8m,data_wave17m,data_tidegauge,data_lidar_elev2p,data_lidarwg080,data_lidarwg090,data_lidarwg100,data_lidarwg110,data_lidarwg140,xc_fullspan,dXcdt_fullspan,lidarelev_fullspan = pickle.load(file)
+data_wave8m_Hs = data_wave8m[:,0]
+data_wave8m_Tp = data_wave8m[:,1]
+data_wave8m_dir = data_wave8m[:,2]
+data_wave17m_Hs = data_wave17m[:,0]
+data_wave17m_Tp = data_wave17m[:,1]
+data_wave17m_dir = data_wave17m[:,2]
+data_wg110_Hs = data_lidarwg110[:,0]
+data_wg110_HsIN = data_lidarwg110[:,1]
+data_wg110_HsIG = data_lidarwg110[:,2]
+data_wg110_Tp = data_lidarwg110[:,3]
+data_wg110_TmIG = data_lidarwg110[:,4]
+
+# Scale down explanatory variables to the times where profiles were used for PCA
+varnames = ['beachwid','beachvol','beachslope','tidegauge','wave17m_Hs','wave17m_Tp','wave17m_dir','wave8m_Hs','wave8m_Tp','wave8m_dir',
+           'wg110_HsIN','wg110_HsIG','wg110_Tp','wg110_TmIG','lidar_elev2p']
+for ii in np.arange(3,len(varnames)):
+    exec('data_fullspan = data_' + varnames[ii] + '[:]')
+    exec('var_' + varnames[ii] + ' = data_fullspan[ikeep[tmpkeep]]')
+
+# Calculate beach volume and beach slope
+delx = profile_width[ikeep[tmpkeep]]/scaled_PCAprofiles.shape[1]
+beachvol = np.sum(scaled_PCAprofiles,axis=1)*delx
+beachwid = profile_width[ikeep[tmpkeep]]
+beachslope = np.empty(beachvol.shape)
+beachprofs = zsmooth_fullspan[:,ikeep[tmpkeep]]
+for ii in np.arange(var_tidegauge.size):
+    # first, calculate Lwave
+    g = 9.81
+    h = 8 + var_tidegauge[ii]
+    T = var_wave8m_Tp[ii]
+    if ~np.isnan(T) & ~np.isnan(var_tidegauge[ii]):
+        hmatch, Tmatch, k, L, C, Cg, n = wavenumber(h, T, g)
+        L0 = g*T*T/(2*np.pi)
+        # then, find section of beach profile that is within 1 wavelength L centered at shoreline
+        tmp = np.abs(beachprofs[:,ii] - var_tidegauge[ii])
+        ix_stillwater = np.where(tmp == np.nanmin(tmp))[0][0]
+        halfspan = np.floor(L/2).astype(int)
+        iix = ix_stillwater+np.arange(-halfspan,halfspan)
+        profiix = beachprofs[iix,ii]
+        profiix = profiix[~np.isnan(profiix)]
+        beachslope[ii] = (profiix[-1] - profiix[0])/(profiix.size*dx)
+fig, ax = plt.subplots()
+ax.hist(beachslope)
+# ok, calculate Pearson's correlation between PCs and beach characteristics
+pearsons_corr = np.empty((4,len(varnames)))
+pearsons_corr[:] = np.nan
+for ii in np.arange(pearsons_corr.shape[0]):
+    for jj in np.arange(len(varnames)):
+        varx = PCs[:,ii]
+        if jj >= 3:
+            exec('vary = var_'+varnames[jj]+'.flatten()')
+        else:
+            exec('vary = ' + varnames[jj])
+        notnan = ~np.isnan(varx) & ~np.isnan(vary)
+        corr,_ = pearsonr(varx[notnan],vary[notnan])
+        pearsons_corr[ii, jj] = corr
+# Now, calculate Pearson's correlation between CHANGE in PCs (bathy change) and explanatory variables
+pearsons_corr = np.empty((4,len(varnames)))
+pearsons_corr[:] = np.nan
+for ii in np.arange(pearsons_corr.shape[0]):
+    for jj in np.arange(len(varnames)):
+        varx = PCs[:,ii]
+        if jj >= 3:
+            exec('vary = var_'+varnames[jj]+'.flatten()')
+        else:
+            exec('vary = ' + varnames[jj])
+        notnan = ~np.isnan(varx) & ~np.isnan(vary)
+        corr,_ = pearsonr(varx[notnan],vary[notnan])
+        pearsons_corr[ii, jj] = corr
+fig, ax = plt.subplot()
+sns.heatmap(pearsons_corr, annot=True)
+
+###################################################################
+
+
+# Calcs for Kate
+print(tplot[-1]-tplot[0])
+days_fullspan = 3178+16/24
+days_avail = 18758/24
+
+
+
 
 
 fig, ax = plt.subplots(2,1)
