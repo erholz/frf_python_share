@@ -9,7 +9,7 @@ from funcs.get_timeinfo import get_TimeInfo
 
 # plot_ContourTimeSeries - Plot contour time series
 def plot_ContourTimeSeries(cont_elev,cont_ts,lidartime,wlmean_lidar,wltime_lidar,lidar_xFRF):
-    tzinfo, time_format, time_beg, time_end, epoch_beg, epoch_end, TOI_duration = get_TimeInfo()
+    tzinfo, time_format, time_beg, time_end, epoch_beg, epoch_end, TOI_duration = get_TimeInfo('./')
     fig, (ax1,ax2) = plt.subplots(2)
     cmap = plt.cm.rainbow(np.linspace(0,1,cont_elev.size))
     ax1.set_prop_cycle('color', cmap)
@@ -36,7 +36,7 @@ def plot_ContourTimeSeries(cont_elev,cont_ts,lidartime,wlmean_lidar,wltime_lidar
 
 # plot_ProfilesSubset - Make plots of profiles through time
 def plot_ProfilesSubset(elev_input,lidartime,lidar_xFRF,num_profs_plot):
-    tzinfo, time_format, time_beg, time_end, epoch_beg, epoch_end, TOI_duration = get_TimeInfo()
+    tzinfo, time_format, time_beg, time_end, epoch_beg, epoch_end, TOI_duration = get_TimeInfo('./')
     numprofs = np.array(elev_input.shape)[0]
     print('There are ' + str(numprofs) + ' profiles in this subset')
     print('How many do you want to plot? --> Set [num_profs_plot]')
@@ -84,7 +84,7 @@ def plot_ProfilesTimestack(elev_input,lidartime,lidar_xFRF):
 
 # plot_QualityDataWithContourPositions - Availability of "quality" data (no-nans) as a func. of xFRF
 def plot_QualityDataWithContourPositions(elev_input,lidar_xFRF,cont_elev,cmean,cstd):
-    tzinfo, time_format, time_beg, time_end, epoch_beg, epoch_end, TOI_duration = get_TimeInfo()
+    tzinfo, time_format, time_beg, time_end, epoch_beg, epoch_end, TOI_duration = get_TimeInfo('./')
     fig, ax = plt.subplots()
     xplot = lidar_xFRF
     yplot = np.sum(~np.isnan(elev_input), axis=0) / np.array(elev_input.shape)[0]
@@ -108,7 +108,7 @@ def plot_QualityDataWithContourPositions(elev_input,lidar_xFRF,cont_elev,cmean,c
 
 # plot_QualityDataTimeSeries - Availability of "quality" data (no-nans) as a func. of time
 def plot_QualityDataTimeSeries(elev_input,lidartime):
-    tzinfo, time_format, time_beg, time_end, epoch_beg, epoch_end, TOI_duration = get_TimeInfo()
+    tzinfo, time_format, time_beg, time_end, epoch_beg, epoch_end, TOI_duration = get_TimeInfo('./')
     fig, ax = plt.subplots()
     tplot = pd.to_datetime(lidartime, unit='s', origin='unix')
     yplot = np.sum(~np.isnan(elev_input), axis=1) / np.array(elev_input.shape)[1]
@@ -156,7 +156,7 @@ def plot_DailyVariationTimestack(elev_input,lidartime,lidar_xFRF,daily_zstdev,da
 
 
 def plot_BeachVolume(lidartime,cont_elev,beachVol,dBeachVol_dt):
-    tzinfo, time_format, time_beg, time_end, epoch_beg, epoch_end, TOI_duration = get_TimeInfo()
+    tzinfo, time_format, time_beg, time_end, epoch_beg, epoch_end, TOI_duration = get_TimeInfo('./')
     # Make some plots
     time_beg = dt.datetime.fromtimestamp(lidartime[0],tzinfo).strftime(time_format)
     time_end = dt.datetime.fromtimestamp(lidartime[-1], tzinfo).strftime(time_format)

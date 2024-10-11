@@ -11,7 +11,8 @@ from funcs.getFRF_funcs.getFRF_lidar import *
 def run_hydrocollect_func(noaawlfloc, noaawlext, lidarhydrofloc, lidarhydroext):
 
     # Get timing info from run_code.py
-    tzinfo, time_format, time_beg, time_end, epoch_beg, epoch_end, TOI_duration = get_TimeInfo()
+    picklefile_dir = './'
+    tzinfo, time_format, time_beg, time_end, epoch_beg, epoch_end, TOI_duration = get_TimeInfo(picklefile_dir)
 
     # start with NOAA water level files
     floc = noaawlfloc
@@ -70,7 +71,8 @@ def run_hydrocollect_func(noaawlfloc, noaawlext, lidarhydrofloc, lidarhydroext):
 def run_wavecollect17m_func(wave17mfloc, wave17mext):
 
     # Get timing info from run_code.py
-    tzinfo, time_format, time_beg, time_end, epoch_beg, epoch_end, TOI_duration = get_TimeInfo()
+    picklefile_dir = './'
+    tzinfo, time_format, time_beg, time_end, epoch_beg, epoch_end, TOI_duration = get_TimeInfo(picklefile_dir)
 
     floc = wave17mfloc
     ext = wave17mext
@@ -101,7 +103,8 @@ def run_wavecollect17m_func(wave17mfloc, wave17mext):
 def run_wavecollect8m_func(wave8mfloc, wave8mext):
 
     # Get timing info from run_code.py
-    tzinfo, time_format, time_beg, time_end, epoch_beg, epoch_end, TOI_duration = get_TimeInfo()
+    picklefile_dir = './'
+    tzinfo, time_format, time_beg, time_end, epoch_beg, epoch_end, TOI_duration = get_TimeInfo(picklefile_dir)
 
     floc = wave8mfloc
     ext = wave8mext
@@ -134,7 +137,8 @@ def run_wavecollect8m_func(wave8mfloc, wave8mext):
 def run_lidarwavegauge_func(lidarwavegaugefloc, lidarwavegaugeext):
 
     # Get timing info from run_code.py
-    tzinfo, time_format, time_beg, time_end, epoch_beg, epoch_end, TOI_duration = get_TimeInfo()
+    picklefile_dir = './'
+    tzinfo, time_format, time_beg, time_end, epoch_beg, epoch_end, TOI_duration = get_TimeInfo(picklefile_dir)
 
     floc = lidarwavegaugefloc
     ext = lidarwavegaugeext
@@ -175,7 +179,8 @@ def run_lidarwavegauge_func(lidarwavegaugefloc, lidarwavegaugeext):
 
 def run_lidarrunup_func(lidarrunupfloc, lidarrunupext):
 
-    tzinfo, time_format, time_beg, time_end, epoch_beg, epoch_end, TOI_duration = get_TimeInfo()
+    picklefile_dir = './'
+    tzinfo, time_format, time_beg, time_end, epoch_beg, epoch_end, TOI_duration = get_TimeInfo(picklefile_dir)
 
     floc = lidarrunupfloc
     ext = lidarrunupext

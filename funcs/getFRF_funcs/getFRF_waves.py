@@ -82,7 +82,8 @@ def getlocal_waves8m(full_path):
     from netCDF4 import Dataset
     from funcs.get_timeinfo import get_FileInfo
 
-    local_base, lidarfloc, lidarext, noaawlfloc, noaawlext, lidarhydrofloc, lidarhydroext = get_FileInfo()
+    picklefile_dir = 'C:/Users/rdchlerh/PycharmProjects/frf_python_share'
+    local_base, lidarfloc, lidarext, noaawlfloc, noaawlext, lidarhydrofloc, lidarhydroext = get_FileInfo(picklefile_dir)
 
     ## Get the date information from the input file name
     mon_str = full_path[len(full_path)-5:len(full_path)-3]

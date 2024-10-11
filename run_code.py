@@ -5,7 +5,7 @@ from run_hydrocollect import *
 from funcs.create_contours import *
 from funcs.lidar_check import *
 from funcs.calculate_beachvol import *
-from funcs.lidar_fillgaps import *
+# from funcs.lidar_fillgaps import *
 from run_makeplots import *
 import pickle
 
@@ -13,12 +13,15 @@ import pickle
 local_base = 'C:/Users/rdchlerh/Desktop/FRF_data/'
 
 # DEFINE TIME PERIOD OF INTEREST
-time_beg = '2015-10-01T00:00:00'     # 'YYYY-MM-DDThh:mm:ss' (string), time of interest BEGIN
+time_beg = '2015-01-01T00:00:00'     # 'YYYY-MM-DDThh:mm:ss' (string), time of interest BEGIN
 time_end = '2025-01-01T00:00:00'     # 'YYYY-MM-DDThh:mm:ss (string), time of interest END
 tzinfo = dt.timezone(-dt.timedelta(hours=4))    # FRF = UTC-4
 
 # DEFINE CONTOUR ELEVATIONS OF INTEREST
-cont_elev = np.arange(0,2.5,0.5)    # <<< MUST BE POSITIVELY INCREASING
+mwl = -0.13
+mhw = 3.6
+dune_toe = 3.22
+cont_elev = np.array([mwl, dune_toe, mhw]) #np.arange(0,2.5,0.5)   # <<< MUST BE POSITIVELY INCREASING
 
 # DEFINE NUMBER OF PROFILES TO PLOT
 num_profs_plot = 15
@@ -52,6 +55,14 @@ with open('fileinfo.pickle','wb') as file:
     pickle.dump([local_base,lidarfloc,lidarext,noaawlfloc,noaawlext,lidarhydrofloc,lidarhydroext],file)
 
 
+
+
+
+
+
+# -------------------- EVERYTHING BELOW THIS LINE IS OLD/NONESSENTIAL --------------------
+
+
 # -------------------- BEGIN RUN_CODE.PY --------------------
 
 # run file run_lidarcollect.py
@@ -63,12 +74,14 @@ pmissthresh = 0.75      # [0-1]. e.g., 0.75 equals 75% time series missing
 tmpii = (lidarelevstd >= stdthresh) + (lidarmissing > pmissthresh)
 lidarelev[tmpii] = np.nan
 
+# run file run_hydrocollect.py
+wlmax_lidar,wlmin_lidar,wltime_lidar,wlmean_lidar = run_hydrocollect_func(noaawlfloc, noaawlext, lidarhydrofloc, lidarhydroext)
+
+
+
 # run file create_contours.py
 elev_input = lidarelev
 cont_ts, cmean, cstd = create_contours(elev_input,lidartime,lidar_xFRF,cont_elev)
-
-# run file run_hydrocollect.py
-wlmax_lidar,wlmin_lidar,wltime_lidar,wlmean_lidar = run_hydrocollect_func(noaawlfloc, noaawlext, lidarhydrofloc, lidarhydroext)
 
 # Run quality check script
 # exec(open('funcs/lidar_check.py').read())

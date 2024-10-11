@@ -11,7 +11,8 @@ import pickle
 
 
 # define constants/file directories
-local_base, lidarfloc, lidarext, noaawlfloc, noaawlext, lidarhydrofloc, lidarhydroext = get_FileInfo()
+picklefile_dir = './'
+local_base, lidarfloc, lidarext, noaawlfloc, noaawlext, lidarhydrofloc, lidarhydroext = get_FileInfo(picklefile_dir)
 frf_shoredir = 72
 
 # Get water levels from lidar_hydro (min,max,mean) and NOAA tide gauge (on pier?)
@@ -337,10 +338,11 @@ data_tidegauge = np.reshape(data_tidegauge,(time_fullspan.size,1))
 
 
 # # # SAVE temporally aligned time series and data_availability variables !!!!!!!!!!!!
-with open('IO_alignedintime.pickle','wb') as file:
+picklefile_dir = 'F:/Projects/FY24/FY24_SMARTSEED/FRF_data/processed_backup/'
+with open(picklefile_dir+'IO_alignedintime.pickle','wb') as file:
     pickle.dump([time_fullspan,data_wave8m,data_wave17m,data_tidegauge,data_lidar_elev2p,data_lidarwg080,data_lidarwg090,data_lidarwg100,data_lidarwg110,data_lidarwg140,xc_fullspan,dXcdt_fullspan,lidarelev_fullspan],file)
-# with open('IO_datavail.pickle','wb') as file:
-#     pickle.dump([datavail_wave8m,datavail_wave17m,datavail_tidegauge,datavail_lidar_elev2p,datavail_lidarwg080,datavail_lidarwg090,datavail_lidarwg100,datavail_lidarwg110,datavail_lidarwg140,datavail_Xc,datavail_dXcdt],file)
+with open(picklefile_dir+'IO_datavail.pickle','wb') as file:
+    pickle.dump([datavail_wave8m,datavail_wave17m,datavail_tidegauge,datavail_lidar_elev2p,datavail_lidarwg080,datavail_lidarwg090,datavail_lidarwg100,datavail_lidarwg110,datavail_lidarwg140,datavail_Xc,datavail_dXcdt],file)
 # with open('tmp_lidarelev_fullspan.pickle','wb') as file:
 #     pickle.dump([lidarelev_fullspan],file)
 

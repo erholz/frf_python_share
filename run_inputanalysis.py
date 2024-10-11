@@ -10,10 +10,11 @@ import equadratures as eq
 from funcs.getFRF_funcs.getFRF_lidar import *
 
 # Load temporally aligned data - need to add lidarelev_fullspan
-with open('IO_alignedintime.pickle', 'rb') as file:
+picklefile_dir = 'F:/Projects/FY24/FY24_SMARTSEED/FRF_data/processed_backup/'
+with open(picklefile_dir+'IO_alignedintime.pickle', 'rb') as file:
     time_fullspan,data_wave8m,data_wave17m,data_tidegauge,data_lidar_elev2p,data_lidarwg080,data_lidarwg090,data_lidarwg100,data_lidarwg110,data_lidarwg140,xc_fullspan,dXcdt_fullspan,lidarelev_fullspan = pickle.load(file)
 # Load data availability info
-with open('IO_datavail.pickle','rb') as file:
+with open(picklefile_dir+'IO_datavail.pickle','rb') as file:
     datavail_wave8m, datavail_wave17m, datavail_tidegauge, datavail_lidar_elev2p, datavail_lidarwg080, datavail_lidarwg090, datavail_lidarwg100, datavail_lidarwg110, datavail_lidarwg140, datavail_Xc, datavail_dXcdt = pickle.load(file)
 
 # Determine when all data of interest align with Xc time series of interest
