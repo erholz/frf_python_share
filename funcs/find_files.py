@@ -50,5 +50,6 @@ def find_files_local(floc,ext_in):
     ids = []
     for file in os.listdir(full_path):
         if file.endswith(ext_in):
-            ids.append(file)
+            if not file.startswith('.'):
+                ids.append(file)
     return ids

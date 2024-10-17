@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 import mat73
 
 # Set data directory
-# data_dir = r'/Users/dylananderson/Downloads/cuspCodesForDylan/'
-data_dir = r'C:/Users/RDCHLDLA/Documents/cuspCodesForDylan/'
+data_dir = r'/Users/dylananderson/Downloads/cuspCodesForDylan/'
+# data_dir = r'C:/Users/RDCHLDLA/Documents/cuspCodesForDylan/'
 
 # Load data
 t1 = '20160310-0700'
@@ -351,24 +351,24 @@ def findContoursRunFFT(ys, xs, DEM, contourLine, largeFilter, smallFilter, delT,
 threshold_data = sio.loadmat(data_dir + 'threshold/threshold.mat')
 threshold = threshold_data['threshold'].flatten()  # Adjust depending on the structure of your .mat file
 
-# Load example DEMs
-dem1_data = mat73.loadmat(data_dir + 'exampleDEMs/' + t1 + '-01.FRFNProp.frame.data.mat')
-DEM1 = dem1_data['frameGriddedData']['data']
-xs = dem1_data['frameGriddedData']['xs']
-ys = dem1_data['frameGriddedData']['as']
-
-dem2_data = mat73.loadmat(data_dir + 'exampleDEMs/' + t2 + '-01.FRFNProp.frame.data.mat')
-DEM2 = dem2_data['frameGriddedData']['data']
-
-dem3_data = mat73.loadmat(data_dir + 'exampleDEMs/' + t3 + '-01.FRFNProp.frame.data.mat')
-DEM3 = dem3_data['frameGriddedData']['data']
-
-# Use only 400m of 500m DEM to focus on area with best data coverage
-idx_y = np.arange(50, 451)  # MATLAB is 1-indexed, Python is 0-indexed
-DEMC1 = DEM1[idx_y, :]
-DEMC2 = DEM2[idx_y, :]
-DEMC3 = DEM3[idx_y, :]
-ysC = ys[idx_y]
+# # Load example DEMs
+# dem1_data = mat73.loadmat(data_dir + 'exampleDEMs/' + t1 + '-01.FRFNProp.frame.data.mat')
+# DEM1 = dem1_data['frameGriddedData']['data']
+# xs = dem1_data['frameGriddedData']['xs']
+# ys = dem1_data['frameGriddedData']['as']
+#
+# dem2_data = mat73.loadmat(data_dir + 'exampleDEMs/' + t2 + '-01.FRFNProp.frame.data.mat')
+# DEM2 = dem2_data['frameGriddedData']['data']
+#
+# dem3_data = mat73.loadmat(data_dir + 'exampleDEMs/' + t3 + '-01.FRFNProp.frame.data.mat')
+# DEM3 = dem3_data['frameGriddedData']['data']
+#
+# # Use only 400m of 500m DEM to focus on area with best data coverage
+# idx_y = np.arange(50, 451)  # MATLAB is 1-indexed, Python is 0-indexed
+# DEMC1 = DEM1[idx_y, :]
+# DEMC2 = DEM2[idx_y, :]
+# DEMC3 = DEM3[idx_y, :]
+# ysC = ys[idx_y]
 
 # FFT parameters
 filter_large = 50  # Moving average to find trend
@@ -379,78 +379,79 @@ delT = 1           # DEM spatial resolution
 contourOI = 1      # Contour of interest in meters
 
 
-
-# Extract contour and run FFT
-(contour_smSmall1, contour_smLarge1, elevation_smSmall1, elevation_smLarge1,
- fj_final1, Sj_final1, fj_ave1, Sj_ave1, ED_RG1) = findContoursRunFFT(ysC, xs, DEMC1, contourOI,
-                                                                      filter_large, filter_small, delT, dof, 'X')
-
 #
-
-(contour_smSmall2, contour_smLarge2, elevation_smSmall2, elevation_smLarge2,
- fj_final2, Sj_final2, fj_ave2, Sj_ave2, ED_RG2) = findContoursRunFFT(ysC, xs, DEMC2, contourOI,
-                                                                      filter_large, filter_small, delT, dof, 'X')
-
-(contour_smSmall3, contour_smLarge3, elevation_smSmall3, elevation_smLarge3,
- fj_final3, Sj_final3, fj_ave3, Sj_ave3, ED_RG3) = findContoursRunFFT(ysC, xs, DEMC3, contourOI,
-                                                                      filter_large, filter_small, delT, dof, 'X')
-
-
-
-# Plot
-plt.figure(figsize=(11, 8))
-
-# DEM1 plot
-plt.subplot2grid((3,3),(0,0),rowspan=2,colspan=1)
-plt.pcolor(xs, ysC, DEMC1)
-plt.plot(contour_smSmall1, ysC, 'k-', linewidth=1.5)
-plt.plot(contour_smLarge1, ysC, 'k--', linewidth=1)
-plt.xlabel('Cross-shore x (m)')
-plt.ylabel('Alongshore y (m)')
-plt.axis([50, 120, 750, 1150])
-# plt.title(t1)
-
-# DEM2 plot
-plt.subplot2grid((3,3),(0,1),rowspan=2,colspan=1)
-plt.pcolor(xs, ysC, DEMC2)
-plt.plot(contour_smSmall2, ysC, 'k-', linewidth=1.5)
-plt.plot(contour_smLarge2, ysC, 'k--', linewidth=1)
-plt.xlabel('Cross-shore x (m)')
-plt.ylabel('Alongshore y (m)')
-plt.axis([50, 120, 750, 1150])
-# plt.title(t2)
-
-# DEM3 plot
-plt.subplot2grid((3,3),(0,2),rowspan=2,colspan=1)
-plt.pcolor(xs, ysC, DEMC3)
-plt.plot(contour_smSmall3, ysC, 'k-', linewidth=1.5)
-plt.plot(contour_smLarge3, ysC, 'k--', linewidth=1)
-plt.xlabel('Cross-shore x (m)')
-plt.ylabel('Alongshore y (m)')
-plt.axis([50, 120, 750, 1150])
-# plt.title(t3)
-
-# Spectral density plot
-plt.subplot2grid((3,3),(2,0),rowspan=1,colspan=3)
-plt.plot(fj_final1, Sj_final1, linewidth=1.5)
-plt.plot(fj_final2, Sj_final2, linewidth=1.5)
-plt.plot(fj_final3, Sj_final3, linewidth=1.5)
-plt.plot(fj_final1, threshold, 'k--')
-plt.xlabel('Wavenumber (m^{-1})')
-plt.ylabel('Spectral density (m^2 m)')
-plt.xlim([0, 0.1])
-plt.ylim([0, 1000])
-# plt.legend([t1, t2, t3])
-
-plt.tight_layout()
-plt.show()
-
-
-
-
+# # Extract contour and run FFT
+# (contour_smSmall1, contour_smLarge1, elevation_smSmall1, elevation_smLarge1,
+#  fj_final1, Sj_final1, fj_ave1, Sj_ave1, ED_RG1) = findContoursRunFFT(ysC, xs, DEMC1, contourOI,
+#                                                                       filter_large, filter_small, delT, dof, 'X')
+#
+# #
+#
+# (contour_smSmall2, contour_smLarge2, elevation_smSmall2, elevation_smLarge2,
+#  fj_final2, Sj_final2, fj_ave2, Sj_ave2, ED_RG2) = findContoursRunFFT(ysC, xs, DEMC2, contourOI,
+#                                                                       filter_large, filter_small, delT, dof, 'X')
+#
+# (contour_smSmall3, contour_smLarge3, elevation_smSmall3, elevation_smLarge3,
+#  fj_final3, Sj_final3, fj_ave3, Sj_ave3, ED_RG3) = findContoursRunFFT(ysC, xs, DEMC3, contourOI,
+#                                                                       filter_large, filter_small, delT, dof, 'X')
 #
 #
-local_base = 'D:/FRF_data/'
+#
+# # Plot
+# plt.figure(figsize=(11, 8))
+#
+# # DEM1 plot
+# plt.subplot2grid((3,3),(0,0),rowspan=2,colspan=1)
+# plt.pcolor(xs, ysC, DEMC1)
+# plt.plot(contour_smSmall1, ysC, 'k-', linewidth=1.5)
+# plt.plot(contour_smLarge1, ysC, 'k--', linewidth=1)
+# plt.xlabel('Cross-shore x (m)')
+# plt.ylabel('Alongshore y (m)')
+# plt.axis([50, 120, 750, 1150])
+# # plt.title(t1)
+#
+# # DEM2 plot
+# plt.subplot2grid((3,3),(0,1),rowspan=2,colspan=1)
+# plt.pcolor(xs, ysC, DEMC2)
+# plt.plot(contour_smSmall2, ysC, 'k-', linewidth=1.5)
+# plt.plot(contour_smLarge2, ysC, 'k--', linewidth=1)
+# plt.xlabel('Cross-shore x (m)')
+# plt.ylabel('Alongshore y (m)')
+# plt.axis([50, 120, 750, 1150])
+# # plt.title(t2)
+#
+# # DEM3 plot
+# plt.subplot2grid((3,3),(0,2),rowspan=2,colspan=1)
+# plt.pcolor(xs, ysC, DEMC3)
+# plt.plot(contour_smSmall3, ysC, 'k-', linewidth=1.5)
+# plt.plot(contour_smLarge3, ysC, 'k--', linewidth=1)
+# plt.xlabel('Cross-shore x (m)')
+# plt.ylabel('Alongshore y (m)')
+# plt.axis([50, 120, 750, 1150])
+# # plt.title(t3)
+#
+# # Spectral density plot
+# plt.subplot2grid((3,3),(2,0),rowspan=1,colspan=3)
+# plt.plot(fj_final1, Sj_final1, linewidth=1.5)
+# plt.plot(fj_final2, Sj_final2, linewidth=1.5)
+# plt.plot(fj_final3, Sj_final3, linewidth=1.5)
+# plt.plot(fj_final1, threshold, 'k--')
+# plt.xlabel('Wavenumber (m^{-1})')
+# plt.ylabel('Spectral density (m^2 m)')
+# plt.xlim([0, 0.1])
+# plt.ylim([0, 1000])
+# # plt.legend([t1, t2, t3])
+#
+# plt.tight_layout()
+# plt.show()
+#
+
+
+
+#
+#
+# local_base = 'D:/FRF_data/'
+local_base = '/volumes/anderson/FRF_data/'
 # DEFINE SUBDIR WITH NOAA WATERLEVEL FILES
 demfloc = local_base + 'dune_lidar/lidar_dems/'
 demext = 'nc'  # << change not recommended; defines file type to look for
@@ -460,12 +461,17 @@ import os
 def find_files_local(floc,ext_in):
     full_path = floc
     ids = []
-    for file in os.listdir(full_path):
-        if file.endswith(ext_in):
+    allFiles = os.listdir(full_path)
+    allFiles.sort()
+    for file in allFiles:
+        if file.startswith('._'):
+            print('skipping a hidden file')
+        elif file.endswith(ext_in):
             ids.append(file)
     return ids
 
 fname_in_range = find_files_local(demfloc,demext)
+
 
 from netCDF4 import Dataset
 
@@ -473,8 +479,8 @@ import datetime as DT
 
 contour_Small = []
 contour_Large = []
-elevation_Small = []
-elevation_Large = []
+# elevation_Small = []
+# elevation_Large = []
 fj_final = []
 Sj_final = []
 fj_ave = []
@@ -485,7 +491,9 @@ maxSjFinal = []
 thresholdAtMaxSj = []
 maxFjFinal = []
 
-for fname_ii in fname_in_range:
+
+
+for fname_ii in fname_in_range[86:]:
     print('reading... ' + fname_ii)
     full_path = demfloc + fname_ii
     ## Lidar dataset
@@ -496,6 +504,7 @@ for fname_ii in fname_in_range:
     # lidar_elevstd = ds.variables["elevationSigma"][:]
     lidar_time = ds.variables["time"][:]
     lidar_xFRF = ds.variables["xFRF"][:].filled(fill_value=np.NaN)
+    xs = lidar_xFRF
     lidar_yFRF = ds.variables["yFRF"][:].filled(fill_value=np.NaN)
     # Use only 400m of 500m DEM to focus on area with best data coverage
     idx_y = np.arange(50, 451)  # MATLAB is 1-indexed, Python is 0-indexed
@@ -503,13 +512,16 @@ for fname_ii in fname_in_range:
 
         DEMtemp = lidar_elev[hh,idx_y, :].filled(fill_value=np.NaN)
         ysC = lidar_yFRF[idx_y]
+
         (contour_smSmall, contour_smLarge, elevation_smSmall, elevation_smLarge,
          fj_finalTemp, Sj_finalTemp, fj_aveTemp, Sj_aveTemp, ED_RGTemp) = findContoursRunFFT(ysC, xs, DEMtemp, contourOI,
                                                                                              filter_large, filter_small, delT, dof, 'X')
         maxSj = np.max(Sj_finalTemp)
         if np.isnan(maxSj):
             print('processed {}'.format(DT.datetime.fromtimestamp(lidar_time[hh])))
-
+            maxFj = np.nan
+            maxSj = np.nan
+            maxThreshold = np.nan
         else:
             maxSjIndex = np.argmax(Sj_finalTemp)
             maxFj = fj_finalTemp[maxSjIndex]
@@ -526,20 +538,20 @@ for fname_ii in fname_in_range:
         maxSjFinal.append(maxSj)
         contour_Small.append(contour_smSmall)
         contour_Large.append(contour_smLarge)
-        elevation_Small.append(elevation_smSmall)
-        elevation_Large.append(elevation_smLarge)
+        # elevation_Small.append(elevation_smSmall)
+        # elevation_Large.append(elevation_smLarge)
         fj_final.append(fj_finalTemp)
         Sj_final.append(Sj_finalTemp)
         fj_ave.append(fj_aveTemp)
         Sj_ave.append(Sj_aveTemp)
-        ED_RG.append(ED_RGTemp)
+        # ED_RG.append(ED_RGTemp)
         contourTime.append(lidar_time[hh])
 
 
 
 
 
-clusterPickle = 'cuspsOverTime.pickle'
+clusterPickle = 'cuspsOverTime2024.pickle'
 output = {}
 output['contourTime'] = contourTime
 output['ED_RG'] = ED_RG
@@ -547,8 +559,11 @@ output['Sj_ave'] = Sj_ave
 output['fj_ave'] = fj_ave
 output['Sj_final'] = Sj_final
 output['fj_final'] = fj_final
-output['elevation_Large'] = elevation_Large
-output['elevation_Small'] = elevation_Small
+output['maxSjFinal'] = maxSjFinal
+output['thresholdAtMaxSj'] = thresholdAtMaxSj
+output['maxFjFinal'] = maxFjFinal
+# output['elevation_Large'] = elevation_Large
+# output['elevation_Small'] = elevation_Small
 output['contour_Large'] = contour_Large
 output['contour_Small'] = contour_Small
 output['lidar_yFRF'] = lidar_yFRF

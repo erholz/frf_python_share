@@ -22,10 +22,15 @@ server_url = 'https://chldata.erdc.dren.mil/thredds/'
 # local_dir = '/volumes/macDrive/FRF_Data/waves_lidar/lidar_hydro/'
 # years = np.arange(2023,2025)
 
+# # For waverider-26m
+# request_url = 'catalog/frf/oceanography/waves/waverider-26m/'
+# local_dir = '/volumes/macDrive/FRF_Data/waverider-26m/'
+# years = np.arange(2008,2025)
+
 # For waverider-26m
-request_url = 'catalog/frf/oceanography/waves/waverider-26m/'
-local_dir = '/volumes/macDrive/FRF_Data/waverider-26m/'
-years = np.arange(2008,2025)
+request_url = 'catalog/wis/Pacific/ST84065/'
+local_dir = '/volumes/anderson/WIS84065/'
+years = np.arange(1980,2024)
 
 def get_elements(url, tag_name, attribute_name):
     """Get elements from an XML file"""
