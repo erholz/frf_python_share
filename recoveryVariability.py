@@ -347,38 +347,29 @@ def download_noaa_tides_dylanWithPred(gauge, datum, start_year, end_year):
 
 
 
-
-
-# Example usage
 gauge = '8651370'
 datum = 'MSL'
 start_year = 2016#1978
 end_year = 2024
 tideout = download_noaa_tides_dylanWithPred(gauge, datum, start_year, end_year)
 
-# Further processing to handle the tideout data, similar to the MATLAB code
 dat = tideout['wl']
 time = tideout['wltime']
-# time_tide_pred = [tt.astype('M8(ms)').astype(datetime) for tt in tideout['predtimeDateTime']]#[::10]
 time_tide_predUTC = np.asarray([(dt64 - np.datetime64('1970-01-01T00:00:00')) / np.timedelta64(1, 's') for dt64 in tideout['predtimeDateTime'][::5]])
 time_tide_pred = np.asarray([datetime.utcfromtimestamp(utc) for utc in time_tide_predUTC])
 
 tide_pred = tideout['pred'][::5]
 
+from scipy.signal import find_peaks
+peaks = find_peaks(tide_pred)
+
+highTideTimes = time_tide_pred[peaks[0]]
+highTideUTCtime = time_tide_predUTC[peaks[0]]
+highTides = tide_pred[peaks[0]]
+
+
 del tideout
 
-# lin = 1
-
-# predTimes = [dt.datetime.utcfromtimestamp(ts) for ts in tide_pred]
-
-
-# plt.figure()
-# plt.pcolor(lidarTime,lidar_xFRF,lidarProfiles.T)
-# dts = [dt.datetime.utcfromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S') for ts in lidarTime]
-# plt.figure()
-# plt.plot(dts,lidarContours[4,:],'.')
-# plt.plot(dts,lidarContours[6,:],'.')
-# plt.plot(dts,lidarContours[8,:],'.')
 
 import datetime as dt
 from dateutil.relativedelta import relativedelta
@@ -465,13 +456,7 @@ from datetime import datetime
 #             highTides.append(np.nanmax(tide_pred[inder]))
 #             morphTime.append(wlDateTimes[qq])
 #             morphUTCtime.append(wlTimes[qq])
-from scipy.signal import find_peaks
-peaks = find_peaks(tide_pred)
 
-
-highTideTimes = time_tide_pred[peaks[0]]
-highTideUTCtime = time_tide_predUTC[peaks[0]]
-highTides = tide_pred[peaks[0]]
 
 
 
@@ -1483,6 +1468,7 @@ p12.set_ylabel('MHW (m, xFRF)')
 p12 = plt.subplot2grid((4,1),(3,0))
 p12.plot(highTideTimes,mslContour)
 p12.set_ylabel('MSL (m, xFRF)')
+
 # p12.plot(highTideTimes,mslVolume,label='MSL')
 # p12.plot(highTideTimes,mhhwVolume,label='MHHW')
 # p12.set_ylabel('Volumes ($m^{3}/m$)')
@@ -1490,6 +1476,34 @@ p12.set_ylabel('MSL (m, xFRF)')
 
 
 
+
+
+clusterPickle = 'tidalAveragedMetrics.pickle'
+output = {}
+output['interpTimeS'] = interpTime
+output['eofSubaerial'] = subaerial
+output['lidar_xFRF'] = lidar_xFRF
+output['interpX'] = interpX
+output['mslContour'] = mslContour
+output['highTideTimes'] = highTideTimes
+output['highTideUTCtime'] = highTideUTCtime
+output['mhwContour'] = mhwContour
+output['tidalAverageWithData'] = tidalAverageWithData
+output['tidalAverage'] = tidalAverage
+output['duneContour'] = duneContour
+output['mhhwContour'] = mhhwContour
+output['smoothUpperTidalAverage'] = smoothUpperTidalAverage
+output['mhhwVolume'] = mhhwVolume
+output['mslVolume'] = mslVolume
+import pickle
+with open(clusterPickle,'wb') as f:
+    pickle.dump(output, f)
+
+
+
+
+
+asdf
 
 
 

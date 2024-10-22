@@ -3,6 +3,7 @@ import numpy as np
 from netCDF4 import Dataset
 import os
 import more_itertools as mit
+
 import matplotlib
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
@@ -181,38 +182,138 @@ cDp = cDp[cutOff]
 waveNorm = cDp - 72
 neg = np.where((waveNorm > 180))
 waveNorm[neg[0]] = waveNorm[neg[0]]-360
-offpos = np.where((waveNorm>90))
-offneg = np.where((waveNorm<-90))
-waveNorm[offpos[0]] = waveNorm[offpos[0]]*0
-waveNorm[offneg[0]] = waveNorm[offneg[0]]*0
+# offpos = np.where((waveNorm>90))
+# offneg = np.where((waveNorm<-90))
+# waveNorm[offpos[0]] = waveNorm[offpos[0]]*0
+# waveNorm[offneg[0]] = waveNorm[offneg[0]]*0
 
 # def wavetransform_point(H0, theta0, H1, theta1, T, h2, h1, g, breakcrit):
 
-asdfg
+
+
+wavedirWIS = '/volumes/macDrive/WIS63218/'
+
+# Need to sort the files to ensure correct temporal order...
+filesWIS = os.listdir(wavedirWIS)
+filesWIS.sort()
+files_pathWIS = [os.path.join(os.path.abspath(wavedirWIS), x) for x in filesWIS][1:]
+
+# wis = Dataset(files_path[0])
+
+def getWIS(file):
+    waves = Dataset(file)
+
+    waveHs = waves.variables['waveHs'][:]
+    waveTp = waves.variables['waveTp'][:]
+    waveMeanDirection = waves.variables['waveMeanDirection'][:]
+
+    waveTm = waves.variables['waveTm'][:]
+    waveTm1 = waves.variables['waveTm1'][:]
+    waveTm2 = waves.variables['waveTm2'][:]
+
+    waveHsWindsea = waves.variables['waveHsWindsea'][:]
+    waveTmWindsea = waves.variables['waveTmWindsea'][:]
+    waveMeanDirectionWindsea = waves.variables['waveMeanDirectionWindsea'][:]
+    waveSpreadWindsea = waves.variables['waveSpreadWindsea'][:]
+
+    timeW = waves.variables['time'][:]
+
+    waveTpSwell = waves.variables['waveTpSwell'][:]
+    waveHsSwell = waves.variables['waveHsSwell'][:]
+    waveMeanDirectionSwell = waves.variables['waveMeanDirectionSwell'][:]
+    waveSpreadSwell = waves.variables['waveSpreadSwell'][:]
+
+
+    output = dict()
+    output['waveHs'] = waveHs
+    output['waveTp'] = waveTp
+    output['waveMeanDirection'] = waveMeanDirection
+
+    output['waveTm'] = waveTm
+    output['waveTm1'] = waveTm1
+    output['waveTm2'] = waveTm2
+
+    output['waveTpSwell'] = waveTpSwell
+    output['waveHsSwell'] = waveHsSwell
+    output['waveMeanDirectionSwell'] = waveMeanDirectionSwell
+    output['waveSpreadSwell'] = waveSpreadSwell
+
+    output['waveHsWindsea'] = waveHsWindsea
+    output['waveTpWindsea'] = waveTmWindsea
+    output['waveMeanDirectionWindsea'] = waveMeanDirectionWindsea
+    output['waveSpreadWindsea'] = waveSpreadWindsea
+
+    output['t'] = timeW
+
+    return output
+
+HsWIS = []
+TpWIS = []
+DmWIS = []
+hsSwellWIS = []
+tpSwellWIS = []
+dmSwellWIS = []
+hsWindseaWIS = []
+tpWindseaWIS = []
+dmWindseaWIS = []
+
+timeWaveWIS = []
+for i in files_pathWIS:
+    wavesWIS = getWIS(i)
+    HsWIS = np.append(HsWIS,wavesWIS['waveHs'])
+    TpWIS = np.append(TpWIS,wavesWIS['waveTp'])
+    DmWIS = np.append(DmWIS,wavesWIS['waveMeanDirection'])
+    hsSwellWIS = np.append(hsSwellWIS,wavesWIS['waveHsSwell'])
+    tpSwellWIS = np.append(tpSwellWIS,wavesWIS['waveTpSwell'])
+    dmSwellWIS = np.append(dmSwellWIS,wavesWIS['waveMeanDirectionSwell'])
+    hsWindseaWIS = np.append(hsWindseaWIS,wavesWIS['waveHsWindsea'])
+    tpWindseaWIS = np.append(tpWindseaWIS,wavesWIS['waveTpWindsea'])
+    dmWindseaWIS = np.append(dmWindseaWIS,wavesWIS['waveMeanDirectionWindsea'])
+    #timeTemp = [datenum_to_datetime(x) for x in waves['t'].flatten()]
+    timeWaveWIS = np.append(timeWaveWIS,wavesWIS['t'].flatten())
+
+
+
+tWaveWIS = [DT.datetime.fromtimestamp(x) for x in timeWaveWIS]
+copyOverIndex = np.where(cTime>tWaveWIS[-1])
+
+waveNormWIS = DmWIS - 72
+negWIS = np.where((waveNormWIS > 180))
+waveNormWIS[negWIS[0]] = waveNormWIS[negWIS[0]]-360
+
+combinedHsWIS = np.hstack((HsWIS,cHs[copyOverIndex]))
+combinedTpWIS = np.hstack((TpWIS,cTp[copyOverIndex]))
+combinedDmWIS = np.hstack((waveNormWIS,waveNorm[copyOverIndex]))
+combinedTimeWIS = np.hstack((tWaveWIS,cTime[copyOverIndex]))
+
+
+
+
+
+
 
 def moving_average(a, n=3) :
     ret = np.cumsum(a, dtype=float)
     ret[n:] = ret[n:] - ret[:-n]
     return ret[n - 1:] / n
 
-avgHs = np.nanmean(cHs)
-hs98 = np.nanpercentile(cHs,98)
-hs95 = np.nanpercentile(cHs,95)
-hs90 = np.nanpercentile(cHs,90)
-hs85 = np.nanpercentile(cHs,85)
+avgHs = np.nanmean(combinedHsWIS)
+hs98 = np.nanpercentile(combinedHsWIS,98)
+hs95 = np.nanpercentile(combinedHsWIS,95)
+hs94 = np.nanpercentile(combinedHsWIS,94)
+hs90 = np.nanpercentile(combinedHsWIS,90)
+hs85 = np.nanpercentile(combinedHsWIS,85)
 hsSmooth = moving_average(cHs,3)#np.asarray([avgHs,moving_average(hs,3),avgHs])
+hsSmoothWIS = moving_average(combinedHsWIS,3)#np.asarray([avgHs,moving_average(hs,3),avgHs])
 # stormHsInd = np.where((hsSmooth > 1.5))
-stormHsInd = np.where((hsSmooth > hs90))
+stormHsIndWIS = np.where((hsSmoothWIS > hs94))
+stormHsListWIS = [list(group) for group in mit.consecutive_groups(stormHsIndWIS[0])]
+stormHsInd = np.where((hsSmooth > hs94))
 stormHsList = [list(group) for group in mit.consecutive_groups(stormHsInd[0])]
 
 
-
 stormLengths = np.asarray([len(tt) for tt in stormHsList])
-
-over12HourStorms = np.where(stormLengths>=47)
-
-
-
+over12HourStorms = np.where(stormLengths>=23)
 
 
 hsStormList = []
@@ -225,6 +326,7 @@ indStormList = []
 durationStormList = []
 wavePowerStormList = []
 longshorePowerStormList = []
+peakTimeStormList = []
 startTimeStormList = []
 endTimeStormList = []
 c = 0
@@ -260,11 +362,12 @@ for yy in range(len(over12HourStorms[0])):
         lwpC = 1025 * np.square(cHs[tempWave]) * cTp[tempWave] * (9.81 / (64 * np.pi)) * np.cos(
             waveNorm[tempWave] * (np.pi / 180)) * np.sin(waveNorm[tempWave] * (np.pi / 180))
         weC = np.square(cHs[tempWave]) * cTp[tempWave]
-
+        tempHsWaves = cHs[tempWave]
         wavePowerStormList.append(np.nansum(weC))
         longshorePowerStormList.append(np.nansum(lwpC))
         hsStormList.append(cHs[tempWave])
         hsMaxStormList.append(np.nanmax(cHs[tempWave]))
+        peakTimeStormList.append(cTime[np.where(np.nanmax(tempHsWaves)==tempHsWaves)][0])
         tpStormList.append(cTp[tempWave])
         dmStormList.append(cDp[tempWave])
         timeStormList.append(cTime[tempWave])
@@ -276,6 +379,71 @@ for yy in range(len(over12HourStorms[0])):
 
 
 
+
+stormLengthsWIS = np.asarray([len(tt) for tt in stormHsListWIS])
+over12HourStormsWIS = np.where(stormLengthsWIS>=23)
+
+
+hsStormListWIS = []
+hsMaxStormListWIS = []
+tpStormListWIS = []
+dmStormListWIS = []
+timeStormListWIS = []
+hourStormListWIS = []
+indStormListWIS = []
+durationStormListWIS = []
+wavePowerStormListWIS = []
+longshorePowerStormListWIS = []
+peakTimeStormListWIS = []
+startTimeStormListWIS = []
+endTimeStormListWIS = []
+c = 0
+for yy in range(len(over12HourStormsWIS[0])):
+
+    index = over12HourStormsWIS[0][yy]
+    i1 = stormHsListWIS[index][0]
+    i2 = stormHsListWIS[index][-1]
+    t1 = combinedTimeWIS[i1]
+    t2 = combinedTimeWIS[i2]
+
+    # should we check if we need to add storm waves onto this?
+    nexti1 = combinedTimeWIS[stormHsListWIS[index+1][0]]
+    diff = (int(nexti1.strftime('%s'))-int(t2.strftime('%s')))/60/60#nexti1 - t2
+    if diff < 12:#timedelta(hours=12):
+        print('Next storm is within 12 hours')
+        t2 = combinedTimeWIS[stormHsListWIS[index+1][-1]]
+
+    previousi2 = combinedTimeWIS[stormHsListWIS[index-1][-1]]
+    diff2 = (int(t1.strftime('%s'))-int(previousi2.strftime('%s')))/60/60#t1 - previousi2
+    if diff2 < 12:#timedelta(hours=12):
+        print('Previous storm was within 12 hours')
+        t1 = combinedTimeWIS[stormHsListWIS[index-1][0]]
+
+    c = c + 1
+    tempWave = np.where((combinedTimeWIS <= t2) & (combinedTimeWIS >= t1))
+    newDiff = t2-t1
+    if newDiff >= timedelta(hours=12):
+        # print(newDiff)
+        tempWave = np.where((combinedTimeWIS <= t2) & (combinedTimeWIS >= t1))
+        indices = np.arange(i1,i2)
+
+        lwpC = 1025 * np.square(combinedHsWIS[tempWave]) * combinedTpWIS[tempWave] * (9.81 / (64 * np.pi)) * np.cos(
+            combinedDmWIS[tempWave] * (np.pi / 180)) * np.sin(combinedDmWIS[tempWave] * (np.pi / 180))
+        weC = np.square(combinedHsWIS[tempWave]) * combinedTpWIS[tempWave]
+        tempHsWaves = combinedHsWIS[tempWave]
+        wavePowerStormListWIS.append(np.nansum(weC))
+        longshorePowerStormListWIS.append(np.nansum(lwpC))
+        hsStormListWIS.append(combinedHsWIS[tempWave])
+        hsMaxStormListWIS.append(np.nanmax(combinedHsWIS[tempWave]))
+        peakTimeStormListWIS.append(combinedTimeWIS[np.where(np.nanmax(tempHsWaves)==tempHsWaves)][0])
+        tpStormListWIS.append(combinedTpWIS[tempWave])
+        dmStormListWIS.append(combinedDmWIS[tempWave])
+        timeStormListWIS.append(combinedTimeWIS[tempWave])
+        duration = (int(t2.strftime('%s'))-int(t1.strftime('%s')))/60/60
+        durationStormListWIS.append(duration)
+        indStormListWIS.append(indices)
+        startTimeStormListWIS.append(int(t1.strftime('%s')))
+        endTimeStormListWIS.append(int(t2.strftime('%s')))
 
 #
 #
@@ -353,6 +521,35 @@ for yy in range(len(over12HourStorms[0])):
 
 plt.figure()
 plot1 = plt.subplot2grid((2,1),(0,0))
+plot1.plot(combinedTimeWIS,combinedHsWIS)
+for qq in range(len(hsStormListWIS)):
+    plot1.plot(timeStormListWIS[qq],hsStormListWIS[qq],'.',color='orange')
+plot1.set_ylabel('Hs (m)')
+plot2 = plt.subplot2grid((2,1),(1,0))
+# plot2.plot(cTime,cHs)
+# for qq in range(len(hsStormList)):
+plot2.scatter(np.asarray(peakTimeStormListWIS),np.asarray(wavePowerStormListWIS))
+# plot2.ylabel('Hs (m)')
+
+plt.figure()
+cp = plt.scatter(np.asarray(durationStormListWIS),np.asarray(hsMaxStormListWIS),c=np.asarray(wavePowerStormListWIS),vmin=0,vmax=30000)
+cb = plt.colorbar(cp)
+cb.set_label('Cumulative Wave Power')
+plt.ylabel('Max Hs (m)')
+plt.xlabel('Duration (hrs)')
+
+afterStormWIS = (np.asarray(endTimeStormListWIS)[1:]-np.asarray(startTimeStormListWIS)[0:-1])/60/60/24
+plt.figure()
+cp = plt.scatter(np.asarray(durationStormListWIS)[0:-1],np.asarray(hsMaxStormListWIS)[0:-1],c=np.asarray(afterStormWIS),vmin=0,vmax=60)
+cb = plt.colorbar(cp)
+cb.set_label('Recovery Time After (days)')
+plt.ylabel('Max Hs (m)')
+plt.xlabel('Duration (hrs)')
+
+
+
+plt.figure()
+plot1 = plt.subplot2grid((2,1),(0,0))
 plot1.plot(cTime,cHs)
 for qq in range(len(hsStormList)):
     plot1.plot(timeStormList[qq],hsStormList[qq],'.',color='orange')
@@ -383,7 +580,7 @@ plt.xlabel('Duration (hrs)')
 
 
 
-clusterPickle = 'stormHs90Over24Hours.pickle'
+clusterPickle = 'stormHs95Over12Hours.pickle'
 output = {}
 output['timeStormList'] = timeStormList
 output['hsStormList'] = hsStormList
@@ -402,6 +599,25 @@ output['cTp'] = cTp
 output['cDp'] = cDp
 output['waveNorm'] = waveNorm
 output['cTime'] = cTime
+output['peakTimeStormList']=peakTimeStormList
+output['timeStormListWIS'] = timeStormListWIS
+output['hsStormListWIS'] = hsStormListWIS
+output['hsMaxStormListWIS'] = hsMaxStormListWIS
+output['tpStormListWIS'] = tpStormListWIS
+output['dmStormListWIS'] = dmStormListWIS
+output['hourStormListWIS'] = hourStormListWIS
+output['indStormListWIS'] = indStormListWIS
+output['durationStormListWIS'] = durationStormListWIS
+output['wavePowerStormListWIS'] = wavePowerStormListWIS
+output['longshorePowerStormListWIS'] = longshorePowerStormListWIS
+output['startTimeStormListWIS'] = startTimeStormListWIS
+output['endTimeStormListWIS'] = endTimeStormListWIS
+output['combinedHsWIS'] = combinedHsWIS
+output['combinedTpWIS'] = combinedTpWIS
+output['combinedDmWIS'] = combinedDmWIS
+output['waveNormWIS'] = waveNormWIS
+output['combinedTimeWIS'] = combinedTimeWIS
+output['peakTimeStormListWIS']=peakTimeStormListWIS
 import pickle
 with open(clusterPickle,'wb') as f:
     pickle.dump(output, f)
