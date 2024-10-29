@@ -17,8 +17,10 @@ import seaborn as sns
 picklefile_dir = 'F:/Projects/FY24/FY24_SMARTSEED/FRF_data/processed_backup/'
 with open(picklefile_dir+'IO_alignedintime.pickle', 'rb') as file:
     time_fullspan,data_wave8m,data_wave17m,data_tidegauge,data_lidar_elev2p,data_lidarwg080,data_lidarwg090,data_lidarwg100,data_lidarwg110,data_lidarwg140,_,_,lidarelev_fullspan = pickle.load(file)
-full_path = 'C:/Users/rdchlerh/Desktop/FRF_data/dune_lidar/lidar_transect/FRF-geomorphology_elevationTransects_duneLidarTransect_201510.nc'
-_, _, _, _, _, lidar_xFRF, lidar_yFRF = (getlocal_lidar(full_path))
+with open(picklefile_dir+'lidar_xFRF.pickle', 'rb') as file:
+    lidar_xFRF = pickle.load(file)
+# full_path = 'C:/Users/rdchlerh/Desktop/FRF_data/dune_lidar/lidar_transect/FRF-geomorphology_elevationTransects_duneLidarTransect_201510.nc'
+# _, _, _, _, _, lidar_xFRF, lidar_yFRF = (getlocal_lidar(full_path))
 
 
 # Open all the permutations of Zsmooth & AvgSlope for full dataset

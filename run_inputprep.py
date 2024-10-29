@@ -31,7 +31,7 @@ wave8m_dir = wave8m_dir - frf_shoredir
 wave8m_dir[wave8m_dir > 180] = wave8m_dir[wave8m_dir > 180] - 360
 
 # Get wave stats at 17m buoy
-wave17mfloc = local_base + '/waves_17mwaverider/'
+wave17mfloc = local_base + '/waves_17marray/'
 wave17mext = '.nc'
 wave17m_depth = 16.77       # known constant, only nominal depth provided; total depth = nominal + SWE
 wave17m_time,wave17m_Tp,wave17m_Hs,wave17m_dir = run_wavecollect17m_func(wave17mfloc, wave17mext)
@@ -64,16 +64,24 @@ lidarrunup_time,lidarrunup_elev2p = run_lidarrunup_func(lidarrunupfloc, lidarrun
 lidarrunupfloc = local_base + '/dune_lidar/lidar_transect/'
 lidarrunupext = '.nc'
 lidarelev,lidartime,lidar_xFRF,lidarelevstd,lidarmissing = run_lidarcollect(lidarfloc, lidarext)
+# # Remove poor quality data
+# stdthresh = 0.05        # [m], e.g., 0.05 equals 5cm standard deviation in hrly reading
+# pmissthresh = 0.60      # [0-1]. e.g., 0.75 equals 75% time series missing
+# tmpii = (lidarelevstd >= stdthresh) + (lidarmissing > pmissthresh)
+# lidarelev[tmpii] = np.nan
 
-# Find contour
-elev_input = lidarelev
-cont_elev = np.arange(0,2.5,0.5)    # <<< MUST BE POSITIVELY INCREASING
-cont_ts, cmean, cstd = create_contours(elev_input,lidartime,lidar_xFRF,cont_elev)
-
-# Define output as DeltaX_contour(i) = X_contour(i+1) - X_contour(i)
-tmp = cont_ts[:,1:] - cont_ts[:,0:-1]
-dXContdt = np.hstack((tmp,np.empty((5,1))))
-dXContdt[:,-1] = np.nan
+# # Find contour
+# elev_input = lidarelev
+# mwl = -0.13
+# mhw = 3.6
+# dune_toe = 3.22
+# cont_elev = np.array([mwl, dune_toe, mhw]) #np.arange(0,2.5,0.5)   # <<< MUST BE POSITIVELY INCREASING
+# cont_ts, cmean, cstd = create_contours(elev_input,lidartime,lidar_xFRF,cont_elev)
+#
+# # Define output as DeltaX_contour(i) = X_contour(i+1) - X_contour(i)
+# tmp = cont_ts[:,1:] - cont_ts[:,0:-1]
+# dXContdt = np.hstack((tmp,np.empty((5,1))))
+# dXContdt[:,-1] = np.nan
 
 # Make histograms of input data
 param_list = ['wave8m_dir','wave17m_dir','wave8m_Tp','wave17m_Tp','wave8m_Hs',
@@ -196,18 +204,34 @@ lidarrunup_elev2p_fullspan = align_data_fullspan(time_fullspan, lidarrunup_time,
 
 # expand lidarelev surface to full span of time...
 lidarelev_fullspan = np.empty((lidar_xFRF.size,time_fullspan.size))
+# lidarhydro_max_fullspan = np.empty((lidar_xFRF.size,time_fullspan.size))
+# lidarhydro_min_fullspan = np.empty((lidar_xFRF.size,time_fullspan.size))
+# lidarhydro_mean_fullspan = np.empty((lidar_xFRF.size,time_fullspan.size))
+lidarelevstd_fullspan = np.empty((lidar_xFRF.size,time_fullspan.size))
+lidarmissing_fullspan = np.empty((lidar_xFRF.size,time_fullspan.size))
 lidarelev_fullspan[:] = np.nan
+# lidarhydro_max_fullspan[:] = np.nan
+# lidarhydro_min_fullspan[:] = np.nan
+# lidarhydro_mean_fullspan[:] = np.nan
+lidarmissing_fullspan[:] = np.nan
+lidarelevstd_fullspan[:] = np.nan
 for ii in np.arange(lidar_xFRF.size):
     lidarelev_fullspan[ii,:] = align_data_fullspan(time_fullspan, lidartime, lidarelev[:,ii])
+    # lidarhydro_max_fullspan[ii,:] = align_data_fullspan(time_fullspan,wltime_lidar,wlmax_lidar[:,ii])
+    # lidarhydro_min_fullspan[ii, :] = align_data_fullspan(time_fullspan, wltime_lidar, wlmin_lidar[:, ii])
+    # lidarhydro_mean_fullspan[ii, :] = align_data_fullspan(time_fullspan, wltime_lidar, wlmean_lidar[:, ii])
+    lidarmissing_fullspan[ii, :] = align_data_fullspan(time_fullspan, lidartime, lidarmissing[:, ii])
+    lidarelevstd_fullspan[ii, :] = align_data_fullspan(time_fullspan, lidartime, lidarelevstd[:, ii])
 
-# Now we have to recalculate Xc and DXc/Dt time series
-elev_input = lidarelev_fullspan.T
-cont_ts, cmean, cstd = create_contours(elev_input,time_fullspan,lidar_xFRF,cont_elev)
-tmp = cont_ts[:,1:] - cont_ts[:,0:-1]
-dXContdt = np.hstack((tmp,np.empty((cont_elev.size,1))))
-dXContdt[:,-1] = np.nan
-xc_fullspan = cont_ts
-dXcdt_fullspan = dXContdt
+
+# # Now we have to recalculate Xc and DXc/Dt time series
+# elev_input = lidarelev_fullspan.T
+# cont_ts, cmean, cstd = create_contours(elev_input,time_fullspan,lidar_xFRF,cont_elev)
+# tmp = cont_ts[:,1:] - cont_ts[:,0:-1]
+# dXContdt = np.hstack((tmp,np.empty((cont_elev.size,1))))
+# dXContdt[:,-1] = np.nan
+# xc_fullspan = cont_ts
+# dXcdt_fullspan = dXContdt
 # xc_fullspan = np.empty(shape=(cont_elev.size,time_fullspan.size))
 # dXcdt_fullspan = np.empty(shape=(cont_elev.size,time_fullspan.size))
 # xc_fullspan[:] = np.nan
@@ -242,10 +266,7 @@ data_wave17m = np.empty((time_fullspan.size,3))
 data_wave17m[:] = np.nan
 data_wave17m[:,0] = wave17m_Hs_fullspan.copy()
 data_wave17m[:,1] = wave17m_Tp_fullspan.copy()
-data_wave17m[:,2] = wave17m_dir_fullspan.copy()
-data_lidar_elev2p = lidarrunup_elev2p_fullspan.copy()
-data_tidegauge = wl_noaa_fullspan.copy()
-# For lidar wavegauges - [Hs, HsIN, HsIG, Tp, TmIG]
+data_wave17m[:,2] = wave17m_dir_fullspan.copy()# For lidar wavegauges - [Hs, HsIN, HsIG, Tp, TmIG]
 for wg_ii in wavegaugenames:
     exec('data_' + wg_ii + '= np.empty((time_fullspan.size,5))')
     exec('data_' + wg_ii + '[:] = np.nan')
@@ -290,49 +311,51 @@ imagedir = './figs/data/allavailabledata/'
 imagename = imagedir + 'data_availability_timeoverlap.svg'
 # fig.savefig(imagename, format='svg', dpi=1200)
 
-# Define when we have contour positions relative to hydro data
-datavail_Xc = np.ones(shape=xc_fullspan.shape)
-datavail_dXcdt = np.ones(shape=dXcdt_fullspan.shape)
-fig, (ax1,ax2) = plt.subplots(2)
-for ii in np.arange(cont_elev.size):
-    tmp = np.isnan(xc_fullspan[ii,:])
-    datavail_Xc[ii, tmp] = 0
-    tmp = np.isnan(dXcdt_fullspan[ii, :])
-    datavail_dXcdt[ii, tmp] = 0
-    tplot = pd.to_datetime(time_fullspan, unit='s', origin='unix')
-    ax1.plot(tplot,(ii+1)*datavail_Xc[ii, :],'o',label='Zc = '+str(cont_elev[ii]))
-    ax2.plot(tplot,(ii+1)*datavail_dXcdt[ii, :],'o',label='Zc = '+str(cont_elev[ii]))
-ax1.grid(which='both', axis='both')
-ax1.plot(tplot,datavail_all*10,'ok')
-ax2.grid(which='both', axis='both')
-ax2.plot(tplot,datavail_all*10,'ok')
-ax1.legend()
-
-fig, (ax1,ax2) = plt.subplots(2)
-for ii in np.arange(cont_elev.size):
-    tmp = datavail_Xc[ii, :] + datavail_all
-    yplot = np.ones(shape=tplot.shape)
-    yplot[tmp < 2] = 0
-    ax1.plot(tplot,(ii+1)*yplot,'o',label='Zc = '+str(cont_elev[ii])+', N = '+str(sum(yplot)))
-    tmp = datavail_dXcdt[ii, :] + datavail_all
-    yplot = np.ones(shape=tplot.shape)
-    yplot[tmp < 2] = 0
-    ax2.plot(tplot, (ii + 1) * yplot, 'o', label='Zc = ' + str(cont_elev[ii]) + ', N = ' + str(sum(yplot)))
-ax1.grid(which='both', axis='both')
+# # Define when we have contour positions relative to hydro data
+# datavail_Xc = np.ones(shape=xc_fullspan.shape)
+# datavail_dXcdt = np.ones(shape=dXcdt_fullspan.shape)
+# fig, (ax1,ax2) = plt.subplots(2)
+# for ii in np.arange(cont_elev.size):
+#     tmp = np.isnan(xc_fullspan[ii,:])
+#     datavail_Xc[ii, tmp] = 0
+#     tmp = np.isnan(dXcdt_fullspan[ii, :])
+#     datavail_dXcdt[ii, tmp] = 0
+#     tplot = pd.to_datetime(time_fullspan, unit='s', origin='unix')
+#     ax1.plot(tplot,(ii+1)*datavail_Xc[ii, :],'o',label='Zc = '+str(cont_elev[ii]))
+#     ax2.plot(tplot,(ii+1)*datavail_dXcdt[ii, :],'o',label='Zc = '+str(cont_elev[ii]))
+# ax1.grid(which='both', axis='both')
 # ax1.plot(tplot,datavail_all*10,'ok')
-ax2.grid(which='both', axis='both')
+# ax2.grid(which='both', axis='both')
 # ax2.plot(tplot,datavail_all*10,'ok')
-ax1.legend(bbox_to_anchor=(1.05, 1.0), loc='upper left')
-ax2.legend(bbox_to_anchor=(1.05, 1.0), loc='lower left',draggable=True)
-ax1.set_title('Xc overlap with hydro data')
-ax1.set_xticks([])
-ax2.set_title('dXc/dt overlap with hydro data')
-plt.tight_layout()
-imagedir = './figs/data/allavailabledata/'
-imagename = imagedir + 'data&Xc_availability_timeoverlap.png'
-# fig.savefig(imagename, format='png', dpi=1200)
+# ax1.legend()
+#
+# fig, (ax1,ax2) = plt.subplots(2)
+# for ii in np.arange(cont_elev.size):
+#     tmp = datavail_Xc[ii, :] + datavail_all
+#     yplot = np.ones(shape=tplot.shape)
+#     yplot[tmp < 2] = 0
+#     ax1.plot(tplot,(ii+1)*yplot,'o',label='Zc = '+str(cont_elev[ii])+', N = '+str(sum(yplot)))
+#     tmp = datavail_dXcdt[ii, :] + datavail_all
+#     yplot = np.ones(shape=tplot.shape)
+#     yplot[tmp < 2] = 0
+#     ax2.plot(tplot, (ii + 1) * yplot, 'o', label='Zc = ' + str(cont_elev[ii]) + ', N = ' + str(sum(yplot)))
+# ax1.grid(which='both', axis='both')
+# # ax1.plot(tplot,datavail_all*10,'ok')
+# ax2.grid(which='both', axis='both')
+# # ax2.plot(tplot,datavail_all*10,'ok')
+# ax1.legend(bbox_to_anchor=(1.05, 1.0), loc='upper left')
+# ax2.legend(bbox_to_anchor=(1.05, 1.0), loc='lower left',draggable=True)
+# ax1.set_title('Xc overlap with hydro data')
+# ax1.set_xticks([])
+# ax2.set_title('dXc/dt overlap with hydro data')
+# plt.tight_layout()
+# imagedir = './figs/data/allavailabledata/'
+# imagename = imagedir + 'data&Xc_availability_timeoverlap.png'
+# # fig.savefig(imagename, format='png', dpi=1200)
 
 # reshape for ease of combining into single data matrix/frame
+data_lidar_elev2p = lidarrunup_elev2p_fullspan.copy()
+data_tidegauge = wl_noaa_fullspan.copy()
 data_lidar_elev2p = np.reshape(data_lidar_elev2p,(time_fullspan.size,1))
 data_tidegauge = np.reshape(data_tidegauge,(time_fullspan.size,1))
 
@@ -343,8 +366,15 @@ with open(picklefile_dir+'IO_alignedintime.pickle','wb') as file:
     pickle.dump([time_fullspan,data_wave8m,data_wave17m,data_tidegauge,data_lidar_elev2p,data_lidarwg080,data_lidarwg090,data_lidarwg100,data_lidarwg110,data_lidarwg140,xc_fullspan,dXcdt_fullspan,lidarelev_fullspan],file)
 with open(picklefile_dir+'IO_datavail.pickle','wb') as file:
     pickle.dump([datavail_wave8m,datavail_wave17m,datavail_tidegauge,datavail_lidar_elev2p,datavail_lidarwg080,datavail_lidarwg090,datavail_lidarwg100,datavail_lidarwg110,datavail_lidarwg140,datavail_Xc,datavail_dXcdt],file)
+with open(picklefile_dir+'lidar_xFRF.pickle','wb') as file:
+    pickle.dump(lidar_xFRF,file)
+with open(picklefile_dir+'IO_lidarhydro_aligned.pickle','wb') as file:
+    pickle.dump([lidarhydro_min_fullspan,lidarhydro_max_fullspan,lidarhydro_mean_fullspan], file)
+with open(picklefile_dir+'IO_lidarquality.pickle','wb') as file:
+    pickle.dump([lidarelevstd_fullspan,lidarmissing_fullspan], file)
 # with open('tmp_lidarelev_fullspan.pickle','wb') as file:
 #     pickle.dump([lidarelev_fullspan],file)
+
 
 fig, ax = plt.subplots()
 tplot = pd.to_datetime(time_fullspan, unit='s', origin='unix')
@@ -357,4 +387,5 @@ xx = xscatter[~np.isnan(zscatter)]
 zz = zscatter[~np.isnan(zscatter)]
 plt.scatter(tt,xx,s=3,c=zz)
 
-
+fig, ax = plt.subplots()
+ax.plot(lidarelev.T)

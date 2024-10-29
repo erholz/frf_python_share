@@ -11,26 +11,41 @@ from funcs.create_contours import *
 import scipy as sp
 from astropy.convolution import convolve
 import seaborn as sns
+from run_hydrocollect import run_getnoaatidewithpred_func
+from datetime import datetime
+
 
 
 # Load temporally aligned data - need to add lidarelev_fullspan
 picklefile_dir = 'F:/Projects/FY24/FY24_SMARTSEED/FRF_data/processed_backup/'
 with open(picklefile_dir+'IO_alignedintime.pickle', 'rb') as file:
-    time_fullspan,data_wave8m,data_wave17m,data_tidegauge,data_lidar_elev2p,data_lidarwg080,data_lidarwg090,data_lidarwg100,data_lidarwg110,data_lidarwg140,xc_fullspan,dXcdt_fullspan,lidarelev_fullspan = pickle.load(file)
-full_path = 'C:/Users/rdchlerh/Desktop/FRF_data/dune_lidar/lidar_transect/FRF-geomorphology_elevationTransects_duneLidarTransect_201510.nc'
-_, _, _, _, _, lidar_xFRF, lidar_yFRF = (getlocal_lidar(full_path))
+    time_fullspan,data_wave8m,data_wave17m,data_tidegauge,data_lidar_elev2p,data_lidarwg080,data_lidarwg090,data_lidarwg100,data_lidarwg110,data_lidarwg140,_,_,lidarelev_fullspan = pickle.load(file)
+with open(picklefile_dir+'lidar_xFRF.pickle', 'rb') as file:
+    lidar_xFRF = np.array(pickle.load(file))
+    lidar_xFRF = lidar_xFRF[0][:]
+    # lidar_xFRF = pickle.load(file)
+with open(picklefile_dir + 'IO_lidarhydro_aligned.pickle', 'rb') as file:
+   lidarhydro_min_fullspan, lidarhydro_max_fullspan, lidarhydro_mean_fullspan = pickle.load(file)
+with open(picklefile_dir + 'IO_lidarquality.pickle', 'rb') as file:
+   lidarelevstd_fullspan, lidarmissing_fullspan = pickle.load(file)
+with open(picklefile_dir + 'xc_fullspan_MWL_DuneToe_MHW.pickle', 'rb') as file:
+   xc_fullspan, dXcdt_fullspan = pickle.load(file)
+with open(picklefile_dir+'elev&slp_processed_fullspan.pickle', 'rb') as file:
+    _, avgslope_fullspan = pickle.load(file)
+
+
 
 def find_nangaps(zinput):
     if sum(np.isnan(zinput)) == 0:
         gapstart = np.nan
         gapend = np.nan
-        gapsize = 0
-        maxgap = 0
+        gapsize = np.array([0])
+        maxgap = np.array([0])
     elif sum(np.isnan(zinput)) == 1:
         gapstart = np.where(np.isnan(zinput))
         gapend = np.where(np.isnan(zinput))
-        gapsize = 1
-        maxgap = 1
+        gapsize = np.array([1])
+        maxgap = np.array([1])
     else:
         numcumnan = np.empty(shape=zinput.shape)
         numcumnan[:] = np.nan
@@ -41,15 +56,27 @@ def find_nangaps(zinput):
         tmpgapstart = []
         tmpgapend = []
         for ij in np.arange(uniq_numcumnan.size):
-            # If there is only ONE entry of a cumnan value, then we know it's a new nan value
+            # If there is only ONE entry of a cumnan value, then we know it's a new nan value OR it's the end of the vector
             if sum((numcumnan == uniq_numcumnan[ij])) == 1:
                 tmp = np.where(numcumnan == uniq_numcumnan[ij])[0]
                 tmpgapstart = np.append(tmpgapstart,tmp[0])
+                # if tmp is the END of the vector, also designate as tmpgapend
+                if tmp == len(zinput)-1:
+                    tmpgapend = np.append(tmpgapend,tmp[0])
             # If there are multiple entries of a cumnan value, then we know it switches from nan to not-nan
             elif sum((numcumnan == uniq_numcumnan[ij])) > 1:
                 tmp = np.where(numcumnan == uniq_numcumnan[ij])[0]
                 # the first value of tmp is where it switches from nan to not-nan, the last would be the first before the next nan (if it exists)
                 tmpgapend = np.append(tmpgapend,tmp[0])
+                # if there is more than 1 instance of cumnan but no preceding nan, then it is ALSO a starting nan
+                if ~np.isnan(zinput[tmp[0]-1]):
+                    tmpgapstart = np.append(tmpgapstart,tmp[0])
+                # if it is the FIRST value, then it is ALSO a tmpgapstart
+                if tmp[0] == 0:
+                    tmpgapstart = np.append(tmpgapstart, tmp[0])
+        # new revisions may create duplicates....
+        tmpgapend = np.unique(tmpgapend)
+        tmpgapstart = np.unique(tmpgapstart)
         gapend = tmpgapend[:]
         # if NO tmpgapstart have been found, then we have multiple single-nans
         if len(tmpgapstart) == 0:
@@ -68,11 +95,18 @@ def find_nangaps(zinput):
             if len(gapend) > len(gapstart):
                 for ij in np.arange(gapend.size):
                     # if there is a gapend that is surrounded by non-nans, then it is a single-nan gap
-                    if ~np.isnan(zinput[int(gapend[ij])-1]) & ~np.isnan(zinput[int(gapend[ij])+1]):
-                        missinggapstart = gapend[ij]
-                        gapstart = np.append(missinggapstart, gapstart)
+                    if gapend[ij] == len(zinput)-1:
+                        if ~np.isnan(zinput[int(gapend[ij]) - 1]):
+                            missinggapstart = gapend[ij]
+                            gapstart = np.append(missinggapstart, gapstart)
+                    else:
+                        if ~np.isnan(zinput[int(gapend[ij])-1]) & ~np.isnan(zinput[int(gapend[ij])+1]):
+                            missinggapstart = gapend[ij]
+                            gapstart = np.append(missinggapstart, gapstart)
             if np.max(gapstart) > np.max(gapend):
                 gapend = np.append(gapend, np.max(gapstart))
+        gapend = np.unique(gapend)
+        gapstart = np.unique(gapstart)
         gapend = np.array(sorted(gapend))
         gapstart = np.array(sorted(gapstart))
         gapsize = (gapend - gapstart) + 1
@@ -110,8 +144,8 @@ dXContdt[:,-1] = np.nan
 xc_fullspan = cont_ts[:]
 dXcdt_fullspan = dXContdt[:]
 picklefile_dir = 'F:/Projects/FY24/FY24_SMARTSEED/FRF_data/processed_backup/'
-with open(picklefile_dir+'xc_fullspan_MWL_DuneToe_MHW.pickle', 'wb') as file:
-    pickle.dump([xc_fullspan,dXcdt_fullspan], file)
+# with open(picklefile_dir+'xc_fullspan_MWL_DuneToe_MHW.pickle', 'wb') as file:
+#     pickle.dump([xc_fullspan,dXcdt_fullspan], file)
 
 # Plot the range of contour positions
 fig, ax = plt.subplots(1,3)
@@ -128,82 +162,309 @@ ax[2].set_title('MHW, N = '+str(sum(~np.isnan(xc_fullspan[2,:]))))
 ax[2].plot([np.nanmean(xc_fullspan[2,:]),np.nanmean(xc_fullspan[2,:])],[0, 0.35],'k')
 ax[2].set_ylim(0, 0.35)
 
+# Plot lidarelev before we do anything to it:
+tplot = pd.to_datetime(time_fullspan, unit='s', origin='unix')
+XX, TT = np.meshgrid(lidar_xFRF, tplot)
+timescatter = np.reshape(TT, TT.size)
+xscatter = np.reshape(XX, XX.size)
+zscatter = np.reshape(lidarelev_fullspan.T, lidarelev_fullspan.size)
+tt = timescatter[~np.isnan(zscatter)]
+xx = xscatter[~np.isnan(zscatter)]
+zz = zscatter[~np.isnan(zscatter)]
+fig, ax = plt.subplots()
+ph = ax.scatter(xx, tt, s=5, c=zz, cmap='viridis')
+cbar = fig.colorbar(ph, ax=ax)
+cbar.set_label('z [m]')
+ax.set_title('Profile elevation - Pre filtering/smoothing')
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF,lidarelev_fullspan)
+ax.set_title('Profile elevation - Pre filtering/smoothing')
+
+# Apply lidar-qaqc criterion to data:
+lidarelev_QAQC_fullspan = np.empty(shape=lidarelev_fullspan.shape)
+lidarelev_QAQC_fullspan[:] = np.nan
+lidarelev_QAQC_fullspan[:] = lidarelev_fullspan[:]
+stdthresh = 0.05        # [m], e.g., 0.05 equals 5cm standard deviation in hrly reading
+pmissthresh = 0.60      # [0-1]. e.g., 0.75 equals 75% time series missing
+tmpii = (lidarelevstd_fullspan >= stdthresh) + (lidarmissing_fullspan > pmissthresh)
+lidarelev_QAQC_fullspan[tmpii] = np.nan
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF,lidarelev_QAQC_fullspan)
+ax.set_title('Profile elevation - Post QAQC threshholds (std ~> 5cm & %miss ~>60)')
+tmpii = ~np.isnan(lidarhydro_min_fullspan)
+lidarelev_QAQC_fullspan[tmpii] = np.nan
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF,lidarelev_QAQC_fullspan)
+ax.set_title('Profile elevation - Post removal where min_wl observed')
+
+# Go through time, analyze data availability per tidal cycle, eliminate stray portions of the cross-shore when no "match" available
+gauge = '8651370'
+datum = 'MSL'
+start_year = 2015#1978
+end_year = 2024
+tideout = run_getnoaatidewithpred_func(gauge, datum, start_year, end_year)
+dat = tideout['wl']
+time = tideout['wltime']
+time_tide_predUTC = np.asarray([(dt64 - np.datetime64('1970-01-01T00:00:00')) / np.timedelta64(1, 's') for dt64 in tideout['predtimeDateTime'][::5]])
+time_tide_pred = np.asarray([datetime.utcfromtimestamp(utc) for utc in time_tide_predUTC])
+tide_pred = tideout['pred'][::5]
+pklocs, _ = sp.signal.find_peaks(tide_pred, height=0)
+# Check that peaks and troughs overlap between NOAA pred and FRF obs
+fig, ax = plt.subplots()
+tplot = pd.to_datetime(time_fullspan, unit='s', origin='unix')
+ax.plot(time_tide_pred,tide_pred)
+ax.plot(time_tide_pred[pklocs],tide_pred[pklocs],'o')
+# ax.plot(tplot,data_tidegauge)
+# Ok, now go through each peak and find available data as a func of cross-shore distance
+lidarelev_removeStrays_fullspan = np.empty(shape=lidarelev_fullspan.shape)
+lidarelev_removeStrays_fullspan[:] = np.nan
+for jj in np.arange(pklocs.size-1):
+    tpeak1 = time_tide_pred[pklocs[jj]]
+    tpeak2 = time_tide_pred[pklocs[jj+1]]
+    # find the profiles between tpeak1 and tpeak2
+    btwnpks = np.where((tplot >= tpeak1) & (tplot <= tpeak2))[0]
+    if btwnpks.size > 0:
+        # find the total number of not-nans along the cross-shore profile
+        zbtwnpks = lidarelev_QAQC_fullspan[:,btwnpks]
+        numnotnan = np.sum(~np.isnan(zbtwnpks),axis=1)
+        # define which cross-shore IDs do not meet criterion
+        ix_toss = numnotnan < 2
+        # nan-out those cross-shore locations, re-assigned filtered profiles back to lidarelev_fullspan
+        zbtwnpks[ix_toss,:] = np.nan
+        lidarelev_removeStrays_fullspan[:, btwnpks] = zbtwnpks
+# Plot post filtering...
+tplot = pd.to_datetime(time_fullspan, unit='s', origin='unix')
+XX, TT = np.meshgrid(lidar_xFRF, tplot)
+timescatter = np.reshape(TT, TT.size)
+xscatter = np.reshape(XX, XX.size)
+zscatter = np.reshape(lidarelev_removeStrays_fullspan.T, lidarelev_removeStrays_fullspan.size)
+tt = timescatter[~np.isnan(zscatter)]
+xx = xscatter[~np.isnan(zscatter)]
+zz = zscatter[~np.isnan(zscatter)]
+fig, ax = plt.subplots()
+ph = ax.scatter(xx, tt, s=5, c=zz, cmap='viridis')
+cbar = fig.colorbar(ph, ax=ax)
+cbar.set_label('z [m]')
+ax.set_title('Profile elevation - Post tide-based filtering')
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF,lidarelev_removeStrays_fullspan)
+ax.set_title('Profile elevation - Post tide-based filtering')
+
+# Ok, so remove isolate strays, dependent on cross-shore data availability
+count = np.empty(shape=time_fullspan.shape)
+count[:] = np.nan
+lidarelev_removeStrays_fullspan_Xshore = np.empty(shape=lidarelev_removeStrays_fullspan.shape)
+lidarelev_removeStrays_fullspan_Xshore[:] = np.nan
+for tt in np.arange(time_fullspan.size):
+    ztmp = lidarelev_removeStrays_fullspan[:, tt]
+    # find the profile within 25 cm (vert) of hourly water level
+    wltmp = data_tidegauge[tt]
+    if sum(~np.isnan(ztmp)) > 10:
+        ii_check = np.where(ztmp < wltmp + 0.30)
+        zlower = ztmp[ii_check]
+        count[tt] = zlower.size
+        # ^^ go through ztmp and remove cross-shore strays
+        numcheck = 6
+        halfspan = numcheck/2
+        for jj in np.arange(int(halfspan),zlower.size-int(halfspan)):
+            ztmp_check = zlower[np.arange(jj-int(halfspan),jj+int(halfspan))]
+            percavail = sum(~np.isnan(ztmp_check))/ztmp_check.size
+            if percavail < 0.6:
+                zlower[jj] = np.nan
+        ztmp[ii_check] = zlower
+        lidarelev_removeStrays_fullspan_Xshore[:, tt] = ztmp
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF,lidarelev_removeStrays_fullspan_Xshore)
+ax.set_title('Profile elevation - Cross-shore strays')
+
+
+
 # Load profiles, remove locally high variability - use whole profile, but only if we have data between Xc[0] & Xc[-1]
-zsmooth_fullspan = np.empty(shape=lidarelev_fullspan.shape)
 zpass_fullspan = np.empty(shape=lidarelev_fullspan.shape)
 zbad_fullspan = np.empty(shape=lidarelev_fullspan.shape)
-avgslope_fullspan = np.empty(shape=lidarelev_fullspan.shape)
-zsmooth_fullspan[:] = np.nan
 zbad_fullspan[:] = np.nan
 zpass_fullspan[:] = np.nan
-avgslope_fullspan[:] = np.nan
 maxgap_presmooth = np.empty((time_fullspan.size,))
 maxgap_postsmooth = np.empty((time_fullspan.size,))
 maxgap_fullspan = np.empty((time_fullspan.size,))
 maxgap_presmooth[:] = np.nan
 maxgap_postsmooth[:] = np.nan
 maxgap_fullspan[:] = np.nan
-smooth_to_nan = np.empty((time_fullspan.size,))
-smooth_to_nan[:] = np.nan
 for tt in np.arange(len(time_fullspan)):
     xc_shore = xc_fullspan[-1,tt]
     xc_sea = xc_fullspan[0,tt]
-    ztmp = lidarelev_fullspan[:, tt]
+    ztmp = lidarelev_removeStrays_fullspan_Xshore[:, tt]
     # We can perform the smoothing if we have data even if XC not found
     near_xc_thresh = 0.5        # unit of [m], vertical
-    if ((~np.isnan(xc_shore)) & (~np.isnan(xc_sea))) or ((np.nanmin(ztmp) <= mwl+near_xc_thresh) & (np.nanmax(ztmp) >= dune_toe-near_xc_thresh)):
-        ztmp = lidarelev_fullspan[:,tt]
-        ix_notnan = np.where(~np.isnan(ztmp))[0]
-        approxlength = ix_notnan[-1] - ix_notnan[0]
-        zinput = ztmp[np.arange(ix_notnan[0],ix_notnan[-1])]
-        gapstart, gapend, gapsize, maxgap = find_nangaps(zinput)
-        maxgap_presmooth[tt] = maxgap
-        # only do smoothing routine if we have data between Xc[0] and Xc[-1] and there's >60% not-nans across prof
-        maxgapthresh = 500
-        if ((ix_notnan.size/approxlength) > 0.6) or (maxgap <= maxgapthresh):
-            xtmp = lidar_xFRF[ix_notnan]
-            zprof_init = ztmp[ix_notnan]
-            ztmp = ztmp[ix_notnan]
-            # First Smooth - remove extreme points
-            Lsmooth = 1.5
-            dx = 0.1
-            nsmooth = int(np.ceil(Lsmooth / dx))
-            zbad, zgood = smooth_profile(xtmp, ztmp, xtmp, nsmooth, 1.5)
-            zbad_fullspan[ix_notnan, tt] = zbad
-            zpass_fullspan[ix_notnan,tt] = zgood
-            # What are the gaps between the contours?
-            ztmp = zgood
-            tmp = (xtmp >= xc_shore) & (xtmp <= xc_sea)
-            ix_inspan = np.where(tmp)[0]
-            gapstart, gapend, gapsize, maxgap = find_nangaps(ztmp[ix_inspan])
-            maxgap_postsmooth[tt] = maxgap
-            # Second smooth - refine if enough data exists
-            delta = 2
-            if (maxgap <= maxgapthresh):
-                Lsmooth = 0.5
+    mwl = -0.13
+    mhw = 3.6
+    if ((~np.isnan(xc_shore)) & (~np.isnan(xc_sea))) or ((np.nanmin(ztmp) <= mwl+near_xc_thresh) & (np.nanmax(ztmp) >= mhw-near_xc_thresh)):
+        ztmp = lidarelev_removeStrays_fullspan_Xshore[:,tt]
+        # Do some smoothing if we have enough data
+        if sum(~np.isnan(ztmp)) > 10:
+            # Isolate the non-nan portion for analysis
+            ix_notnan = np.where(~np.isnan(ztmp))[0]
+            approxlength = ix_notnan[-1] - ix_notnan[0]
+            zinput = ztmp[np.arange(ix_notnan[0],ix_notnan[-1])]
+            gapstart, gapend, gapsize, maxgap = find_nangaps(zinput)
+            maxgap_presmooth[tt] = maxgap
+            # only do smoothing routine if we have data between Xc[0] and Xc[-1] and there's >60% not-nans across prof
+            maxgapthresh = 500
+            if ((ix_notnan.size/approxlength) > 0.6) or (maxgap <= maxgapthresh):
+                xtmp = lidar_xFRF[ix_notnan]
+                zprof_init = ztmp[ix_notnan]
+                ztmp = ztmp[ix_notnan]
+                # First Smooth - remove extreme points
+                Lsmooth1 = 2
                 dx = 0.1
-                nsmooth = int(np.ceil(Lsmooth / dx))
-                mykernel = np.ones(nsmooth)/nsmooth
-                padding = np.zeros((nsmooth,))*2
-                zinput = np.hstack((padding, ztmp, padding))
-                zconvolved = convolve(zinput, mykernel, boundary='extend')
-                zsmooth_fullspan[ix_notnan[delta:-delta],tt] = zconvolved[nsmooth+delta:-(nsmooth+delta)]
-                ztmp = zconvolved[nsmooth+delta:-(nsmooth+delta)]
-                gapstart, gapend, gapsize, maxgap = find_nangaps(ztmp)
-                maxgap_fullspan[tt] = maxgap
+                thresh = 0.5
+                nsmooth = int(np.ceil(Lsmooth1 / dx))
+                zbad, zgood = smooth_profile(xtmp, ztmp, xtmp, nsmooth, thresh)
+                zbad_fullspan[ix_notnan, tt] = zbad
+                zpass_fullspan[ix_notnan,tt] = zgood
+# Repeat the tidal-window filtering
+zpass_tidefilter_fullspan = np.empty(shape=lidarelev_fullspan.shape)
+zpass_tidefilter_fullspan[:] = np.nan
+for jj in np.arange(pklocs.size-1):
+    tpeak1 = time_tide_pred[pklocs[jj]]
+    tpeak2 = time_tide_pred[pklocs[jj+1]]
+    # find the profiles between tpeak1 and tpeak2
+    btwnpks = np.where((tplot >= tpeak1) & (tplot <= tpeak2))[0]
+    if btwnpks.size > 0:
+        # find the total number of not-nans along the cross-shore profile
+        zbtwnpks = zpass_fullspan[:,btwnpks]
+        numnotnan = np.sum(~np.isnan(zbtwnpks),axis=1)
+        # define which cross-shore IDs do not meet criterion
+        ix_toss = numnotnan < 2
+        # nan-out those cross-shore locations, re-assigned filtered profiles back to lidarelev_fullspan
+        zbtwnpks[ix_toss,:] = np.nan
+        zpass_tidefilter_fullspan[:, btwnpks] = zbtwnpks
+
+
+# FILTER - remove high-percent nan region at seaward edge of profile
+zinput = zpass_tidefilter_fullspan[:]
+percentnan_fullspan = np.empty(shape=lidarelev_fullspan.shape)
+percentnan_fullspan[:] = np.nan
+threshmet = np.empty(shape=time_fullspan.shape)
+threshmet[:] = np.nan
+thresh = 0.2
+for tt in np.arange(len(time_fullspan)):
+    span = 10
+    halfspan = int(span/2)
+    if np.sum(np.isnan(zinput[:,tt])) < lidar_xFRF.size:
+        for jj in np.arange(halfspan,lidar_xFRF.size-halfspan):
+            ztmp = zinput[np.arange(jj-halfspan,jj+halfspan),tt]
+            percentnan = np.sum(np.isnan(ztmp))/ztmp.size
+            percentnan_fullspan[jj,tt] = percentnan
+        # find first time percent nan falls below threshhold from seaward side
+        tmp = np.where(percentnan_fullspan[:,tt] < thresh)[0]
+        if tmp.size > 0:
+            threshmet[tt] = np.nanmax(tmp)
+# plot the profiles from threshmet and onwards to see what the data is like...
+zdiscard = np.empty(shape=zinput.shape)
+zdiscard[:] = zinput[:]
+zkeep = np.empty(shape=zinput.shape)
+zkeep[:] = zinput[:]
+for tt in np.arange(time_fullspan.size):
+    if ~np.isnan(threshmet[tt]):
+        zdiscard[np.arange(int(threshmet[tt])),tt] = np.nan
+        zkeep[np.arange(int(threshmet[tt]),lidar_xFRF.size),tt] = np.nan
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF,zkeep)
+ax.set_title('Remove high-nan region')
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF,zdiscard)
+ax.set_title('Data removed')
+# plot as scatter
+percentnan_fullspan[percentnan_fullspan == 1.00] = np.nan
+tplot = pd.to_datetime(time_fullspan, unit='s', origin='unix')
+XX, TT = np.meshgrid(lidar_xFRF, tplot)
+timescatter = np.reshape(TT, TT.size)
+xscatter = np.reshape(XX, XX.size)
+zscatter = np.reshape(percentnan_fullspan.T, percentnan_fullspan.size)
+tt = timescatter[~np.isnan(zscatter)]
+xx = xscatter[~np.isnan(zscatter)]
+zz = zscatter[~np.isnan(zscatter)]
+fig, ax = plt.subplots()
+ph = ax.scatter(xx, tt, s=5, c=zz, cmap='rainbow')
+cbar = fig.colorbar(ph, ax=ax)
+cbar.set_label('% nan')
+xplot = np.empty(shape=time_fullspan.shape)
+xplot[:] = np.nan
+for tt in np.arange(xplot.size):
+    if ~np.isnan(threshmet[tt]):
+        xplot[tt] = lidar_xFRF[int(threshmet[tt])]
+ax.plot(xplot,tplot,'rx')
+
+
+# NOW we can try the smoothing...
+zsmooth_fullspan = np.empty(shape=lidarelev_fullspan.shape)
+zsmooth_fullspan[:] = np.nan
+for tt in np.arange(len(time_fullspan)):
+    ztmp = zkeep[:, tt]
+    # Do some smoothing if we have enough data
+    if sum(~np.isnan(ztmp)) > 10:
+        ix_notnan = np.where(~np.isnan(ztmp))[0]
+        ix_good = np.arange(ix_notnan[0], ix_notnan[-1])
+        zgood = ztmp[ix_good]
+        xtmp = lidar_xFRF[ix_good]
+        gapstart, gapend, gapsize, maxgap = find_nangaps(zgood)
+        maxgap_postsmooth[tt] = maxgap
+        # Second smooth - refine if enough data exists
+        delta = 10
+        maxgapthresh = 200
+        if (maxgap > maxgapthresh):
+           # remove data where xFRF > 140
+           ztmp[np.where(lidar_xFRF >= 140)] = np.nan
+           ix_notnan = np.where(~np.isnan(ztmp))[0]
+           ix_good = np.arange(ix_notnan[0], ix_notnan[-1])
+           zgood = ztmp[ix_good]
+           gapstart, gapend, gapsize, maxgap = find_nangaps(zgood)
+           maxgap_postsmooth[tt] = maxgap
+           gapstart, gapend, gapsize, maxgap = find_nangaps(zgood)
+           maxgap_postsmooth[tt] = maxgap
+        if (maxgap <= maxgapthresh):
+            Lsmooth2 = 0.9
+            dx = 0.1
+            nsmooth = int(np.ceil(Lsmooth2 / dx))
+            mykernel = np.ones(nsmooth)/nsmooth
+            padding = np.zeros((nsmooth,))*2
+            zinput = np.hstack((padding, zgood, padding))
+            zconvolved = convolve(zinput, mykernel, boundary='extend')
+            zsmooth_fullspan[ix_good[delta:-delta],tt] = zconvolved[nsmooth+delta:-(nsmooth+delta)]
+            ztmp = zconvolved[nsmooth+delta:-(nsmooth+delta)]
+            gapstart, gapend, gapsize, maxgap = find_nangaps(ztmp)
+            maxgap_postsmooth[tt] = maxgap
+            maxgap_fullspan[tt] = maxgap
+# Plot the smoothed profiles
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF,zsmooth_fullspan)
+ax.set_title('Profile elevation - Lsmooth2 = 0.9m')
+
+# # Tried this, retaining for records, but not effective
+# # Will a first-order 2nd-derivative (rate of slope change) indicate where we have weird flatness?
+# first_diff = zsmooth_fullspan[1:,:] - zsmooth_fullspan[0:-1,:]
+# second_diff = first_diff[1:,:] - first_diff[0:-1,:]
+# fig, ax = plt.subplots()
+# ax.plot(lidar_xFRF[2:],second_diff)
 
 
 
 
-# Ok, now pull out slope data for the same coverage as zsmooth_fullspan
+
+
+# Ok, now pull out slope data  to see if we can use it for filtering
+z_slopeanalysis = np.empty(shape=zsmooth_fullspan.shape)
+z_slopeanalysis[:] = zsmooth_fullspan[:]
 avgslope_fullspan = np.empty(shape=lidarelev_fullspan.shape)
 avgslope_fullspan[:] = np.nan
+dx = 0.1
 for tt in np.arange(len(time_fullspan)):
-    ztmp = zsmooth_fullspan[:,tt]
+    ztmp = z_slopeanalysis[:,tt]
     ix_notnan = np.where(~np.isnan(ztmp))[0]
     # If profile is not all nans - calculate the average slope over nslopecheck
     if np.sum(~np.isnan(ztmp)) > 0:
-        nslopecheck = 12
+        nslopecheck = 8
         delta = 2
         z_for_slopecheck = ztmp
         iterrange = ix_notnan[delta:-delta]
@@ -217,11 +478,131 @@ for tt in np.arange(len(time_fullspan)):
                 jj0 = jj0 + 1
             if sum(~np.isnan(tmpslope)) >= 2:
                 avgslope_fullspan[iterrange[jj], tt] = np.nanmean(tmpslope)
+# Can we remove the weird flatness based on average bed slope?
+zscatter = np.reshape(avgslope_fullspan.T, avgslope_fullspan.size)
+tt = timescatter[~np.isnan(zscatter)]
+xx = xscatter[~np.isnan(zscatter)]
+zz = zscatter[~np.isnan(zscatter)]
+fig, ax = plt.subplots()
+ph = ax.scatter(xx, tt, s=5, c=zz, cmap='rainbow', vmin=-0.075, vmax=0.075)
+cbar = fig.colorbar(ph, ax=ax)
+cbar.set_label('z [m]')
+ax.set_title('Avg slope [m/m]')
+# PLOT "flat" slope vs elevation
+ii_flat = np.abs(avgslope_fullspan) < 0.01
+xtmp = np.reshape(avgslope_fullspan[ii_flat], avgslope_fullspan[ii_flat].size)
+ytmp = np.reshape(zsmooth_fullspan[ii_flat], zsmooth_fullspan[ii_flat].size)
+fig, ax = plt.subplots()
+ax.scatter(xtmp,ytmp,alpha=0.1)
+
+# Ok, go through and find which profiles have an avg "flat" slope over the first few most seaward pts
+flag_flattoe = np.empty(shape=time_fullspan.shape).astype(bool)
+flag_flattoe[:] = False
+for tt in np.arange(time_fullspan.size):
+    slptmp = avgslope_fullspan[:,tt]
+    if np.sum(~np.isnan(slptmp)) > 10:
+        slptmp = slptmp[~np.isnan(slptmp)]
+        ncheck = 4
+        if np.mean(abs(slptmp[-10:])) < 0.02:
+            flag_flattoe[tt] = True
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF,zsmooth_fullspan[:,flag_flattoe])
+ax.set_title('Identified profiles with flat seaward edge')
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF,zsmooth_fullspan[:,~flag_flattoe])
+ax.set_title('Profiles without flat seaward edge')
+
+# Try removing all pts where abs(slp) < 0.015 & elev < 0
+ii_testremove = (abs(avgslope_fullspan) < 0.015 ) & (zsmooth_fullspan < 0)
+testplot_pass = np.empty(shape=zsmooth_fullspan.shape)
+testplot_pass[:] = zsmooth_fullspan[:]
+testplot_pass[ii_testremove] = np.nan
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF,testplot_pass)
+ax.set_title('Passed filter')
+ii_testremove = (abs(avgslope_fullspan) >= 0.015 ) & (zsmooth_fullspan > 0)
+testplot_fail = np.empty(shape=zsmooth_fullspan.shape)
+testplot_fail[:] = zsmooth_fullspan
+testplot_fail[ii_testremove] = np.nan
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF,testplot_fail)
+ax.set_title('Identified as "flat" and below 0')
+
+# find and filter based on percent-nans
+zinput = np.empty(shape=zsmooth_fullspan.shape)
+zinput[:] = testplot_pass[:]
+percentnan_fullspan_round2 = np.empty(shape=lidarelev_fullspan.shape)
+percentnan_fullspan_round2[:] = np.nan
+thresh = 0.4
+for tt in np.arange(len(time_fullspan)):
+    span = 18
+    halfspan = int(span/2)
+    if np.sum(np.isnan(zinput[:,tt])) < lidar_xFRF.size:
+        for jj in np.arange(halfspan,lidar_xFRF.size-halfspan):
+            ztmp = zinput[np.arange(jj-halfspan,jj+halfspan),tt]
+            percentnan = np.sum(np.isnan(ztmp))/ztmp.size
+            percentnan_fullspan_round2[jj,tt] = percentnan
+# find and remove where percent nan is less than threshhold and below z
+ii_testremove = (percentnan_fullspan_round2 > thresh) & (zinput < 0)
+yplot = np.empty(shape=zinput.shape)
+yplot[:] = zinput[:]
+yplot[ii_testremove] = np.nan
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF,yplot)
+ax.set_title('Remove high-freq nan')
+yplot[:] = zinput[:]
+yplot[~ii_testremove] = np.nan
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF,yplot)
+ax.set_title('Discarded values')
+
+final_profile_fullspan = np.empty(shape=zsmooth_fullspan.shape)
+yplot[:] = zinput[:]
+yplot[ii_testremove] = np.nan
+final_profile_fullspan[:] = yplot[:]
+with open(picklefile_dir+'final_profile_28Oct2024.pickle','wb') as file:
+    pickle.dump(picklefile_dir,file)
+
+
+
+
+
+
+
+
+
+
 
 
 # fig, ax = plt.subplots()
-# ax.plot(xplot,zsmooth_fullspan_shift)
-# ax.set_title('Profile elevation (smoothed) - Shifted XCshore~0m')
+fig = plt.figure()
+ax = plt.axes(projection='3d')
+for tt in np.arange(time_fullspan.size):
+    ztmp = zsmooth_fullspan[:,tt]
+    if sum(~np.isnan(ztmp)) > 0:
+        tdummy = tt*np.ones(shape=ztmp.shape)
+        ax.plot3D(lidar_xFRF, ztmp, tdummy)
+ax.set_xlabel('xFRF [m]')
+ax.set_ylabel('z [m]')
+ax.set_zlabel('time')
+ax.view_init(-90, 0)
+
+
+fig, ax = plt.subplots()
+istart=24765
+tt = np.arange(istart,istart+8)
+ax.plot(lidar_xFRF, zsmooth_fullspan[:,tt])
+ax.set_title('Lsmooth = '+str(Lsmooth1)+', thresh = '+str(thresh))
+ax.set_xlabel('xFRF [m]')
+ax.set_ylabel('z [m]')
+fig, ax = plt.subplots()
+plt.hist(maxgap_fullspan)
+ax.set_title('Max gap size post smoothing')
+
+
+
+
+
 
 # # PLOT/VERIFY - zsmooth (elevations) and avgslope for full profile
 # tplot = pd.to_datetime(time_fullspan, unit='s', origin='unix')
