@@ -9,7 +9,8 @@ import os
 from funcs.getFRF_funcs.getFRF_lidar import *
 from funcs.create_contours import *
 import scipy as sp
-from astropy.convolution import convolve
+from astropy.convolution import convolve, interpolate_replace_nans, Gaussian1DKernel
+from scipy.interpolate import splrep, BSpline, splev, CubicSpline
 import seaborn as sns
 from run_hydrocollect import run_getnoaatidewithpred_func
 from datetime import datetime
@@ -561,7 +562,385 @@ yplot[:] = zinput[:]
 yplot[ii_testremove] = np.nan
 final_profile_fullspan[:] = yplot[:]
 with open(picklefile_dir+'final_profile_28Oct2024.pickle','wb') as file:
-    pickle.dump(picklefile_dir,file)
+    pickle.dump(final_profile_fullspan,file)
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF,final_profile_fullspan)
+
+# Plot data as a function of cross-shore distance
+zplot_raw = np.sum(~np.isnan(lidarelev_fullspan),axis=1)/time_fullspan.size
+zplot_final = np.sum(~np.isnan(final_profile_fullspan),axis=1)/time_fullspan.size
+zplot_final[zplot_final == 0] = np.nan
+zplot_raw[zplot_raw == 0] = np.nan
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF,zplot_raw,label='pre-filtering')
+ax.plot(lidar_xFRF,zplot_final,label='post-filtering')
+fig, ax = plt.subplots()
+ax.hist(maxgap_fullspan,bins=np.arange(25))
+ax.set_ylabel('Percent nan')
+ax.set_xlabel('xFRF [m]')
+
+# Plot the profiles that were in the original data that aren't anymore...
+isprofile_raw = np.nansum(~np.isnan(lidarelev_fullspan),axis=0) > 0
+isprofile_final = np.nansum(~np.isnan(final_profile_fullspan),axis=0) > 0
+tmp = isprofile_raw & ~isprofile_final
+ii_lostprofile = np.where(tmp)[0]
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF,lidarelev_removeStrays_fullspan_Xshore[:,ii_lostprofile])
+ax.plot(lidar_xFRF,final_profile_fullspan)
+
+# Find avg slope and remove flat with low elevation
+tossed_profiles = lidarelev_removeStrays_fullspan_Xshore[:,ii_lostprofile]
+tossed_times = time_fullspan[ii_lostprofile]
+z_slopeanalysis = np.empty(shape=tossed_profiles.shape)
+z_slopeanalysis[:] = tossed_profiles[:]
+avgslope_tossed = np.empty(shape=tossed_profiles.shape)
+avgslope_tossed[:] = np.nan
+dx = 0.1
+for tt in np.arange(tossed_profiles.shape[1]):
+    ztmp = z_slopeanalysis[:,tt]
+    ix_notnan = np.where(~np.isnan(ztmp))[0]
+    # If profile is not all nans - calculate the average slope over nslopecheck
+    if np.sum(~np.isnan(ztmp)) > 0:
+        nslopecheck = 8
+        delta = 2
+        z_for_slopecheck = ztmp
+        iterrange = ix_notnan[delta:-delta]
+        for jj in np.arange(iterrange.size):
+            tmpslope = np.empty(shape=(int(np.floor(nslopecheck / 2)),))
+            tmpslope[:] = np.nan
+            jj0 = iterrange[jj] - int(np.floor(nslopecheck * 0.75))
+            for ii in np.arange(tmpslope.size):
+                tmpslope_ii = (z_for_slopecheck[jj0] - z_for_slopecheck[jj0 + nslopecheck]) / (nslopecheck * dx)
+                tmpslope[ii] = tmpslope_ii
+                jj0 = jj0 + 1
+            if sum(~np.isnan(tmpslope)) >= 2:
+                avgslope_tossed[iterrange[jj], tt] = np.nanmean(tmpslope)
+# Plot what was removed and what was kept
+ii_testremove = (abs(avgslope_tossed) < 0.02 ) & (z_slopeanalysis < 1)
+# tmp = z_slopeanalysis[ii_testremove]
+# fig, ax = plt.subplots()
+# ax.hist(tmp,np.arange(0,8,.25))
+yplot = np.empty(shape=z_slopeanalysis.shape)
+yplot[:] = z_slopeanalysis[:]
+yplot[ii_testremove] = np.nan
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF,yplot)
+ax.set_title('Remove |slp| < 0.02')
+yplot[:] = z_slopeanalysis[:]
+yplot[~ii_testremove] = np.nan
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF,yplot)
+ax.set_title('Discarded values')
+tossed_profiles_step2 = np.empty(shape=tossed_profiles.shape)
+tossed_profiles_step2[:] = np.nan
+tossed_profiles_step2[:] = tossed_profiles[:]
+
+# find peaks
+fig, ax = plt.subplots()
+peak_x = []
+peak_z = []
+peak_id = []
+peak_start = []
+peak_end = []
+tossed_removepks = np.empty(tossed_profiles_step2.shape)
+tossed_removepks[:] = tossed_profiles_step2[:]
+for tt in np.arange(tossed_profiles.shape[1]):
+    ztmp = tossed_removepks[:,tt]
+    if np.sum(~np.isnan(ztmp)) > 0:
+        # fig, ax = plt.subplots()
+        # ax.plot(lidar_xFRF,ztmp)
+        pklocs, pkprops = sp.signal.find_peaks(ztmp, prominence=0.5, width=0)
+        # ax.plot(lidar_xFRF[pklocs],ztmp[pklocs],'kx')
+        if pklocs.size > 0:
+            peak_x = np.append(peak_x,lidar_xFRF[pklocs])
+            peak_z = np.append(peak_z,ztmp[pklocs])
+            peak_id = np.append(peak_id,tt)
+            for pp in np.arange(pklocs.size):
+                if ztmp[pklocs[pp]] < 6:
+                    pkstart = np.round(pkprops['left_ips'][pp]).astype(int)
+                    pkend = np.round(pkprops['right_ips'][pp]).astype(int)
+                    pkwid = pkend - pkstart
+                    pkwidover2 = np.round(pkwid/2).astype(int)
+                    pkstrt = (pkstart-pkwidover2).astype(int)
+                    pkend = (pkend+pkwidover2).astype(int)
+                    peak_start = np.append(peak_start,pkstrt)
+                    peak_end = np.append(peak_end,pkend)
+                    ztmp[np.arange((pkstrt-pkwidover2).astype(int),(pkend+pkwidover2).astype(int))] = np.nan
+            ax.plot(lidar_xFRF,ztmp)
+
+# Plot
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF,tossed_removepks[:,peak_id.astype(int)])
+ax.plot(peak_x,peak_z,'kx')
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF,tossed_profiles_step2[:,peak_id.astype(int)])
+ax.plot(peak_x,peak_z,'kx')
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF,tossed_profiles_step2)
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF,tossed_removepks)
+
+final_profile_fullspan_addtossed = np.empty(shape=final_profile_fullspan.shape)
+final_profile_fullspan_addtossed[:] = final_profile_fullspan[:]
+final_profile_fullspan_addtossed[:,ii_lostprofile] = tossed_removepks
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF,final_profile_fullspan_addtossed)
+with open(picklefile_dir+'final_profile_03Nov2024.pickle','wb') as file:
+    pickle.dump(final_profile_fullspan_addtossed,file)
+
+
+# What is the gap situation for the final combined data?
+maxgap_fullspan_combined = np.empty(shape=maxgap_fullspan.shape)
+gapstart_fullspan_combined = np.empty(shape=maxgap_fullspan.shape)
+gapend_fullspan_combined = np.empty(shape=maxgap_fullspan.shape)
+maxgap_fullspan_combined[:] = np.nan
+gapstart_fullspan_combined[:] = np.nan
+gapend_fullspan_combined[:] = np.nan
+for tt in np.arange(time_fullspan.size):
+    ztmp = final_profile_fullspan_addtossed[:,tt]
+    if sum(~np.isnan(ztmp)) > 3:
+        ix_notnan = np.where(~np.isnan(ztmp))[0]
+        ztmp = ztmp[np.arange(ix_notnan[0],ix_notnan[-1])]
+        gapstart, gapend, gapsize, maxgap = find_nangaps(ztmp)
+        maxgap_fullspan_combined[tt] = maxgap
+        if maxgap > 0:
+            if len(gapstart) > 1:
+                ii = max(np.where(gapsize == maxgap)[0])
+                gapstart_fullspan_combined[tt] = gapstart[ii] + ix_notnan[0]
+                gapend_fullspan_combined[tt] = gapend[ii] + ix_notnan[0]
+            else:
+                gapstart_fullspan_combined[tt] = gapstart[0] + ix_notnan[0]
+                gapend_fullspan_combined[tt] = gapend[0] + ix_notnan[0]
+fig, ax = plt.subplots()
+ax.plot(maxgap_fullspan_combined,'o')
+# plot where profiles maxgap > 200
+iiplot = np.where(maxgap_fullspan_combined >= 200)[0]
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF,final_profile_fullspan_addtossed[:,iiplot])
+for tt in iiplot:
+    itmp = gapstart_fullspan_combined[tt].astype(int)-1
+    tmpx = lidar_xFRF[itmp]
+    tmpy = final_profile_fullspan_addtossed[itmp,tt]
+    ax.plot(tmpx,tmpy,'xk')
+for tt in iiplot:
+    iitoss = np.arange(gapend_fullspan_combined[tt].astype(int),lidar_xFRF.size)
+    final_profile_fullspan_addtossed[iitoss,tt] = np.nan
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF,final_profile_fullspan_addtossed[:,iiplot])
+for tt in iiplot:
+    ztmp = np.empty(shape=lidar_xFRF.shape)
+    ztmp[:] = final_profile_fullspan_addtossed[:, tt]
+    ix_notnan = np.where(~np.isnan(ztmp))[0]
+    ztmp = ztmp[np.arange(ix_notnan[0], ix_notnan[-1])]
+    xtmp = lidar_xFRF[np.arange(ix_notnan[0], ix_notnan[-1])]
+    gapstart, gapend, gapsize, maxgap = find_nangaps(ztmp)
+    # kernel = Gaussian1DKernel(3*maxgap)
+    xin = xtmp[~np.isnan(ztmp)]
+    yin = ztmp[~np.isnan(ztmp)]
+    cs = CubicSpline(xin, yin, bc_type='natural')
+    zspline_tmp = cs(xtmp)
+    # ax.plot(xtmp,zspline_tmp,'o')
+    final_profile_fullspan_addtossed[np.arange(ix_notnan[0], ix_notnan[-1]), tt] = zspline_tmp
+
+# Now investigate profiles where max gap is between 50 and 200
+iiplot = np.where((maxgap_fullspan_combined >= 100) & (maxgap_fullspan_combined < 200))[0]
+for ii in np.arange(0,iiplot.size,10):
+    fig, ax = plt.subplots()
+    ax.plot(lidar_xFRF,final_profile_fullspan_addtossed[:,iiplot[ii:ii+10]])
+    plt.legend(iiplot[ii:ii+10])
+
+# I think we can just use a cubic spline for the rest of them...?
+iiplot = np.where((maxgap_fullspan_combined < 200))[0]
+for tt in iiplot:
+    ztmp = np.empty(shape=lidar_xFRF.shape)
+    ztmp[:] = final_profile_fullspan_addtossed[:, tt]
+    ix_notnan = np.where(~np.isnan(ztmp))[0]
+    ztmp = ztmp[np.arange(ix_notnan[0], ix_notnan[-1])]
+    xtmp = lidar_xFRF[np.arange(ix_notnan[0], ix_notnan[-1])]
+    xin = xtmp[~np.isnan(ztmp)]
+    yin = ztmp[~np.isnan(ztmp)]
+    cs = CubicSpline(xin, yin, bc_type='natural')
+    zspline_tmp = cs(xtmp)
+    final_profile_fullspan_addtossed[np.arange(ix_notnan[2], ix_notnan[-3]), tt] = zspline_tmp
+
+fig, ax = plt.subplots()
+vals = np.empty(shape=final_profile_fullspan_addtossed.shape)
+vals[:] = final_profile_fullspan_addtossed[:]
+final_profile_fullspan_addtossed[(vals > 10)] = np.nan
+final_profile_fullspan_addtossed[(vals < -1.3)] = np.nan
+ax.plot(lidar_xFRF,final_profile_fullspan_addtossed)
+prof_mean = np.nanmean(final_profile_fullspan_addtossed,axis=1)
+prof_std = np.nanstd(final_profile_fullspan_addtossed,axis=1)
+ax.plot(lidar_xFRF,prof_mean,'k')
+ax.plot(lidar_xFRF,prof_mean+3*prof_std,'k:')
+ax.plot(lidar_xFRF,prof_mean-3*prof_std,'k:')
+lowerlim = prof_mean-3*prof_std-0.25
+upperlim = prof_mean+3*prof_std+0.25
+for tt in np.arange(time_fullspan.size):
+    tmp = vals[:,tt]
+    if sum(~np.isnan(tmp)) > 4:
+        iitmp = np.where((tmp < lowerlim) | (tmp > upperlim))[0]
+        final_profile_fullspan_addtossed[iitmp,tt] = np.nan
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF,final_profile_fullspan_addtossed)
+
+# Do first-order slope
+simpleslp = (final_profile_fullspan_addtossed[0:-1,:] - final_profile_fullspan_addtossed[1:,:])/dx
+# iiflag = np.where(simpleslp > 5)
+# fig, ax = plt.subplots()
+# ax.plot(lidar_xFRF,final_profile_fullspan_addtossed)
+XX, TT = np.meshgrid(lidar_xFRF[1:], time_fullspan)
+xplot = np.reshape(XX, XX.size)
+splot = np.reshape(simpleslp.T, simpleslp.size)
+zplot = np.reshape(final_profile_fullspan_addtossed[1:,:].T, final_profile_fullspan_addtossed[1:,:].size)
+xplot = xplot[splot < -2]
+zplot = zplot[splot < -2]
+# fig, ax = plt.subplots()
+ax.plot(xplot,zplot,'*k')
+
+iibadslp = np.abs(simpleslp) > 2
+iibeach = final_profile_fullspan_addtossed[1:,:] < dune_toe+0.25
+iirowcol = np.column_stack(np.where(np.logical_and(iibadslp,iibeach)))
+iicol_badslp = iirowcol[:,1]
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF,final_profile_fullspan_addtossed[:,iirowcol[:,1]])
+ax.plot(lidar_xFRF,final_profile_fullspan_addtossed[:,iirowcol[:,1]],'o')
+# define this weird set for spline fix
+profile_splinefix = final_profile_fullspan_addtossed[:,iirowcol[:,1]]
+slp_splinefix = simpleslp[:,iirowcol[:,1]]
+
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF[1:],simpleslp[:,iirowcol[:,1]],'o')
+ax.set_ylim(-2,2)
+
+# Ok, remove points where slope meets criterion per xshore-section (see FRF_Waves for visual)
+ztmp_check = np.empty(shape=profile_splinefix.shape)
+ztmp_check[:] = profile_splinefix[:]
+slp_check = np.empty(shape=slp_splinefix.shape)
+slp_check[:] = slp_splinefix[:]
+# Section 1 - x = 80-105, upperlim = 0.3, lowerlim = -0.175
+upperlim = 0.3
+lowerlim = -0.175
+xx_inspan = np.where((lidar_xFRF >= 80) & (lidar_xFRF <= 105))[0]
+xplot = lidar_xFRF
+yplot = np.empty(shape=ztmp_check.shape)
+yplot[:] = np.nan
+iirowcol = np.column_stack(np.where(slp_check[xx_inspan,:] > upperlim))
+yplot[iirowcol[:,0]+1+xx_inspan[0],iirowcol[:,1]] = ztmp_check[iirowcol[:,0]+1+xx_inspan[0],iirowcol[:,1]]
+iirow_upper1 = iirowcol[:,0]+1+xx_inspan[0]
+iicol_upper1 = iicol_badslp[iirowcol[:,1]]
+iirowcol = np.column_stack(np.where(slp_check[xx_inspan,:] < lowerlim))
+yplot[iirowcol[:,0]+1+xx_inspan[0],iirowcol[:,1]] = ztmp_check[iirowcol[:,0]+1+xx_inspan[0],iirowcol[:,1]]
+iirow_lower1 = iirowcol[:,0]+1+xx_inspan[0]
+iicol_lower1 = iicol_badslp[iirowcol[:,1]]
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF,profile_splinefix)
+ax.plot(xplot,yplot,'k*')
+# Section 2 - x = 105+, upperlim = 0.175, lowerlim = -0.5
+upperlim = 0.175
+lowerlim = -0.5
+xx_inspan = np.where((lidar_xFRF >= 105))[0][0:-1]
+xplot = lidar_xFRF
+yplot = np.empty(shape=ztmp_check.shape)
+yplot[:] = np.nan
+iirowcol = np.column_stack(np.where(slp_check[xx_inspan,:] > upperlim))
+yplot[iirowcol[:,0]+1+xx_inspan[0],iirowcol[:,1]] = ztmp_check[iirowcol[:,0]+1+xx_inspan[0],iirowcol[:,1]]
+iirow_upper2 = iirowcol[:,0]+1+xx_inspan[0]
+iicol_upper2 = iicol_badslp[iirowcol[:,1]]
+iirowcol = np.column_stack(np.where(slp_check[xx_inspan,:] < lowerlim))
+yplot[iirowcol[:,0]+1+xx_inspan[0],iirowcol[:,1]] = ztmp_check[iirowcol[:,0]+1+xx_inspan[0],iirowcol[:,1]]
+iirow_lower2 = iirowcol[:,0]+1+xx_inspan[0]
+iicol_lower2 = iicol_badslp[iirowcol[:,1]]
+ax.plot(xplot,yplot,'k^')
+
+# let's check to make sure that we remove the correct values in the full profile set
+ztmp_check = np.empty(shape=final_profile_fullspan_addtossed.shape)
+ztmp_check[:] = np.nan
+ztmp_check[:] = final_profile_fullspan_addtossed[:]
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF,ztmp_check)
+ztmp_check[iirow_upper1,iicol_upper1] = np.nan
+ztmp_check[iirow_upper2,iicol_upper2] = np.nan
+ztmp_check[iirow_lower1,iicol_lower1] = np.nan
+ztmp_check[iirow_lower2,iicol_lower2] = np.nan
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF,ztmp_check)
+final_profile_fullspan_best = np.empty(shape=final_profile_fullspan_addtossed.shape)
+final_profile_fullspan_best[:] = np.nan
+final_profile_fullspan_best[:] = ztmp_check[:]
+
+# SAVE CRITICAL
+with open(picklefile_dir+'final_profile_13Nov2024.pickle','wb') as file:
+    pickle.dump(final_profile_fullspan_best,file)
+
+
+
+
+
+
+
+
+
+
+
+
+
+# # Ok, now pull out slope data  to see if we can use it for filtering
+# z_slopeanalysis = np.empty(shape=zsmooth_fullspan.shape)
+# z_slopeanalysis[:] = zsmooth_fullspan[:]
+# avgslope_fullspan = np.empty(shape=lidarelev_fullspan.shape)
+# avgslope_fullspan[:] = np.nan
+# dx = 0.1
+# for tt in np.arange(len(time_fullspan)):
+#     ztmp = z_slopeanalysis[:,tt]
+#     ix_notnan = np.where(~np.isnan(ztmp))[0]
+#     # If profile is not all nans - calculate the average slope over nslopecheck
+#     if np.sum(~np.isnan(ztmp)) > 0:
+#         nslopecheck = 8
+#         delta = 2
+#         z_for_slopecheck = ztmp
+#         iterrange = ix_notnan[delta:-delta]
+#         for jj in np.arange(iterrange.size):
+#             tmpslope = np.empty(shape=(int(np.floor(nslopecheck / 2)),))
+#             tmpslope[:] = np.nan
+#             jj0 = iterrange[jj] - int(np.floor(nslopecheck * 0.75))
+#             for ii in np.arange(tmpslope.size):
+#                 tmpslope_ii = (z_for_slopecheck[jj0] - z_for_slopecheck[jj0 + nslopecheck]) / (nslopecheck * dx)
+#                 tmpslope[ii] = tmpslope_ii
+#                 jj0 = jj0 + 1
+#             if sum(~np.isnan(tmpslope)) >= 2:
+#                 avgslope_fullspan[iterrange[jj], tt] = np.nanmean(tmpslope)
+
+
+
+
+
+
+
+
+# find and plot profiles where any xshore value is > 3m from the mean xshore val
+flag_splineerr = np.empty(shape=time_fullspan.shape)
+flag_splineerr[:] = np.nan
+for tt in np.arange(time_fullspan.size):
+    ztmp = final_profile_fullspan_addtossed[:,tt]
+    if sum(~np.isnan(ztmp)) > 5:
+        tmp = abs(ztmp - prof_mean)
+        if sum(tmp > 3) > 0:
+            flag_splineerr[tt] = 1
+flag_splineerr[np.isnan(flag_splineerr)] = 0
+
+fig, ax = plt.subplots()
+iiplot = np.where(flag_splineerr == 1)
+ax.plot(lidar_xFRF,final_profile_fullspan_addtossed[:,iiplot[0]],'o')
+
+fig, ax = plt.subplots()
+iiplot = np.where(flag_splineerr != 1)
+ax.plot(lidar_xFRF,final_profile_fullspan_addtossed[:,iiplot[0]])
+
+
+
+
+
 
 
 
@@ -599,6 +978,37 @@ fig, ax = plt.subplots()
 plt.hist(maxgap_fullspan)
 ax.set_title('Max gap size post smoothing')
 
+
+# plot profiles between 20-28 March 2023
+tplot = pd.to_datetime(tossed_times, unit='s', origin='unix')
+tt_check = (tplot >= '2023-03-20') & (tplot <= '2023-03-28')
+tmp = z_slopeanalysis[:]
+tmp[ii_testremove] = np.nan
+yplot = tmp[:,tt_check]
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF,yplot)
+ax.set_title('March 20-28 2023')
+
+# Calculate the moving average and calculate the difference between the profile and mean
+zmean_tossed = np.empty(shape=tossed_profiles.shape)
+zmean_tossed[:] = np.nan
+zstd_tossed = np.empty(shape=tossed_profiles.shape)
+zstd_tossed[:] = np.nan
+nsmooth = 15
+for tt in np.arange(tossed_profiles.shape[1]):
+    ztmp = tossed_profiles_step2[:,tt]
+    ix_notnan = np.where(~np.isnan(ztmp))[0]
+    # If profile is not all nans - calculate the average slope over nslopecheck
+    if np.sum(~np.isnan(ztmp)) > 0:
+        zmean_tmp = np.convolve(ztmp, np.ones(nsmooth) / nsmooth, mode='same')
+        ts = pd.Series(ztmp)
+        zstd_tmp = ts.rolling(window=nsmooth, center=True).std()
+        zmean_tossed[np.arange(2,ztmp.size-2),tt] = zmean_tmp[np.arange(2,ztmp.size-2)]
+        zstd_tossed[np.arange(2, ztmp.size - 2), tt] = zstd_tmp[np.arange(2,ztmp.size-2)]
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF,zmean_tossed)
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF,zstd_tossed)
 
 
 
