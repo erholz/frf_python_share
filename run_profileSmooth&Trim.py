@@ -873,6 +873,15 @@ final_profile_fullspan_best[:] = ztmp_check[:]
 with open(picklefile_dir+'final_profile_13Nov2024.pickle','wb') as file:
     pickle.dump(final_profile_fullspan_best,file)
 
+# What does the data look like?
+fig, ax = plt.subplots()
+yplot = 100*np.nansum(~np.isnan(lidarelev_fullspan),axis=1)/time_fullspan.size
+ax.plot(lidar_xFRF,yplot,label='raw')
+yplot = 100*np.nansum(~np.isnan(final_profile_fullspan_best),axis=1)/time_fullspan.size
+ax.plot(lidar_xFRF,yplot,label='processed')
+ax.set_xlabel('xFRF [m]')
+ax.set_ylabel('Percent available')
+
 
 
 

@@ -6,6 +6,7 @@ import numpy as np
 import scipy as sp
 import time
 import pickle
+from scipy.optimize import curve_fit
 
 
 def lidar_fillgaps(elev_input,lidartime,lidar_xFRF,halfspan_time,halfspan_x):
@@ -85,18 +86,18 @@ def prof_extendfromlidarhydro(lidarelev,lidartime,lidar_xFRF,wlmin_lidar,cont_ts
 # def prof_extendfromslopes(lidarelev,lidarslope,scaled_profiles,scaled_avgslope,shift_avgslope_beyondXCsea,
 #                           time_fullspan,data_wave8m,data_tidegauge,data_lidar_elev2p):
 
-
-with open('elev_processed_base.pickle', 'rb') as file:
-    time_fullspan,lidar_xFRF,profile_width,maxgap_fullspan,_,_ = pickle.load(file)
-with open('elev_processed_slopes.pickle', 'rb') as file:
+picklefile_dir = 'F:/Projects/FY24/FY24_SMARTSEED/FRF_data/processed_backup/'
+with open(picklefile_dir+'elev_processed_base.pickle', 'rb') as file:
+    time_fullspan,lidar_xFRF,profile_width,maxgap_fullspan,xc_fullspan,dXcdt_fullspan = pickle.load(file)
+with open(picklefile_dir+'elev_processed_slopes.pickle', 'rb') as file:
     avgslope_fullspan, avgslope_withinXCs,avgslope_beyondXCsea = pickle.load(file)
-with open('elev_processed_slopes_shift.pickle', 'rb') as file:
+with open(picklefile_dir+'elev_processed_slopes_shift.pickle', 'rb') as file:
     shift_avgslope,shift_avgslope_beyondXCsea = pickle.load(file)
-with open('elev_processed_elev.pickle', 'rb') as file:
+with open(picklefile_dir+'elev_processed_elev.pickle', 'rb') as file:
     zsmooth_fullspan,shift_zsmooth,unscaled_profile = pickle.load(file)
-with open('elev_processed_elev&slopes_scaled.pickle', 'rb') as file:
+with open(picklefile_dir+'elev_processed_elev&slopes_scaled.pickle', 'rb') as file:
     scaled_profiles,scaled_avgslope = pickle.load(file)
-with open('elev_processed_unscaled_xi.pickle', 'rb') as file:
+with open(picklefile_dir+'elev_processed_unscaled_xi.pickle', 'rb') as file:
     unscaled_xi = pickle.load(file)
 
 
@@ -109,8 +110,8 @@ lidarslope_seaward = shift_avgslope_beyondXCsea
 lidarelev_equallength = unscaled_profile
 
 
-with open('IO_alignedintime.pickle', 'rb') as file:
-    _,data_wave8m,_,data_tidegauge,data_lidar_elev2p,_,_,_,_,_,_,_,_ = pickle.load(file)
+with open(picklefile_dir+'IO_alignedintime.pickle', 'rb') as file:
+    time_fullspan,data_wave8m,_,data_tidegauge,data_lidar_elev2p,_,_,_,_,_,_,_,lidarelev_fullspan = pickle.load(file)
 
 
 # figure out size of datasets
@@ -189,6 +190,80 @@ fig, ax = plt.subplots()
 ax.plot(xtmp, unscaled_profile.T)
 ax.set_ylabel('z [m, NAVD88]')
 ax.set_xlabel('x [m, FRF]')
+
+## FIRST find last [edge_length] of profile, try to fit equilibrium profile
+def equilibriumprofile_func(x, a, b):
+    return a * x * np.exp(b)
+
+nonequil_flag = np.empty(shape=time_fullspan.shape)
+nonequil_flag[:] = np.nan
+Acoef = np.empty(shape=time_fullspan.shape)
+bcoef = np.empty(shape=time_fullspan.shape)
+fitrmse = np.empty(shape=time_fullspan.shape)
+Acoef[:] = np.nan
+bcoef[:] = np.nan
+fitrmse[:] = np.nan
+# for tt in np.arange(10):
+for tt in np.arange(time_fullspan.size):
+    Lgrab = 3           # try fitting equilibrium profile to last [Lgrab] meters of available data
+    numgrab = Lgrab/dx
+    watlev_tt = data_tidegauge[tt]
+    if (sum(~np.isnan(unscaled_profile[tt,:])) > 10) & (~np.isnan(watlev_tt)):
+        id_last = sum(~np.isnan(unscaled_profile[tt,:]))
+        ztmp = watlev_tt - unscaled_profile[tt,np.arange(id_last-numgrab,id_last).astype(int)]
+        xtmp = np.arange(ztmp.size)
+        # xtmp[ztmp < 0] = []     # remove negative values
+        # ztmp[ztmp < 0] = []     # remove negative values
+        ztmp = ztmp - ztmp[0]   # make initial value 0
+        popt, pcov = curve_fit(equilibriumprofile_func, xtmp, ztmp, bounds=([0, 0], [10, 10]))
+        # popt, pcov = curve_fit(equilibriumprofile_func, xtmp, ztmp)
+        Acoef[tt] = popt[0]
+        bcoef[tt] = popt[1]
+        zfit = equilibriumprofile_func(xtmp, *popt)
+        fitrmse[tt] = np.sqrt(np.mean((zfit-ztmp)**2))
+        # fig, ax = plt.subplots()
+        # ax.plot(xtmp,watlev_tt - ztmp,'o')
+        # ax.plot(xtmp,watlev_tt - equilibriumprofile_func(xtmp, *popt), label='fit: a=%5.3f, b=%5.3f' % tuple(popt))
+
+# Plot Acoef and bcoef with error (RMSE)
+fig, ax = plt.subplots()
+# ax.plot(Acoef,fitrmse,'o')
+ph = ax.scatter(Acoef,fitrmse,s=5, c=profile_width, cmap='rainbow')
+cbar = fig.colorbar(ph, ax=ax)
+cbar.set_label('profile width [m]')
+ax.set_xlabel('A coeff')
+ax.set_ylabel('RMSE [m]')
+fig, ax = plt.subplots()
+# ax.plot(bcoef,fitrmse,'o')
+ph = ax.scatter(bcoef,fitrmse,s=5, c=profile_width, cmap='rainbow')
+cbar = fig.colorbar(ph, ax=ax)
+ax.set_xlabel('b coeff')
+cbar.set_label('profile width [m]')
+ax.set_ylabel('RMSE [m]')
+fig, ax = plt.subplots()
+plt.hist(fitrmse)
+ax.set_xlabel('RMSE [m')
+
+    fig, ax = plt.subplots()
+    xtmp = np.arange(10)
+    ax.plot(xtmp,1 - 0.05*xtmp*np.exp(2/3))
+    ax.plot(xtmp,1 - 0.1 * xtmp * np.exp(2 / 3))
+    ax.plot(xtmp,1 - 0.15 * xtmp * np.exp(2 / 3))
+    ax.plot(xtmp,1 - 0.2 * xtmp * np.exp(2 / 3))
+    ax.plot(xtmp,1 - 0.25 * xtmp * np.exp(2 / 3))
+    ax.title('increase A from 0.5 to 2.5')
+    fig, ax = plt.subplots()
+    xtmp = np.arange(10)
+    ax.plot(xtmp, 1 - 0.15 * xtmp * np.exp(.25))
+    ax.plot(xtmp, 1 - 0.15 * xtmp * np.exp(.35))
+    ax.plot(xtmp, 1 - 0.15 * xtmp * np.exp(.45))
+    ax.plot(xtmp, 1 - 0.15 * xtmp * np.exp(.55))
+    ax.plot(xtmp, 1 - 0.15 * xtmp * np.exp(.65))
+    ax.plot(xtmp, 1 - 0.15 * xtmp * np.exp(.75))
+    ax.title('increase b from 0.25 to .75')
+
+
+## NOW try a statistical method...
 
 # make single matrix of slopes to match size of zsmooth_equal_length
 lidarslope_equallength = np.empty(lidarelev_equallength.shape)
