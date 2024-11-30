@@ -7,6 +7,8 @@ import scipy as sp
 import time
 import pickle
 from scipy.optimize import curve_fit
+from funcs.create_contours import *
+
 
 
 def lidar_fillgaps(elev_input,lidartime,lidar_xFRF,halfspan_time,halfspan_x):
@@ -86,37 +88,207 @@ def prof_extendfromlidarhydro(lidarelev,lidartime,lidar_xFRF,wlmin_lidar,cont_ts
 # def prof_extendfromslopes(lidarelev,lidarslope,scaled_profiles,scaled_avgslope,shift_avgslope_beyondXCsea,
 #                           time_fullspan,data_wave8m,data_tidegauge,data_lidar_elev2p):
 
-picklefile_dir = 'F:/Projects/FY24/FY24_SMARTSEED/FRF_data/processed_backup/'
-with open(picklefile_dir+'elev_processed_base.pickle', 'rb') as file:
-    time_fullspan,lidar_xFRF,profile_width,maxgap_fullspan,xc_fullspan,dXcdt_fullspan = pickle.load(file)
-with open(picklefile_dir+'elev_processed_slopes.pickle', 'rb') as file:
-    avgslope_fullspan, avgslope_withinXCs,avgslope_beyondXCsea = pickle.load(file)
-with open(picklefile_dir+'elev_processed_slopes_shift.pickle', 'rb') as file:
-    shift_avgslope,shift_avgslope_beyondXCsea = pickle.load(file)
-with open(picklefile_dir+'elev_processed_elev.pickle', 'rb') as file:
-    zsmooth_fullspan,shift_zsmooth,unscaled_profile = pickle.load(file)
-with open(picklefile_dir+'elev_processed_elev&slopes_scaled.pickle', 'rb') as file:
-    scaled_profiles,scaled_avgslope = pickle.load(file)
-with open(picklefile_dir+'elev_processed_unscaled_xi.pickle', 'rb') as file:
-    unscaled_xi = pickle.load(file)
-
-
-
-
-
-lidarelev = shift_zsmooth
-lidarslope = shift_avgslope
-lidarslope_seaward = shift_avgslope_beyondXCsea
-lidarelev_equallength = unscaled_profile
-
+picklefile_dir = 'F:/Projects/FY24/FY24_SMARTSEED/FRF_data/processed_26Nov2024/'
+# with open(picklefile_dir+'elev_processed_base.pickle', 'rb') as file:
+#     time_fullspan,lidar_xFRF,profile_width,maxgap_fullspan,xc_fullspan,dXcdt_fullspan = pickle.load(file)
+# with open(picklefile_dir+'elev_processed_slopes.pickle', 'rb') as file:
+#     avgslope_fullspan, avgslope_withinXCs,avgslope_beyondXCsea = pickle.load(file)
+# with open(picklefile_dir+'elev_processed_slopes_shift.pickle', 'rb') as file:
+#     shift_avgslope,shift_avgslope_beyondXCsea = pickle.load(file)
+# with open(picklefile_dir+'elev_processed_elev.pickle', 'rb') as file:
+#     zsmooth_fullspan,shift_zsmooth,unscaled_profile = pickle.load(file)
+# with open(picklefile_dir+'elev_processed_elev&slopes_scaled.pickle', 'rb') as file:
+#     scaled_profiles,scaled_avgslope = pickle.load(file)
+# with open(picklefile_dir+'elev_processed_unscaled_xi.pickle', 'rb') as file:
+#     unscaled_xi = pickle.load(file)
 
 with open(picklefile_dir+'IO_alignedintime.pickle', 'rb') as file:
-    time_fullspan,data_wave8m,_,data_tidegauge,data_lidar_elev2p,_,_,_,_,_,_,_,lidarelev_fullspan = pickle.load(file)
+    time_fullspan,data_wave8m,data_wave17m,data_tidegauge,data_lidar_elev2p,data_lidarwg080,data_lidarwg090,data_lidarwg100,data_lidarwg110,data_lidarwg140,_,_,lidarelev_fullspan = pickle.load(file)
+with open(picklefile_dir+'lidar_xFRF.pickle', 'rb') as file:
+    lidar_xFRF = np.array(pickle.load(file))
+    lidar_xFRF = lidar_xFRF[0][:]
+with open(picklefile_dir + 'final_profile_13Nov2024_shift.pickle', 'rb') as file:
+    profile_fullspan_shift = pickle.load(file)
+with open(picklefile_dir + 'final_profile_13Nov2024.pickle', 'rb') as file:
+    profile_fullspan = pickle.load(file)
+
+## Use contours to determine the profile 'width'
+mwl = -0.13
+zero = 0
+mhw = 3.6
+dune_toe = 3.22
+cont_elev = np.array([mwl, zero, dune_toe, mhw]) #np.arange(0,2.5,0.5)   # <<< MUST BE POSITIVELY INCREASING
+cont_ts, cmean, cstd = create_contours(profile_fullspan.T,time_fullspan,lidar_xFRF,cont_elev)
+fig, ax = plt.subplots()
+ax.plot(cont_ts.T)
+# profile_width = []
 
 
 # figure out size of datasets
+lidarelev = np.empty(shape=profile_fullspan_shift.T.shape)
+lidarelev[:] = profile_fullspan_shift.T[:]
 nx = lidarelev.shape[1]
 dx = 0.1
+lidar_xFRF_shift = dx*np.arange(0,(lidar_xFRF.size),1)
+
+
+
+## FIRST find last [edge_length] of profile, try to fit equilibrium profile
+def equilibriumprofile_func(x, a, b):
+    return a * x * np.exp(b)
+
+
+
+
+nonequil_flag = np.empty(shape=time_fullspan.shape)
+nonequil_flag[:] = np.nan
+Acoef = np.empty(shape=time_fullspan.shape)
+bcoef = np.empty(shape=time_fullspan.shape)
+fitrmse = np.empty(shape=time_fullspan.shape)
+Acoef[:] = np.nan
+bcoef[:] = np.nan
+fitrmse[:] = np.nan
+profile_extend = np.empty(shape=lidarelev.shape)
+profile_extend[:] = lidarelev[:]
+# for tt in np.arange(10):
+for tt in np.arange(time_fullspan.size):
+# for tt in np.arange(15):
+    Lgrab = 5           # try fitting equilibrium profile to last [Lgrab] meters of available data
+    numgrab = Lgrab/dx
+    watlev_tt = data_tidegauge[tt]
+    if (sum(~np.isnan(lidarelev[tt,:])) > 10) & (~np.isnan(watlev_tt)):
+        id_last = sum(~np.isnan(lidarelev[tt,:]))
+        iitest = np.arange(id_last-numgrab,id_last).astype(int)
+        ztmp = watlev_tt - lidarelev[tt,np.arange(id_last-numgrab,id_last).astype(int)]
+        xtmp = dx*np.arange(ztmp.size)
+        iitest = iitest[~np.isnan(ztmp)]
+        xtmp = xtmp[~np.isnan(ztmp)]
+        ztmp = ztmp[~np.isnan(ztmp)]
+        zobs_final = watlev_tt - ztmp[-1]
+        # xtmp[ztmp < 0] = []     # remove negative values
+        # ztmp[ztmp < 0] = []     # remove negative values
+        ztmp = ztmp - ztmp[0]   # make initial value 0
+        popt, pcov = curve_fit(equilibriumprofile_func, xtmp, ztmp, bounds=([0, -np.inf], [15, np.inf]))
+        # popt, pcov = curve_fit(equilibriumprofile_func, xtmp, ztmp)
+        Acoef[tt] = popt[0]
+        bcoef[tt] = popt[1]
+        zfit = equilibriumprofile_func(xtmp, *popt)
+        fitrmse[tt] = np.sqrt(np.mean((zfit-ztmp)**2))
+        x_extend = np.arange(lidar_xFRF_shift[iitest[-1]]+dx,lidar_xFRF_shift[-1],dx)
+        x_extend_norm = x_extend - x_extend[0]
+        z_extend = equilibriumprofile_func(x_extend_norm, *popt)
+        profile_extend[tt,np.arange(iitest[-1]+1,nx-1)] = zobs_final - z_extend
+        # fig, ax = plt.subplots()
+        # ax.plot(xtmp,watlev_tt - ztmp,'o')
+        # ax.plot(xtmp,watlev_tt - equilibriumprofile_func(xtmp, *popt), label='fit: a=%5.3f, b=%5.3f' % tuple(popt))
+        # ax.plot(x_extend,watlev_tt - z_extend)
+        # ax.plot(lidar_xFRF_shift,profile_extend[tt,:],'o')
+        # ax.legend()
+
+# Plot Acoef and bcoef with error (RMSE)
+profile_width = np.ones(shape=time_fullspan.shape)
+fig, ax = plt.subplots()
+# ax.plot(Acoef,fitrmse,'o')
+ph = ax.scatter(Acoef,fitrmse,s=5, c=profile_width, cmap='rainbow')
+cbar = fig.colorbar(ph, ax=ax)
+cbar.set_label('profile width [m]')
+ax.set_xlabel('A coeff')
+ax.set_ylabel('RMSE [m]')
+fig, ax = plt.subplots()
+# ax.plot(bcoef,fitrmse,'o')
+ph = ax.scatter(bcoef,fitrmse,s=5, c=profile_width, cmap='rainbow')
+cbar = fig.colorbar(ph, ax=ax)
+ax.set_xlabel('b coeff')
+cbar.set_label('profile width [m]')
+ax.set_ylabel('RMSE [m]')
+fig, ax = plt.subplots()
+yplot = fitrmse[fitrmse <= 0.05]
+plt.hist(yplot,bins=np.linspace(0,0.05,50))
+ax.set_xlabel('RMSE [m] < 0.1 m')
+fig, ax = plt.subplots()
+yplot = fitrmse[fitrmse > 0.05]
+plt.hist(fitrmse,bins=np.linspace(0.05,np.nanmax(fitrmse),50))
+ax.set_xlabel('RMSE [m] > 0.1 m')
+
+fig, ax = plt.subplots()
+xtmp = np.arange(10)
+ax.plot(xtmp,1 - 0.05*xtmp*np.exp(2/3))
+ax.plot(xtmp,1 - 0.1 * xtmp * np.exp(2 / 3))
+ax.plot(xtmp,1 - 0.15 * xtmp * np.exp(2 / 3))
+ax.plot(xtmp,1 - 0.2 * xtmp * np.exp(2 / 3))
+ax.plot(xtmp,1 - 0.25 * xtmp * np.exp(2 / 3))
+ax.title('increase A from 0.5 to 2.5')
+fig, ax = plt.subplots()
+xtmp = np.arange(10)
+ax.plot(xtmp, 1 - 0.15 * xtmp * np.exp(.25))
+ax.plot(xtmp, 1 - 0.15 * xtmp * np.exp(.35))
+ax.plot(xtmp, 1 - 0.15 * xtmp * np.exp(.45))
+ax.plot(xtmp, 1 - 0.15 * xtmp * np.exp(.55))
+ax.plot(xtmp, 1 - 0.15 * xtmp * np.exp(.65))
+ax.plot(xtmp, 1 - 0.15 * xtmp * np.exp(.75))
+ax.title('increase b from 0.25 to .75')
+
+# Plot the profiles where the fit-error is low
+iiplot = np.where(fitrmse < 0.015)[0]
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF_shift,lidarelev[iiplot,:].T)
+ax.set_title('Profiles with low fit error (RMSE < 15 cm)')
+fig, ax = plt.subplots()
+ax.plot(Acoef[iiplot],bcoef[iiplot],'o')
+ax.set_xlabel('A coef')
+ax.set_ylabel('b coef')
+ax.set_title('Profiles with low fit error (RMSE < 15 cm)')
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF_shift,profile_extend[iiplot,:].T)
+ax.set_title('Profiles with low fit error (RMSE < 15 cm) - EXTENDED')
+
+
+# Plot the profiles where the fit-error is high
+iiplot = np.where(fitrmse > 0.1)[0]
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF,lidarelev[iiplot,:].T)
+ax.set_title('Profiles with high fit error (RMSE > 100 cm)')
+fig, ax = plt.subplots()
+ax.plot(Acoef[iiplot],bcoef[iiplot],'o')
+ax.set_xlabel('A coef')
+ax.set_ylabel('b coef')
+ax.set_title('Profiles with high fit error (RMSE > 100 cm)')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 tplot = pd.to_datetime(time_fullspan, unit='s', origin='unix')
 xplot = np.arange(nx) * dx
@@ -190,78 +362,6 @@ fig, ax = plt.subplots()
 ax.plot(xtmp, unscaled_profile.T)
 ax.set_ylabel('z [m, NAVD88]')
 ax.set_xlabel('x [m, FRF]')
-
-## FIRST find last [edge_length] of profile, try to fit equilibrium profile
-def equilibriumprofile_func(x, a, b):
-    return a * x * np.exp(b)
-
-nonequil_flag = np.empty(shape=time_fullspan.shape)
-nonequil_flag[:] = np.nan
-Acoef = np.empty(shape=time_fullspan.shape)
-bcoef = np.empty(shape=time_fullspan.shape)
-fitrmse = np.empty(shape=time_fullspan.shape)
-Acoef[:] = np.nan
-bcoef[:] = np.nan
-fitrmse[:] = np.nan
-# for tt in np.arange(10):
-for tt in np.arange(time_fullspan.size):
-    Lgrab = 3           # try fitting equilibrium profile to last [Lgrab] meters of available data
-    numgrab = Lgrab/dx
-    watlev_tt = data_tidegauge[tt]
-    if (sum(~np.isnan(unscaled_profile[tt,:])) > 10) & (~np.isnan(watlev_tt)):
-        id_last = sum(~np.isnan(unscaled_profile[tt,:]))
-        ztmp = watlev_tt - unscaled_profile[tt,np.arange(id_last-numgrab,id_last).astype(int)]
-        xtmp = np.arange(ztmp.size)
-        # xtmp[ztmp < 0] = []     # remove negative values
-        # ztmp[ztmp < 0] = []     # remove negative values
-        ztmp = ztmp - ztmp[0]   # make initial value 0
-        popt, pcov = curve_fit(equilibriumprofile_func, xtmp, ztmp, bounds=([0, 0], [10, 10]))
-        # popt, pcov = curve_fit(equilibriumprofile_func, xtmp, ztmp)
-        Acoef[tt] = popt[0]
-        bcoef[tt] = popt[1]
-        zfit = equilibriumprofile_func(xtmp, *popt)
-        fitrmse[tt] = np.sqrt(np.mean((zfit-ztmp)**2))
-        # fig, ax = plt.subplots()
-        # ax.plot(xtmp,watlev_tt - ztmp,'o')
-        # ax.plot(xtmp,watlev_tt - equilibriumprofile_func(xtmp, *popt), label='fit: a=%5.3f, b=%5.3f' % tuple(popt))
-
-# Plot Acoef and bcoef with error (RMSE)
-fig, ax = plt.subplots()
-# ax.plot(Acoef,fitrmse,'o')
-ph = ax.scatter(Acoef,fitrmse,s=5, c=profile_width, cmap='rainbow')
-cbar = fig.colorbar(ph, ax=ax)
-cbar.set_label('profile width [m]')
-ax.set_xlabel('A coeff')
-ax.set_ylabel('RMSE [m]')
-fig, ax = plt.subplots()
-# ax.plot(bcoef,fitrmse,'o')
-ph = ax.scatter(bcoef,fitrmse,s=5, c=profile_width, cmap='rainbow')
-cbar = fig.colorbar(ph, ax=ax)
-ax.set_xlabel('b coeff')
-cbar.set_label('profile width [m]')
-ax.set_ylabel('RMSE [m]')
-fig, ax = plt.subplots()
-plt.hist(fitrmse)
-ax.set_xlabel('RMSE [m')
-
-    fig, ax = plt.subplots()
-    xtmp = np.arange(10)
-    ax.plot(xtmp,1 - 0.05*xtmp*np.exp(2/3))
-    ax.plot(xtmp,1 - 0.1 * xtmp * np.exp(2 / 3))
-    ax.plot(xtmp,1 - 0.15 * xtmp * np.exp(2 / 3))
-    ax.plot(xtmp,1 - 0.2 * xtmp * np.exp(2 / 3))
-    ax.plot(xtmp,1 - 0.25 * xtmp * np.exp(2 / 3))
-    ax.title('increase A from 0.5 to 2.5')
-    fig, ax = plt.subplots()
-    xtmp = np.arange(10)
-    ax.plot(xtmp, 1 - 0.15 * xtmp * np.exp(.25))
-    ax.plot(xtmp, 1 - 0.15 * xtmp * np.exp(.35))
-    ax.plot(xtmp, 1 - 0.15 * xtmp * np.exp(.45))
-    ax.plot(xtmp, 1 - 0.15 * xtmp * np.exp(.55))
-    ax.plot(xtmp, 1 - 0.15 * xtmp * np.exp(.65))
-    ax.plot(xtmp, 1 - 0.15 * xtmp * np.exp(.75))
-    ax.title('increase b from 0.25 to .75')
-
 
 ## NOW try a statistical method...
 

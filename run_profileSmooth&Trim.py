@@ -19,6 +19,7 @@ from datetime import datetime
 
 # Load temporally aligned data - need to add lidarelev_fullspan
 picklefile_dir = 'F:/Projects/FY24/FY24_SMARTSEED/FRF_data/processed_backup/'
+picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_26Nov2024/'
 with open(picklefile_dir+'IO_alignedintime.pickle', 'rb') as file:
     time_fullspan,data_wave8m,data_wave17m,data_tidegauge,data_lidar_elev2p,data_lidarwg080,data_lidarwg090,data_lidarwg100,data_lidarwg110,data_lidarwg140,_,_,lidarelev_fullspan = pickle.load(file)
 with open(picklefile_dir+'lidar_xFRF.pickle', 'rb') as file:
@@ -882,6 +883,57 @@ ax.plot(lidar_xFRF,yplot,label='processed')
 ax.set_xlabel('xFRF [m]')
 ax.set_ylabel('Percent available')
 
+## Shift the profiles to the dune_toe contour
+picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_26Nov2024/'
+with open(picklefile_dir+'final_profile_13Nov2024.pickle', 'rb') as file:
+    final_profile_fullspan_best = pickle.load(file)
+
+# get the contour position
+dune_toe = 3.22
+cont_elev = np.array([dune_toe]) #np.arange(0,2.5,0.5)   # <<< MUST BE POSITIVELY INCREASING
+cont_ts, cmean, cstd = create_contours(final_profile_fullspan_best.T,time_fullspan,lidar_xFRF,cont_elev)
+xc_fullspan = cont_ts[0,:]
+fig, ax = plt.subplots()
+ax.plot(time_fullspan, xc_fullspan,'o')
+
+finalprofile_13Nov2024_shift = np.empty(shape=final_profile_fullspan_best.shape)
+finalprofile_13Nov2024_shift[:] = np.nan
+zsmooth_fullspan = np.empty(shape=final_profile_fullspan_best.shape)
+zsmooth_fullspan[:] = final_profile_fullspan_best[:]
+for tt in np.arange(len(time_fullspan)):
+    xc_shore = xc_fullspan[tt]
+    if (~np.isnan(xc_shore)):
+        # first, map to *_shift vectors
+        ix_inspan = np.where((lidar_xFRF >= xc_shore))[0]
+        padding = 2
+        itrim = np.arange(ix_inspan[0] - padding, lidar_xFRF.size)
+        xtmp = lidar_xFRF[itrim]
+        ztmp = zsmooth_fullspan[itrim, tt]
+        xtmp = xtmp[~np.isnan(ztmp)]        # remove nans
+        ztmp = ztmp[~np.isnan(ztmp)]        # remove nans
+        xinterp = np.linspace(xc_shore, np.nanmax(xtmp), xtmp.size-(padding-1))
+        zinterp = np.interp(xinterp, xtmp, ztmp)
+        ztrim_FromXCshore = zinterp
+        finalprofile_13Nov2024_shift[0:ztrim_FromXCshore.size,tt] = ztrim_FromXCshore
+
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF, finalprofile_13Nov2024_shift,'o')
+
+final_profile_fullspan_best_shift = np.empty(shape=finalprofile_13Nov2024_shift.shape)
+final_profile_fullspan_best_shift[:] = finalprofile_13Nov2024_shift[:]
+
+
+## Shift the profiles to the dune_toe contour
+picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_26Nov2024/'
+with open(picklefile_dir+'final_profile_13Nov2024_shift.pickle','wb') as file:
+    pickle.dump(final_profile_fullspan_best_shift,file)
+
+
+
+
+
+
+
 
 
 
@@ -921,12 +973,6 @@ ax.set_ylabel('Percent available')
 #                 avgslope_fullspan[iterrange[jj], tt] = np.nanmean(tmpslope)
 
 
-
-
-
-
-
-
 # find and plot profiles where any xshore value is > 3m from the mean xshore val
 flag_splineerr = np.empty(shape=time_fullspan.shape)
 flag_splineerr[:] = np.nan
@@ -945,22 +991,6 @@ ax.plot(lidar_xFRF,final_profile_fullspan_addtossed[:,iiplot[0]],'o')
 fig, ax = plt.subplots()
 iiplot = np.where(flag_splineerr != 1)
 ax.plot(lidar_xFRF,final_profile_fullspan_addtossed[:,iiplot[0]])
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 # fig, ax = plt.subplots()
 fig = plt.figure()
