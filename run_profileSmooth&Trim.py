@@ -914,10 +914,11 @@ for tt in np.arange(len(time_fullspan)):
         xinterp = np.linspace(xc_shore, np.nanmax(xtmp), xtmp.size-(padding-1))
         zinterp = np.interp(xinterp, xtmp, ztmp)
         ztrim_FromXCshore = zinterp
-        finalprofile_13Nov2024_shift[0:ztrim_FromXCshore.size,tt] = ztrim_FromXCshore
+        finalprofile_13Nov2024_shift[0:itrim.size, tt] = zsmooth_fullspan[itrim, tt]
+        # finalprofile_13Nov2024_shift[0:ztrim_FromXCshore.size,tt] = ztrim_FromXCshore
 
 fig, ax = plt.subplots()
-ax.plot(lidar_xFRF, finalprofile_13Nov2024_shift,'o')
+ax.plot(lidar_xFRF, finalprofile_13Nov2024_shift)
 
 final_profile_fullspan_best_shift = np.empty(shape=finalprofile_13Nov2024_shift.shape)
 final_profile_fullspan_best_shift[:] = finalprofile_13Nov2024_shift[:]
