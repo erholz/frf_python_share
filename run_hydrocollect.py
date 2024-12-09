@@ -260,3 +260,35 @@ def run_getnoaatidewithpred_func(gauge, datum, start_year, end_year):
 
     return tideout
 
+def run_wavecollect26m_func(wave26mfloc, wave26mext):
+
+    # Get timing info from run_code.py
+    picklefile_dir = './'
+    tzinfo, time_format, time_beg, time_end, epoch_beg, epoch_end, TOI_duration = get_TimeInfo(picklefile_dir)
+
+    floc = wave26mfloc
+    ext = wave26mext
+    fname_in_range = find_files_in_range(floc, ext, epoch_beg, epoch_end, tzinfo)
+    wave8m_time = []
+    wave8m_Tp = []
+    wave8m_Hs = []
+    wave8m_dir = []
+
+    for fname_ii in fname_in_range:
+        full_path = floc + fname_ii
+        qaqc_fac, wave_peakdir, wave_Tp, wave_Hs, wave_time, src_WL, wave_WL = getlocal_waves8m(full_path)
+        wave26m_time = np.append(wave8m_time, wave_time, axis=0)
+        wave26m_Tp = np.append(wave8m_Tp, wave_Tp, axis=0)
+        wave26m_Hs = np.append(wave8m_Hs, wave_Hs, axis=0)
+        wave26m_dir = np.append(wave8m_dir, wave_peakdir, axis=0)
+    # Trim full data set to just the obs of interest
+    ij_in_range = (wave26m_time >= epoch_beg) & (wave8m_time <= epoch_end)
+    wave26m_time = wave26m_time[ij_in_range]
+    wave26m_Tp = wave26m_Tp[ij_in_range]
+    wave26m_Hs = wave26m_Hs[ij_in_range]
+    wave26m_dir = wave26m_dir[ij_in_range]
+    wave26m_Tp[wave26m_Tp < -99] = np.nan
+    wave26m_Hs[wave26m_Hs < -99] = np.nan
+    wave26m_dir[wave26m_dir < -99] = np.nan
+
+    return wave26m_time,wave26m_Tp,wave26m_Hs,wave26m_dir

@@ -42,6 +42,12 @@ server_url = 'https://chldata.erdc.dren.mil/thredds/'
 # local_dir = local_base + '/waves_17marray/'
 # years = np.arange(2015,2025)
 #
+# For 26m-depth wave buoys
+request_url = 'catalog/frf/oceanography/waves/waverider-26m/'
+local_dir = local_base + '/waves_26mwaverider/'
+years = np.arange(2015,2025)
+#
+#
 # # For lidar hydro (wave stats)
 # request_url = 'catalog/frf/oceanography/waves/lidarHydrodynamics/'
 # local_dir = local_base + '/waves_lidar/lidar_hydro/'
@@ -123,6 +129,6 @@ def main():
 
     return catalog, files, file_subset
 
-# Run main function when in comand line mode
+# Run main function when in command line mode
 if __name__ == '__main__':
     catalog, files, file_subset = main()

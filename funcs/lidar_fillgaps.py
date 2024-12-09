@@ -135,13 +135,128 @@ lidar_xFRF_shift = dx*np.arange(0,(lidar_xFRF.size),1)
 fig, ax = plt.subplots()
 ax.plot(lidar_xFRF_shift,lidarelev.T)
 ax.set_title('Shifted Profiles - all, best available')
+ax.set_xlabel('x* [m]')
 fig, ax = plt.subplots()
 ax.plot(lidar_xFRF,profile_fullspan)
 ax.set_title('Profiles - all, best available')
 
 
+## FIRST, load the processed data from Dylan
+picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_26Nov2024/'
+with open(picklefile_dir + 'tidalAveragedMetrics.pickle', 'rb') as file:
+    datload = pickle.load(file)
+list(datload)
+bathysurvey_elev = np.array(datload['smoothUpperTidalAverage'])
+bathysurvey_times = np.array(datload['highTideTimes'])
 
-## FIRST find last [edge_length] of profile, try to fit equilibrium profile
+# PLOT surveys from Dylan
+XX, TT = np.meshgrid(lidar_xFRF, bathysurvey_times)
+timescatter = np.reshape(TT, TT.size)
+xscatter = np.reshape(XX, XX.size)
+zscatter = np.reshape(bathysurvey_elev, bathysurvey_elev.size)
+tt = timescatter[~np.isnan(zscatter)]
+xx = xscatter[~np.isnan(zscatter)]
+zz = zscatter[~np.isnan(zscatter)]
+fig, ax = plt.subplots()
+ph = ax.scatter(xx, tt, s=5, c=zz, cmap='viridis')
+cbar = fig.colorbar(ph, ax=ax)
+cbar.set_label('z [m]')
+ax.set_xlabel('x [m, FRF]')
+ax.set_ylabel('time')
+
+# Find overlap in Dylan's elevation set and the raw initial profiles
+nt = np.nanmax([bathysurvey_elev.T.shape[1], lidarelev_fullspan.shape[1]])
+nx = lidar_xFRF.size
+bathypresenc = np.empty((nx,nt))
+bathypresenc[:] = np.nan
+lidarpresenc = np.empty((nx,nt))
+lidarpresenc[:] = np.nan
+lidarpresenc[~np.isnan(lidarelev_fullspan)] = 1
+tplot_lidar = pd.to_datetime(time_fullspan, unit='s', origin='unix')
+tplot_bathy = bathysurvey_times.copy()
+bathysurvey_fullspan = np.empty((nx,nt))
+bathysurvey_fullspan[:] = np.nan
+for tt in np.arange(bathysurvey_times.size):
+    if tplot_bathy[tt].minute == 30:
+        tplot_bathy[tt] = tplot_bathy[tt] + dt.timedelta(minutes=30)
+    ttdelta_min = np.nanmin(abs(tplot_lidar - tplot_bathy[tt])).astype('timedelta64[h]')
+    ttdiff_min = np.nanmin(abs(tplot_lidar - tplot_bathy[tt])).astype('timedelta64[h]') / np.timedelta64(1, 'h')
+    if ttdiff_min < 0.25:
+        ttnew = np.where(abs(tplot_lidar - tplot_bathy[tt]) == ttdelta_min)[0]
+        iinotnan = np.where(~np.isnan(bathysurvey_elev[tt,:]))[0]
+        bathypresenc[iinotnan,ttnew] = 0.5
+        bathysurvey_fullspan[iinotnan,ttnew] = bathysurvey_elev[tt,iinotnan]
+# Plot the overlap of these two datasets
+elev_overlap = np.nansum(np.dstack((lidarpresenc,bathypresenc)),2)
+elev_overlap[elev_overlap == 0] = np.nan
+bathy_nolidar = np.empty((nx,nt))
+bathy_nolidar[:] = np.nan
+bathy_nolidar[elev_overlap == 0.5] = bathysurvey_fullspan[elev_overlap == 0.5]
+## SCATTER PLOT SHOWING OVERLAP
+XX, TT = np.meshgrid(lidar_xFRF, time_fullspan)
+timescatter = np.reshape(TT, TT.size)
+xscatter = np.reshape(XX, XX.size)
+zscatter = np.reshape(elev_overlap.T, elev_overlap.T.size)
+tt = timescatter[~np.isnan(zscatter)]
+xx = xscatter[~np.isnan(zscatter)]
+zz = zscatter[~np.isnan(zscatter)]
+fig, ax = plt.subplots()
+ph = ax.scatter(xx, tt, s=2, c=zz, vmin=0, vmax=2, cmap='viridis')
+cbar = fig.colorbar(ph, ax=ax)
+cbar.set_label('OVERLAP')
+ax.set_xlabel('x [m, FRF]')
+ax.set_ylabel('time')
+ax.set_title('Lidar = 1, BathySurvey = 0.5')
+## PROFILE PLOT OF DLA'S DATA
+fig, ax = plt.subplots()
+zmean = np.nanmean(bathy_nolidar,axis=1)
+zstd = np.nanstd(bathy_nolidar,axis=1)
+ax.plot(lidar_xFRF,bathy_nolidar)
+ax.plot(lidar_xFRF,zmean,'k')
+ax.plot(lidar_xFRF,zmean+2.*zstd,'k:')
+ax.plot(lidar_xFRF,zmean-2.*zstd,'k:')
+ax.set_xlabel('xFRF [m]')
+ax.set_ylabel('z [m]')
+thresh = zmean+2*zstd
+iixx = (lidar_xFRF >= 146.97) & (lidar_xFRF <= 164)
+thresh_iixx = thresh[iixx]
+bathy_nolidar_clean = np.empty(shape=bathy_nolidar.shape)
+bathy_nolidar_clean[:] = bathy_nolidar[:]
+for tt in np.arange(time_fullspan.size):
+    ztmp = bathy_nolidar[iixx,tt]
+    ztmp[ztmp > thresh_iixx] = np.nan
+    bathy_nolidar_clean[iixx,tt] = ztmp
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF,bathy_nolidar_clean)
+ax.set_xlabel('xFRF [m]')
+ax.set_ylabel('z [m]')
+
+# NOW combine
+bathylidar_combo = np.empty(shape=bathy_nolidar.shape)
+bathylidar_combo[:] = profile_fullspan[:]
+bathylidar_combo[~np.isnan(bathy_nolidar_clean)] = bathy_nolidar_clean[~np.isnan(bathy_nolidar_clean)]
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF,bathylidar_combo)
+ax.set_xlabel('xFRF [m]')
+ax.set_ylabel('z [m]')
+ax.set_title('Bathy-Lidar combined')
+
+fig, ax = plt.subplots()
+yplot_raw = 100*np.nansum(~np.isnan(lidarelev_fullspan),axis=1)/time_fullspan.size
+yplot_lidar = 100*np.nansum(~np.isnan(profile_fullspan),axis=1)/time_fullspan.size
+yplot_bathy = 100*np.nansum(~np.isnan(bathy_nolidar),axis=1)/time_fullspan.size
+yplot_combo = 100*np.nansum(~np.isnan(bathylidar_combo),axis=1)/time_fullspan.size
+ax.plot(lidar_xFRF,yplot_raw,label='raw lidar')
+ax.plot(lidar_xFRF,yplot_lidar,label='processed lidar')
+ax.plot(lidar_xFRF,yplot_bathy,label='bathy where lidar unavail')
+ax.plot(lidar_xFRF,yplot_combo,label='processed lidar + bathy')
+ax.set_xlabel('xFRF [m]')
+ax.set_ylabel('% available')
+ax.legend()
+
+
+
+## THEN, try to fit equilibrium profile
 def equilibriumprofile_func_2param(x, a, b):
     return a * x * np.exp(b)
 def equilibriumprofile_func_1param(x, a):
@@ -164,33 +279,46 @@ bcoef[:] = np.nan
 fitrmse[:] = np.nan
 profile_extend = np.empty(shape=lidarelev.shape)
 profile_extend[:] = lidarelev[:]
+profile_extend_testdata = np.empty(shape=lidarelev.shape)
+profile_extend_testdata[:] = np.nan
+prof_x_wl = np.empty(shape=time_fullspan.shape)
+prof_x_wl[:] = np.nan
 # for tt in np.arange(10):
 # for tt in ([ 53613, 59241, 65637, 65861, 67527, 67528, 67576, 67577, 67638]):
 for tt in np.arange(time_fullspan.size):
-    Lgrab = 3          # try fitting equilibrium profile to last [Lgrab] meters of available data
+    Lgrab = 5          # try fitting equilibrium profile to last [Lgrab] meters of available data
     watlev_tt = data_tidegauge[tt]
-    wlbuffer = 0.5
+    wlbuffer = 0.25
     if (sum(~np.isnan(lidarelev[tt,:])) > 10) & (~np.isnan(watlev_tt)) :
         ii_submerged = np.where(lidarelev[tt, :] <= watlev_tt + wlbuffer)[0]
+        iiclose = np.where(abs(lidarelev[tt,:]-(wlbuffer+watlev_tt)) == np.nanmin(abs(lidarelev[tt,:]-(wlbuffer+watlev_tt))))[0]
+        if iiclose.size > 1:
+            iiclose = iiclose[0]
+        prof_x_wl[tt] = np.interp((wlbuffer+watlev_tt),lidarelev[tt,np.arange(iiclose-1,iiclose+1)],lidar_xFRF_shift[np.arange(iiclose-1,iiclose+1)])
         if len(ii_submerged) > 5:
             id_last = sum(~np.isnan(lidarelev[tt,:]))
             if ii_submerged.size > Lgrab/dx:
                 numgrab = Lgrab/dx
             else:
                 numgrab = ii_submerged.size
-            iitest = np.arange(ii_submerged[0],ii_submerged[0]+numgrab).astype(int)
+            # numgrab = ii_submerged.size
+            # iitest = np.arange(ii_submerged[0],ii_submerged[0]+numgrab).astype(int)
+            # iitest = np.arange(ii_submerged[-1]-numgrab,ii_submerged[-1]).astype(int)
+            iitest = ii_submerged
+
             htmp = (wlbuffer + watlev_tt) - lidarelev[tt,iitest]
             xtmp = dx*np.arange(htmp.size)
             iitest = iitest[~np.isnan(htmp)]
             xtmp = xtmp[~np.isnan(htmp)]
             htmp = htmp[~np.isnan(htmp)]
-            zobs_final = (wlbuffer + watlev_tt) - htmp[-1]
+            # zobs_final = (wlbuffer + watlev_tt) - htmp[-1]
+            profile_extend_testdata[tt,iitest] = lidarelev[tt,iitest]
             # xtmp[ztmp < 0] = []     # remove negative values
             # ztmp[ztmp < 0] = []     # remove negative values
             htmp = htmp - htmp[0]   # make initial value 0
             # popt, pcov = curve_fit(equilibriumprofile_func_2param, xtmp, htmp, bounds=([0, -np.inf], [15, np.inf]))
             # popt, pcov = curve_fit(equilibriumprofile_func_2param, xtmp, ztmp)
-            popt, pcov = curve_fit(equilibriumprofile_func_1param, xtmp, htmp, bounds=([0], [5]))
+            popt, pcov = curve_fit(equilibriumprofile_func_1param, xtmp, htmp, bounds=([0.05], [1]))
             Acoef[tt] = popt[0]
             # bcoef[tt] = popt[1]
             hfit = equilibriumprofile_func_1param(xtmp, *popt)
@@ -199,7 +327,6 @@ for tt in np.arange(time_fullspan.size):
             x_extend = np.arange(lidar_xFRF_shift[iitest[0]] + dx, lidar_xFRF_shift[-1], dx)
             x_extend_norm = x_extend - x_extend[0]
             z_extend = (wlbuffer + watlev_tt) - equilibriumprofile_func_1param(x_extend_norm, *popt)
-            # profile_extend[tt,np.arange(iitest[-1]+1,nx-1)] = zobs_final - z_extend
             profile_extend[tt, np.arange(iitest[0] + 1, nx - 1)] = z_extend
             # # # # # # #
             # PLOT
@@ -216,27 +343,29 @@ for tt in np.arange(time_fullspan.size):
 # Plot Acoef and bcoef with error (RMSE)
 profile_width = np.ones(shape=time_fullspan.shape)
 fig, ax = plt.subplots()
-# ax.plot(Acoef,fitrmse,'o')
-ph = ax.scatter(Acoef,fitrmse,s=5, c=profile_width, cmap='rainbow')
-cbar = fig.colorbar(ph, ax=ax)
-cbar.set_label('profile width [m]')
-ax.set_xlabel('A coeff')
-ax.set_ylabel('RMSE [m]')
-fig, ax = plt.subplots()
-# ax.plot(bcoef,fitrmse,'o')
-ph = ax.scatter(bcoef,fitrmse,s=5, c=profile_width, cmap='rainbow')
-cbar = fig.colorbar(ph, ax=ax)
-ax.set_xlabel('b coeff')
-cbar.set_label('profile width [m]')
-ax.set_ylabel('RMSE [m]')
-fig, ax = plt.subplots()
-yplot = fitrmse[fitrmse <= 0.05]
-plt.hist(yplot,bins=np.linspace(0,0.05,50))
-ax.set_xlabel('RMSE [m] < 0.1 m')
-fig, ax = plt.subplots()
-yplot = fitrmse[fitrmse > 0.05]
-plt.hist(fitrmse,bins=np.linspace(0.05,np.nanmax(fitrmse),50))
-ax.set_xlabel('RMSE [m] > 0.1 m')
+ax.plot(Acoef,fitrmse,'o')
+ax.set_xlabel('Acoef [-]')
+ax.set_ylabel('fit RMSE [m]')
+# ph = ax.scatter(Acoef,fitrmse,s=5, c=profile_width, cmap='rainbow')
+# cbar = fig.colorbar(ph, ax=ax)
+# cbar.set_label('profile width [m]')
+# ax.set_xlabel('A coeff')
+# ax.set_ylabel('RMSE [m]')
+# fig, ax = plt.subplots()
+# # ax.plot(bcoef,fitrmse,'o')
+# ph = ax.scatter(bcoef,fitrmse,s=5, c=profile_width, cmap='rainbow')
+# cbar = fig.colorbar(ph, ax=ax)
+# ax.set_xlabel('b coeff')
+# cbar.set_label('profile width [m]')
+# ax.set_ylabel('RMSE [m]')
+# fig, ax = plt.subplots()
+# yplot = fitrmse[fitrmse <= 0.05]
+# plt.hist(yplot,bins=np.linspace(0,0.05,50))
+# ax.set_xlabel('RMSE [m] < 0.1 m')
+# fig, ax = plt.subplots()
+# yplot = fitrmse[fitrmse > 0.05]
+# plt.hist(fitrmse,bins=np.linspace(0.05,np.nanmax(fitrmse),50))
+# ax.set_xlabel('RMSE [m] > 0.1 m')
 
 fig, ax = plt.subplots()
 xtmp = np.arange(10)
@@ -258,99 +387,151 @@ ax.title('increase b from 0.25 to .75')
 
 
 # Plot all the profiles were we did some extending
-iiplot = id_below_watlev
 fig, ax = plt.subplots()
-ax.plot(lidar_xFRF_shift,lidarelev[iiplot,:].T)
-ax.set_title('Profiles where extension applied')
-fig, ax = plt.subplots()
-ax.plot(lidar_xFRF_shift,profile_extend[iiplot,:].T)
+ax.plot(lidar_xFRF_shift,profile_extend.T)
 ax.set_title('Profiles with EXTENSIONS')
+yplot1 = 100*np.sum(~np.isnan(profile_extend),axis=0)/time_fullspan.size
+yplot2 = 100*np.sum(~np.isnan(lidarelev),axis=0)/time_fullspan.size
+yplot3 = 100*np.sum(~np.isnan(profile_fullspan),axis=1)/time_fullspan.size
+yplot4 = 100*np.sum(~np.isnan(lidarelev_fullspan),axis=1)/time_fullspan.size
+
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF,yplot4,label='raw data')
+ax.plot(lidar_xFRF,yplot3,label='best-avail/cleaned')
+ax.set_xlabel('x [m]')
+ax.set_ylabel('Percent available profiles (%)')
+ax.legend()
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF_shift,yplot2,label='best-avail/cleaned -shifted')
+ax.plot(lidar_xFRF_shift,yplot1,label='extended profiles')
+ax.legend()
+ax.set_xlabel('x* [m]')
+ax.set_ylabel('Percent available profiles (%)')
+
 
 
 # Plot where Acoef < 0.01
 iiplot = np.where(Acoef < 0.01)[0]
 fig, ax = plt.subplots()
 ax.plot(lidar_xFRF_shift,lidarelev[iiplot,:].T)
+ax.plot(lidar_xFRF_shift,profile_extend_testdata[iiplot,:].T,'k:')
+ax.plot(prof_x_wl[iiplot],data_tidegauge[iiplot]+wlbuffer,'bo')
 ax.set_title('Profiles where Acoef < 0.01')
 fig, ax = plt.subplots()
 ax.plot(lidar_xFRF_shift,profile_extend[iiplot,:].T)
+ax.plot(lidar_xFRF_shift,profile_extend_testdata[iiplot,:].T,'k:')
+ax.plot(prof_x_wl[iiplot],data_tidegauge[iiplot]+wlbuffer,'bo')
 ax.set_title('Profiles where Acoef < 0.01 - EXTENDED')
 
 # Plot where Acoef < 0.02
 iiplot = np.where((Acoef >= 0.01) & (Acoef < 0.02))[0]
 fig, ax = plt.subplots()
 ax.plot(lidar_xFRF_shift,lidarelev[iiplot,:].T)
+ax.plot(lidar_xFRF_shift,profile_extend_testdata[iiplot,:].T,'k:')
+# ax.plot(prof_x_wl[iiplot],data_tidegauge[iiplot]+wlbuffer,'bo')
 ax.set_title('Profiles where 0.01 < Acoef < 0.02')
 fig, ax = plt.subplots()
 ax.plot(lidar_xFRF_shift,profile_extend[iiplot,:].T)
+ax.plot(lidar_xFRF_shift,profile_extend_testdata[iiplot,:].T,'k:')
+# ax.plot(prof_x_wl[iiplot],data_tidegauge[iiplot]+wlbuffer,'bo')
 ax.set_title('Profiles where 0.01 < Acoef < 0.02 - EXTENDED')
 
 # Plot where Acoef < 0.03
 iiplot = np.where((Acoef >= 0.02) & (Acoef < 0.03))[0]
 fig, ax = plt.subplots()
 ax.plot(lidar_xFRF_shift,lidarelev[iiplot,:].T)
+ax.plot(lidar_xFRF_shift,profile_extend_testdata[iiplot,:].T,'k:')
+ax.plot(prof_x_wl[iiplot],data_tidegauge[iiplot]+wlbuffer,'bo')
 ax.set_title('Profiles where 0.02 < Acoef < 0.03')
 fig, ax = plt.subplots()
 ax.plot(lidar_xFRF_shift,profile_extend[iiplot,:].T)
+ax.plot(lidar_xFRF_shift,profile_extend_testdata[iiplot,:].T,'k:')
+ax.plot(prof_x_wl[iiplot],data_tidegauge[iiplot]+wlbuffer,'bo')
 ax.set_title('Profiles where 0.02 < Acoef < 0.03 - EXTENDED')
 
 # Plot where Acoef < 0.05
 iiplot = np.where((Acoef >= 0.03) & (Acoef < 0.05))[0]
 fig, ax = plt.subplots()
 ax.plot(lidar_xFRF_shift,lidarelev[iiplot,:].T)
+# ax.plot(lidar_xFRF_shift,profile_extend_testdata[iiplot,:].T,'k:')
 ax.set_title('Profiles where 0.03 < Acoef < 0.05')
+ax.set_ylim([-6.5,4])
+ax.set_xlim([0, 150])
 fig, ax = plt.subplots()
 ax.plot(lidar_xFRF_shift,profile_extend[iiplot,:].T)
+# ax.plot(lidar_xFRF_shift,profile_extend_testdata[iiplot,:].T,'k:')
 ax.set_title('Profiles where 0.03 < Acoef < 0.05 - EXTENDED')
-
-
+ax.set_ylim([-6.5,4])
+ax.set_xlim([0, 150])
 
 # Plot where Acoef > 0.1
 iiplot = np.where((Acoef >= 0.05))[0]
 fig, ax = plt.subplots()
 ax.plot(lidar_xFRF_shift,lidarelev[iiplot,:].T)
+# ax.plot(lidar_xFRF_shift,profile_extend_testdata[iiplot,:].T,'k:')
 ax.set_title('Profiles where Acoef >= 0.05')
+ax.set_ylim([-6.5,4])
+ax.set_xlim([0, 150])
 fig, ax = plt.subplots()
 ax.plot(lidar_xFRF_shift,profile_extend[iiplot,:].T)
+# ax.plot(lidar_xFRF_shift,profile_extend_testdata[iiplot,:].T,'k:')
 ax.set_title('Profiles where Acoef >= 0.05 - EXTENDED')
+ax.set_ylim([-6.5,4])
+ax.set_xlim([0, 150])
+
+# Can we shift the profiles back??
+profile_extend_shiftback = np.empty(shape=profile_extend.shape)
+profile_extend_shiftback[:] = np.nan
+for tt in np.arange(len(time_fullspan)):
+    xc_shore = cont_ts[2,tt]
+    if (~np.isnan(xc_shore)):
+        # first, map to *_shift vectors
+        ix_inspan = np.where((lidar_xFRF >= xc_shore))[0]
+        padding = 2
+        itrim = np.arange(ix_inspan[0] - padding, lidar_xFRF.size)
+        profile_extend_shiftback[tt,itrim] = profile_extend[tt,0:itrim.size]
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF,profile_extend_shiftback.T)
+ax.set_title('profiles, extended - shifted back')
+
+yplot5 = 100*np.sum(~np.isnan(profile_extend_shiftback),axis=0)/time_fullspan.size
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF,yplot4,label='raw data')
+ax.plot(lidar_xFRF,yplot3,label='best-avail/cleaned')
+ax.plot(lidar_xFRF,yplot5,label='extended (shifted back)')
+ax.set_xlabel('x [m]')
+ax.set_ylabel('Percent available profiles (%)')
+ax.legend()
 
 
 
-# Plot the profiles where the fit-error is low
-iiplot = np.where(fitrmse < 0.015)[0]
+# Plot where Acoef < 0.01
+iiplot = np.where(Acoef < 0.06)[0]
 fig, ax = plt.subplots()
 ax.plot(lidar_xFRF_shift,lidarelev[iiplot,:].T)
-ax.set_title('Profiles with low fit error (RMSE < 15 cm)')
-fig, ax = plt.subplots()
-ax.plot(Acoef[iiplot],bcoef[iiplot],'o')
-ax.set_xlabel('A coef')
-ax.set_ylabel('b coef')
-ax.set_title('Profiles with low fit error (RMSE < 15 cm)')
+# ax.plot(lidar_xFRF_shift,profile_extend_testdata[iiplot,:].T,'k:')
+ax.plot(prof_x_wl[iiplot],data_tidegauge[iiplot]+wlbuffer,'bo')
+ax.set_title('Profiles where Acoef < 0.06')
+ax.set_ylim([-3,4])
+ax.set_xlim([0, 150])
 fig, ax = plt.subplots()
 ax.plot(lidar_xFRF_shift,profile_extend[iiplot,:].T)
-ax.set_title('Profiles with low fit error (RMSE < 15 cm) - EXTENDED')
+# ax.plot(lidar_xFRF_shift,profile_extend_testdata[iiplot,:].T,'k:')
+ax.plot(prof_x_wl[iiplot],data_tidegauge[iiplot]+wlbuffer,'bo')
+ax.set_title('Profiles where Acoef < 0.06 - EXTENDED')
+ax.set_ylim([-3,4])
+ax.set_xlim([0, 150])
 
+for tt in iiplot[np.arange(0,iiplot.size,250)]:
+    # fig, ax = plt.subplots()
+    plt.plot(lidar_xFRF_shift,profile_extend[tt,:].T)
+    plt.plot(lidar_xFRF_shift, lidarelev[tt, :].T,'--')
+    plt.plot(prof_x_wl[tt], data_tidegauge[tt] + wlbuffer, '*b')
+    figsavedir = 'C:/Users/rdchlerh/PycharmProjects/frf_python_share/figs/profile_extend/2024Dec03'
+    plt.savefig('ii.png')
+plt.savefig('foo.pdf')
 
-# Plot the profiles where the fit-error is high
-iiplot = np.where(fitrmse > 0.1)[0]
-fig, ax = plt.subplots()
-ax.plot(lidar_xFRF,lidarelev[iiplot,:].T)
-ax.set_title('Profiles with high fit error (RMSE > 100 cm)')
-fig, ax = plt.subplots()
-ax.plot(Acoef[iiplot],bcoef[iiplot],'o')
-ax.set_xlabel('A coef')
-ax.set_ylabel('b coef')
-ax.set_title('Profiles with high fit error (RMSE > 100 cm)')
-
-
-
-
-
-
-
-
-
-
+plt.savefig('foo.png', bbox_inches='tight')
 
 
 

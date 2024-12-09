@@ -205,3 +205,46 @@ def getlocal_waves17m(full_path):
     return wave_Tp, wave_Hs, wave_time, wave_dir
 
 
+
+def getthredds_waves26m(full_path):
+
+    """
+
+    :param full_path: consists of floc (path after .../thredds/dodsC/frf/) + filename
+    :return: wave_Tp, wave_Hs, wave_time, wave_depth, wave_dir
+    """
+
+    import datetime as dt
+    import numpy as np
+    from netCDF4 import Dataset
+
+    ## Get the date information from the input file name
+    frf_base = "https://chlthredds.erdc.dren.mil/thredds/dodsC/frf/"
+
+    ## Wave dataset
+    ds = Dataset(frf_base + full_path, "r")
+    wave_dir = ds.variables["wavePrincipleDirection"][:]
+    wave_Tp = ds.variables["waveTp"][:]
+    wave_Hs = ds.variables["waveHs"][:]
+    wave_time = ds.variables["time"][:]
+    output_dict = dict()
+    output_dict['wave_dir'] = wave_dir
+    output_dict['wave_Tp'] = wave_Tp
+    output_dict['wave_Hs'] = wave_Hs
+    output_dict['wave_time'] = wave_time
+
+
+    is_Hs_masked = np.ma.isMA(wave_Hs)
+    if is_Hs_masked:
+        wave_Tp = wave_Tp.filled(fill_value=np.NaN)
+        wave_Hs = wave_Hs.filled(fill_value=np.NaN)
+        wave_time = wave_time.filled(fill_value=np.NaN)
+        wave_dir = wave_dir.filled(fill_value=np.NaN)
+
+
+    return output_dict, wave_Tp, wave_Hs, wave_time, wave_dir
+
+
+
+
+

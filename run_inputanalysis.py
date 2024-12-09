@@ -10,7 +10,7 @@ import equadratures as eq
 from funcs.getFRF_funcs.getFRF_lidar import *
 
 # Load temporally aligned data - need to add lidarelev_fullspan
-picklefile_dir = 'F:/Projects/FY24/FY24_SMARTSEED/FRF_data/processed_backup/'
+picklefile_dir = 'D:/Projects/FY24/FY24_SMARTSEED/FRF_data/processed_backup/'
 with open(picklefile_dir+'IO_alignedintime.pickle', 'rb') as file:
     time_fullspan,data_wave8m,data_wave17m,data_tidegauge,data_lidar_elev2p,data_lidarwg080,data_lidarwg090,data_lidarwg100,data_lidarwg110,data_lidarwg140,xc_fullspan,dXcdt_fullspan,lidarelev_fullspan = pickle.load(file)
 # Load data availability info
