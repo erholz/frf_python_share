@@ -8,12 +8,15 @@ import os
 from funcs.align_data_time import align_data_fullspan
 from funcs.create_contours import *
 import pickle
+from funcs.wavefuncs import *
 
 
 # define constants/file directories
 picklefile_dir = './'
 local_base, lidarfloc, lidarext, noaawlfloc, noaawlext, lidarhydrofloc, lidarhydroext = get_FileInfo(picklefile_dir)
 frf_shoredir = 72
+with open(picklefile_dir+'timeinfo.pickle','rb') as file:
+    tzinfo,time_format,time_beg,time_end,epoch_beg,epoch_end,TOI_duration = pickle.load(file)
 
 # Get water levels from lidar_hydro (min,max,mean) and NOAA tide gauge (on pier?)
 noaawlfloc = local_base + '/waterlevel/eopNOAA/'
@@ -31,12 +34,16 @@ wave8m_dir = wave8m_dir - frf_shoredir
 wave8m_dir[wave8m_dir > 180] = wave8m_dir[wave8m_dir > 180] - 360
 
 # Get wave stats at 17m buoy
-wave17mfloc = local_base + '/waves_17marray/'
+wave17mfloc = local_base + '/waves_17mwaverider/'
 wave17mext = '.nc'
 wave17m_depth = 16.77       # known constant, only nominal depth provided; total depth = nominal + SWE
 wave17m_time,wave17m_Tp,wave17m_Hs,wave17m_dir = run_wavecollect17m_func(wave17mfloc, wave17mext)
 wave17m_dir = wave17m_dir - frf_shoredir
 wave17m_dir[wave17m_dir > 180] = wave17m_dir[wave17m_dir > 180] - 360
+
+fig, ax = plt.subplots()
+ax.plot(pd.to_datetime(wave8m_time, unit='s', origin='unix'),wave8m_Hs)
+ax.plot(pd.to_datetime(wave17m_time, unit='s', origin='unix'),wave17m_Hs)
 
 # Get wave stats from virtual/lidar wave gauges
 lidarwgext = '.nc'
@@ -389,3 +396,55 @@ plt.scatter(tt,xx,s=3,c=zz)
 
 fig, ax = plt.subplots()
 ax.plot(lidarelev.T)
+
+
+## Re-save 8m and 17m wave data, fill 8m from 17m where avail/needed
+#
+# Define 17m waves as H1
+H1 = wave17m_Hs_fullspan[:]
+T = wave17m_Tp_fullspan[:]
+theta1 = wave17m_dir_fullspan[:]
+h1 = 17
+h2 = 8
+breakcrit = 0.75
+g = 9.81
+# do transformation
+H2, theta2 = wavetransform_point([],[], H1, theta1, T, h2, h1, g, breakcrit)
+# compare actual vs transformed
+err = H2 - wave8m_Hs_fullspan
+fig, ax = plt.subplots()
+ax.plot(err,'o')
+fig, ax = plt.subplots()
+ax.plot(wave8m_dir_fullspan,theta2,'o')
+wave8m_gapfilled_Hs = np.empty(shape=wave8m_Hs_fullspan.shape)
+wave8m_gapfilled_Tp = np.empty(shape=wave8m_Tp_fullspan.shape)
+wave8m_gapfilled_dir = np.empty(shape=wave8m_dir_fullspan.shape)
+wave8m_gapfilled_Hs[:] = np.nan
+wave8m_gapfilled_Tp[:] = np.nan
+wave8m_gapfilled_dir[:] = np.nan
+wave8m_gapfilled_Hs[~np.isnan(wave8m_Hs_fullspan)] = wave8m_Hs_fullspan[~np.isnan(wave8m_Hs_fullspan)]
+wave8m_gapfilled_Tp[~np.isnan(wave8m_Tp_fullspan)] = wave8m_Tp_fullspan[~np.isnan(wave8m_Tp_fullspan)]
+wave8m_gapfilled_dir[~np.isnan(wave8m_dir_fullspan)] = wave8m_dir_fullspan[~np.isnan(wave8m_dir_fullspan)]
+wave8m_gapfilled_Hs[np.isnan(wave8m_Hs_fullspan)] = H2[np.isnan(wave8m_Hs_fullspan)]
+wave8m_gapfilled_Tp[np.isnan(wave8m_Tp_fullspan)] = T[np.isnan(wave8m_Tp_fullspan)]
+wave8m_gapfilled_dir[np.isnan(wave8m_dir_fullspan)] = theta2[np.isnan(wave8m_dir_fullspan)]
+
+data_wave8m = np.empty((time_fullspan.size,3))
+data_wave8m[:] = np.nan
+data_wave8m[:,0] = wave8m_Hs_fullspan
+data_wave8m[:,1] = wave8m_Tp_fullspan
+data_wave8m[:,2] = wave8m_dir_fullspan
+data_wave17m = np.empty((time_fullspan.size,3))
+data_wave17m[:] = np.nan
+data_wave17m[:,0] = wave17m_Hs_fullspan
+data_wave17m[:,1] = wave17m_Tp_fullspan
+data_wave17m[:,2] = wave17m_dir_fullspan
+data_wave8m_filled = np.empty((time_fullspan.size,3))
+data_wave8m_filled[:] = np.nan
+data_wave8m_filled[:,0] = wave8m_gapfilled_Hs
+data_wave8m_filled[:,1] = wave8m_gapfilled_Tp
+data_wave8m_filled[:,2] = wave8m_gapfilled_dir
+
+# picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_26Nov2024/'
+# with open(picklefile_dir+'waves_8m&17m_2015_2024.pickle','wb') as file:
+#     pickle.dump([data_wave8m,data_wave17m,data_wave8m_filled], file)
