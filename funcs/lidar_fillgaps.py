@@ -8,7 +8,7 @@ import time
 import pickle
 from scipy.optimize import curve_fit
 from funcs.create_contours import *
-
+from scipy.interpolate import splrep, BSpline, splev, CubicSpline
 
 
 def lidar_fillgaps(elev_input,lidartime,lidar_xFRF,halfspan_time,halfspan_x):
@@ -83,6 +83,84 @@ def prof_extendfromlidarhydro(lidarelev,lidartime,lidar_xFRF,wlmin_lidar,cont_ts
                 new_elev = np.convolve(tmpWL[tmpij], np.ones(N) / N, 'valid')
                 prof_extended[tt, np.argwhere(tmpij)[int(np.floor(N / 2)):-(int(np.floor(N / 2)))].T] = new_elev[:]
 
+def find_nangaps(zinput):
+    if sum(np.isnan(zinput)) == 0:
+        gapstart = np.nan
+        gapend = np.nan
+        gapsize = np.array([0])
+        maxgap = np.array([0])
+    elif sum(np.isnan(zinput)) == 1:
+        gapstart = np.where(np.isnan(zinput))
+        gapend = np.where(np.isnan(zinput))
+        gapsize = np.array([1])
+        maxgap = np.array([1])
+    else:
+        numcumnan = np.empty(shape=zinput.shape)
+        numcumnan[:] = np.nan
+        tmp = np.cumsum(np.isnan(zinput), axis=0)
+        numcumnan[tmp > 0] = tmp[tmp > 0]
+        uniq_numcumnan = np.unique(numcumnan)
+        uniq_numcumnan = uniq_numcumnan[~np.isnan(uniq_numcumnan)]
+        tmpgapstart = []
+        tmpgapend = []
+        for ij in np.arange(uniq_numcumnan.size):
+            # If there is only ONE entry of a cumnan value, then we know it's a new nan value OR it's the end of the vector
+            if sum((numcumnan == uniq_numcumnan[ij])) == 1:
+                tmp = np.where(numcumnan == uniq_numcumnan[ij])[0]
+                tmpgapstart = np.append(tmpgapstart,tmp[0])
+                # if tmp is the END of the vector, also designate as tmpgapend
+                if tmp == len(zinput)-1:
+                    tmpgapend = np.append(tmpgapend,tmp[0])
+            # If there are multiple entries of a cumnan value, then we know it switches from nan to not-nan
+            elif sum((numcumnan == uniq_numcumnan[ij])) > 1:
+                tmp = np.where(numcumnan == uniq_numcumnan[ij])[0]
+                # the first value of tmp is where it switches from nan to not-nan, the last would be the first before the next nan (if it exists)
+                tmpgapend = np.append(tmpgapend,tmp[0])
+                # if there is more than 1 instance of cumnan but no preceding nan, then it is ALSO a starting nan
+                if ~np.isnan(zinput[tmp[0]-1]):
+                    tmpgapstart = np.append(tmpgapstart,tmp[0])
+                # if it is the FIRST value, then it is ALSO a tmpgapstart
+                if tmp[0] == 0:
+                    tmpgapstart = np.append(tmpgapstart, tmp[0])
+        # new revisions may create duplicates....
+        tmpgapend = np.unique(tmpgapend)
+        tmpgapstart = np.unique(tmpgapstart)
+        gapend = tmpgapend[:]
+        # if NO tmpgapstart have been found, then we have multiple single-nans
+        if len(tmpgapstart) == 0:
+            gapstart = gapend[:]
+        else:
+            gapstart = [tmpgapstart[0]]
+            if len(tmpgapstart) > 0:
+                # now, we need to figure out if this is in the beginning of the gap or the middle
+                tmp1 = np.diff(tmpgapstart)     # tmp1 is GRADIENT in tmpgapstart (diff of 1 indicates middle of gap)
+                tmp2 = tmpgapstart[1:]          # tmp2 is all the tmpgapstarts OTHER than the first
+                # if there is only ONE gap of 3 nans, there will be no tmp1 not equal to 1...
+                if sum(tmp1 != 1) > 0:
+                    # tmpid = where numcumnan is equal to a gap that is not in the middle (tmp1 != 1)
+                    tmpid = tmp2[tmp1 != 1]
+                    gapstart = np.append(gapstart, tmpid)
+            if len(gapend) > len(gapstart):
+                for ij in np.arange(gapend.size):
+                    # if there is a gapend that is surrounded by non-nans, then it is a single-nan gap
+                    if gapend[ij] == len(zinput)-1:
+                        if ~np.isnan(zinput[int(gapend[ij]) - 1]):
+                            missinggapstart = gapend[ij]
+                            gapstart = np.append(missinggapstart, gapstart)
+                    else:
+                        if ~np.isnan(zinput[int(gapend[ij])-1]) & ~np.isnan(zinput[int(gapend[ij])+1]):
+                            missinggapstart = gapend[ij]
+                            gapstart = np.append(missinggapstart, gapstart)
+            if np.max(gapstart) > np.max(gapend):
+                gapend = np.append(gapend, np.max(gapstart))
+        gapend = np.unique(gapend)
+        gapstart = np.unique(gapstart)
+        gapend = np.array(sorted(gapend))
+        gapstart = np.array(sorted(gapstart))
+        gapsize = (gapend - gapstart) + 1
+        maxgap = np.nanmax(gapsize)
+    return gapstart, gapend, gapsize, maxgap
+
 # CREATE FUNCTION HERE THAT EXTENDS PROFILES TO EQUAL LENGTH
 #
 # def prof_extendfromslopes(lidarelev,lidarslope,scaled_profiles,scaled_avgslope,shift_avgslope_beyondXCsea,
@@ -131,6 +209,8 @@ lidarelev[:] = profile_fullspan_shift.T[:]
 nx = lidarelev.shape[1]
 dx = 0.1
 lidar_xFRF_shift = dx*np.arange(0,(lidar_xFRF.size),1)
+
+
 # Plot the shifted profiles
 fig, ax = plt.subplots()
 ax.plot(lidar_xFRF_shift,lidarelev.T)
@@ -253,6 +333,81 @@ ax.plot(lidar_xFRF,yplot_combo,label='processed lidar + bathy')
 ax.set_xlabel('xFRF [m]')
 ax.set_ylabel('% available')
 ax.legend()
+#
+# ## SAVE COMBO PROFILES(!!!!!!)
+# with open(picklefile_dir+'bathylidar_combo.pickle','wb') as file:
+#     pickle.dump([lidar_xFRF,bathylidar_combo], file)
+
+with open(picklefile_dir+'bathylidar_combo.pickle','rb') as file:
+    lidar_xFRF, bathylidar_combo = pickle.load(file)
+
+
+## Find the max gap in each profile
+maxgap_bathylidar = np.empty(shape=time_fullspan.shape)
+maxgap_bathylidar[:] = np.nan
+maxgap_below_MHW = np.empty(shape=time_fullspan.shape)
+maxgap_below_MHW[:] = np.nan
+maxgap_loc = np.empty(shape=time_fullspan.shape)
+maxgap_loc[:] = np.nan
+for tt in np.arange(time_fullspan.size):
+    ztmp = bathylidar_combo[:,tt]
+    if np.sum(~np.isnan(ztmp)) > 0:
+        ix_notnan = np.where(~np.isnan(ztmp))[0]
+        approxlength = ix_notnan[-1] - ix_notnan[0]
+        zinput = ztmp[np.arange(ix_notnan[0], ix_notnan[-1])]
+        gapstart, gapend, gapsize, maxgap = find_nangaps(zinput)
+        maxgap_bathylidar[tt] = maxgap
+        if len(gapsize) > 1:
+            if zinput[int(gapstart[gapsize==maxgap]-1)] <= mhw:
+                maxgap_below_MHW[tt] = 1
+                maxgap_loc[tt] = zinput[int(gapstart[gapsize==maxgap]-1)]
+        elif (len(gapsize) == 1) & ~np.isnan(gapstart):
+            if zinput[int(gapstart[0])-1] <= mhw:
+                maxgap_below_MHW[tt] = 1
+                maxgap_loc[tt] = zinput[int(gapstart[0])-1]
+
+fig, ax = plt.subplots()
+tplot = pd.to_datetime(time_fullspan, unit='s', origin='unix')
+maxgap_bathylidar[maxgap_bathylidar == 0] = np.nan
+ax.plot(tplot[maxgap_below_MHW==1],maxgap_bathylidar[maxgap_below_MHW==1],'x')
+ax.plot(tplot[maxgap_below_MHW!=1],maxgap_bathylidar[maxgap_below_MHW!=1],'+')
+ii_maxgap_aboveMHW = np.where(maxgap_below_MHW!=1)[0]
+ii_maxgap_belowMHW = np.where(maxgap_below_MHW==1)[0]
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF,bathylidar_combo[:,ii_maxgap_belowMHW[20:30]],'o')
+
+ii_maxgap_tofiill = np.where(maxgap_bathylidar <= 100)[0]
+bathylidar_fillmaxgaps = np.empty(shape=bathylidar_combo.shape)
+bathylidar_fillmaxgaps[:] = bathylidar_combo[:]
+bathylidar_fill = np.empty(shape=bathylidar_combo.shape)
+bathylidar_fill[:] = np.nan
+for jj in ii_maxgap_tofiill:
+    if ~np.isnan(maxgap_bathylidar[jj]):
+        iitmp = np.arange(lidar_xFRF.size)
+        xtmp = lidar_xFRF[0:]
+        ztmp = bathylidar_combo[:,jj]
+        iitmp = iitmp[ztmp <= mhw]
+        xtmp = xtmp[ztmp <= mhw]
+        ztmp = ztmp[ztmp <= mhw]
+        iiin = iitmp[~np.isnan(ztmp)]
+        xin = xtmp[~np.isnan(ztmp)]
+        yin = ztmp[~np.isnan(ztmp)]
+        # cs = CubicSpline(xin, yin, bc_type='natural')
+        cs = CubicSpline(xin, yin)
+        zspline_tmp = cs(xtmp)
+        bathylidar_fillmaxgaps[iiin[2:-2],jj] = zspline_tmp[2:-2]
+        bathylidar_fill[iiin[2:-2],jj] = zspline_tmp[2:-2]
+
+fig, ax = plt.subplots()
+# ax.plot(lidar_xFRF,bathylidar_fill)
+ax.plot(lidar_xFRF,bathylidar_fillmaxgaps)
+fig, ax = plt.subplots()
+tmp = bathylidar_combo[:,ii_maxgap_tofiill]
+# tmp[tmp > mhw] = np.nan
+ax.plot(lidar_xFRF,tmp)
+
+with open(picklefile_dir+'bathylidar_fill.pickle','wb') as file:
+    pickle.dump([lidar_xFRF,bathylidar_fillmaxgaps], file)
 
 
 
