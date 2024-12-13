@@ -247,6 +247,8 @@ def wavetransform_xshore(H0, theta0, H1, theta1, T, h2, h1, g, breakcrit):
 
 def wavetransform_point(H0, theta0, H1, theta1, T, h2, h1, g, breakcrit):
     """
+    Calculates wave transformation to Pt 2 from offshore (H0, theta0) OR inshore (H1,theta1) data
+
       :param: H0 (deep-water wave height [m]) - can be singular or array,
               theta0 (deep-water direction [deg]) - can be singular or array; *relative to shore-normal*,
               H1 (wave height at Pt.1 [m]) - can be singular or array,

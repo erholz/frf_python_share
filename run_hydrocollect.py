@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 import requests
 from datetime import datetime
+import pickle
 
 
 def run_hydrocollect_func(noaawlfloc, noaawlext, lidarhydrofloc, lidarhydroext):
@@ -108,8 +109,10 @@ def run_wavecollect17m_func(wave17mfloc, wave17mext):
 def run_wavecollect8m_func(wave8mfloc, wave8mext):
 
     # Get timing info from run_code.py
-    picklefile_dir = './'
-    tzinfo, time_format, time_beg, time_end, epoch_beg, epoch_end, TOI_duration = get_TimeInfo(picklefile_dir)
+    picklefile_dir = 'C:/Users/rdchlerh/PycharmProjects/frf_python_share/'
+    # tzinfo, time_format, time_beg, time_end, epoch_beg, epoch_end, TOI_duration = get_TimeInfo(picklefile_dir)
+    with open(picklefile_dir + 'timeinfo.pickle', 'rb') as file:
+        tzinfo, time_format, time_beg, time_end, epoch_beg, epoch_end, TOI_duration = pickle.load(file)
 
     floc = wave8mfloc
     ext = wave8mext
