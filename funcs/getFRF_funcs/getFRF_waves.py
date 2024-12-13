@@ -117,10 +117,14 @@ def getlocal_waves8m(full_path):
         src_WL = 1
     except:
         ## If no EOP, grab from 8m array
-        waterlevel = ds.variables["waterLevel"][:]
+        if np.isin('waterLevel',list(ds.variables)):
+            waterlevel = ds.variables["waterLevel"][:]
+        elif np.isin('gaugeDepth',list(ds.variables)):
+            waterlevel = ds.variables["gaugeDepth"][:]
         thredds_time_WL = np.asarray(ds.variables["time"][:])
         # print("Water level sourced from 8m array")
         src_WL = 0
+
 
 
     for tt in range(len(wave_time)):
