@@ -173,11 +173,15 @@ data_fullspan["fullspan_bathylidar_10Dec24"] = bathylidar_fill
 
 #
 ## SAVE DICTS
-picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_10Dec2024/'
-with open(picklefile_dir+'data_poststorm_sliced.pickle','wb') as file:
-    pickle.dump(data_poststorm_all, file)
-with open(picklefile_dir+'data_fullspan.pickle','wb') as file:
-    pickle.dump(data_fullspan, file)
+# picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_10Dec2024/'
+# with open(picklefile_dir+'data_poststorm_sliced.pickle','wb') as file:
+#     pickle.dump(data_poststorm_all, file)
+# with open(picklefile_dir+'data_fullspan.pickle','wb') as file:
+#     pickle.dump(data_fullspan, file)
+
+
+
+################### NOW OPEN DICTS AND DO ANALYSIS ON AVAILABLE DATA ###################
 
 ## OPEN DICTS
 picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_10Dec2024/'
@@ -334,8 +338,8 @@ profelev_perctotal_tresh = 0.5  # use to count x-locs where THRESH % profile dat
 profelev_numhrly_thresh = 0.75  # use to count percent of days (by x-locs) where THRESH % profile data available over Nlook
 
 ## Go through profiles
-# for jj in np.arange(len(data_poststorm_all)):
-for jj in np.arange(0):
+for jj in np.arange(len(data_poststorm_all)):
+# for jj in np.arange(3):
 
     # get topobathy data
     timeslice = data_poststorm_all["data_poststorm" + str(jj)]["poststorm_time"]
@@ -347,154 +351,166 @@ for jj in np.arange(0):
     lidar_wg = data_poststorm_all["data_poststorm"+str(jj)]["poststorm_lidargauge_110"]
     timeslice = data_poststorm_all["data_poststorm" + str(jj)]["poststorm_time"]
 
-    # initialize the counting arrays
-    set_start = np.empty(timeslice.size-Nlook)
-    set_end = np.empty(timeslice.size-Nlook)
-    set_watlev_cover = np.empty(timeslice.size-Nlook)
-    set_wave_cover = np.empty(timeslice.size-Nlook)
-    set_lidarwg_cover = np.empty(timeslice.size-Nlook)
-    set_profelev_cover_total = np.empty(lidar_xFRF.size,)
-    set_profelev_cover_daily = np.empty(lidar_xFRF.size,)
-    set_profelev_cover_tidecyc = np.empty(lidar_xFRF.size,)
-    set_profelev_cover_hrly = np.empty(lidar_xFRF.size,)
+    if (timeslice.size - Nlook) > 1:
+        # initialize the counting arrays
+        set_start = np.empty(timeslice.size-Nlook)
+        set_end = np.empty(timeslice.size-Nlook)
+        set_watlev_cover = np.empty(timeslice.size-Nlook)
+        set_wave_cover = np.empty(timeslice.size-Nlook)
+        set_lidarwg_cover = np.empty(timeslice.size-Nlook)
+        set_profelev_cover_total = np.empty(lidar_xFRF.size,)
+        set_profelev_cover_daily = np.empty(lidar_xFRF.size,)
+        set_profelev_cover_tidecyc = np.empty(lidar_xFRF.size,)
+        set_profelev_cover_hrly = np.empty(lidar_xFRF.size,)
 
-    # now go through all times in post-storm_jj
-    for tt in np.arange(timeslice.size - Nlook):
+        # now go through all times in post-storm_jj
+        for tt in np.arange(timeslice.size - Nlook):
 
-        # isolate data for Nlook hrs
-        ttlook = np.arange(tt,tt+Nlook)
-        wavelook = Hs_8m[ttlook]
-        watlevlook = tidegauge[ttlook]
-        lidarwglook = lidar_wg[ttlook,0]
-        topobathy_look = topobathy[:,ttlook]
-        set_start[tt] = ttlook[0]
-        set_end[tt] = ttlook[-1]
+            # isolate data for Nlook hrs
+            ttlook = np.arange(tt,tt+Nlook)
+            wavelook = Hs_8m[ttlook]
+            watlevlook = tidegauge[ttlook]
+            lidarwglook = lidar_wg[ttlook,0]
+            topobathy_look = topobathy[:,ttlook]
+            set_start[tt] = timeslice[ttlook[0]]
+            set_end[tt] = timeslice[ttlook[-1]]
 
-        # calculate the percent available for hydro
-        set_watlev_cover[tt] = np.nansum(~np.isnan(watlevlook))/Nlook
-        set_wave_cover[tt] = np.nansum(~np.isnan(wavelook)) / Nlook
-        set_lidarwg_cover[tt] = np.nansum(~np.isnan(lidarwglook)) / Nlook
+            # calculate the percent available for hydro
+            set_watlev_cover[tt] = np.nansum(~np.isnan(watlevlook))/Nlook
+            set_wave_cover[tt] = np.nansum(~np.isnan(wavelook)) / Nlook
+            set_lidarwg_cover[tt] = np.nansum(~np.isnan(lidarwglook)) / Nlook
 
-        # calculate total availability of topobathy over set time
-        percavail_total = np.nansum(~np.isnan(topobathy_look),axis=1)/Nlook
-        set_profelev_cover_total = np.vstack((set_profelev_cover_total,percavail_total))
+            # calculate total availability of topobathy over set time
+            percavail_total = np.nansum(~np.isnan(topobathy_look),axis=1)/Nlook
+            set_profelev_cover_total = np.vstack((set_profelev_cover_total,percavail_total))
 
-        # day counter
-        numdays = int(np.floor(Nlook/24))
-        daycount = np.empty(shape=(topobathy_look.shape[0],numdays))
-        daycount[:] = np.nan
-        hrlyperc = np.empty(shape=(topobathy_look.shape[0],numdays))
-        hrlyperc[:] = np.nan
-        tmpii = 0
-        for dd in np.arange(numdays):
-            ztmp = topobathy_look[:,tmpii:tmpii+24]
-            ytmp = np.nansum(~np.isnan(ztmp),axis=1)
-            daycount[ytmp >= profelev_numdaily_thresh, dd] = 1
-            hrlyperc[ytmp/24 >= profelev_numhrly_thresh, dd] = 1
-            tmpii = tmpii+24
-        percdaily_threshmet = np.nansum(daycount,axis=1)/numdays
-        perchrly_threshmet = np.nansum(hrlyperc,axis=1)/numdays
-        set_profelev_cover_daily = np.vstack((set_profelev_cover_daily,percdaily_threshmet))
-        set_profelev_cover_hrly = np.vstack((set_profelev_cover_hrly,perchrly_threshmet))
+            # day counter
+            numdays = int(np.floor(Nlook/24))
+            daycount = np.empty(shape=(topobathy_look.shape[0],numdays))
+            daycount[:] = np.nan
+            hrlyperc = np.empty(shape=(topobathy_look.shape[0],numdays))
+            hrlyperc[:] = np.nan
+            tmpii = 0
+            for dd in np.arange(numdays):
+                ztmp = topobathy_look[:,tmpii:tmpii+24]
+                ytmp = np.nansum(~np.isnan(ztmp),axis=1)
+                daycount[ytmp >= profelev_numdaily_thresh, dd] = 1
+                hrlyperc[ytmp/24 >= profelev_numhrly_thresh, dd] = 1
+                tmpii = tmpii+24
+            percdaily_threshmet = np.nansum(daycount,axis=1)/numdays
+            perchrly_threshmet = np.nansum(hrlyperc,axis=1)/numdays
+            set_profelev_cover_daily = np.vstack((set_profelev_cover_daily,percdaily_threshmet))
+            set_profelev_cover_hrly = np.vstack((set_profelev_cover_hrly,perchrly_threshmet))
 
-        # tidal counter
-        numtides = int(np.floor(Nlook / 12))
-        tidecount = np.empty(shape=(topobathy_look.shape[0], numtides))
-        tidecount[:] = np.nan
-        tmpii = 0
-        for dd in np.arange(numtides):
-            ztmp = topobathy_look[:, tmpii:tmpii + 12]
-            ytmp = np.nansum(~np.isnan(ztmp), axis=1)
-            tidecount[ytmp >= profelev_numtidal_tresh, dd] = 1
-            tmpii = tmpii + 12
-        perctidal_threshmet = np.nansum(tidecount, axis=1)/numtides
-        set_profelev_cover_tidecyc = np.vstack((set_profelev_cover_tidecyc, perctidal_threshmet))
+            # tidal counter
+            numtides = int(np.floor(Nlook / 12))
+            tidecount = np.empty(shape=(topobathy_look.shape[0], numtides))
+            tidecount[:] = np.nan
+            tmpii = 0
+            for dd in np.arange(numtides):
+                ztmp = topobathy_look[:, tmpii:tmpii + 12]
+                ytmp = np.nansum(~np.isnan(ztmp), axis=1)
+                tidecount[ytmp >= profelev_numtidal_tresh, dd] = 1
+                tmpii = tmpii + 12
+            perctidal_threshmet = np.nansum(tidecount, axis=1)/numtides
+            set_profelev_cover_tidecyc = np.vstack((set_profelev_cover_tidecyc, perctidal_threshmet))
 
-    # clean up initialized datasets...
-    plot_profelev_cover_total = set_profelev_cover_total[1:, :]
-    plot_profelev_cover_daily = set_profelev_cover_daily[1:, :]
-    plot_profelev_cover_tidecyc = set_profelev_cover_tidecyc[1:, :]
-    plot_profelev_cover_hrly = set_profelev_cover_hrly[1:, :]
-    plot_profelev_cover_total[plot_profelev_cover_total == 0] = np.nan
-    plot_profelev_cover_daily[plot_profelev_cover_daily == 0] = np.nan
-    plot_profelev_cover_tidecyc[plot_profelev_cover_tidecyc == 0] = np.nan
-    plot_profelev_cover_hrly[plot_profelev_cover_hrly == 0] = np.nan
+        # clean up initialized datasets...
+        plot_profelev_cover_total = set_profelev_cover_total[1:, :]
+        plot_profelev_cover_daily = set_profelev_cover_daily[1:, :]
+        plot_profelev_cover_tidecyc = set_profelev_cover_tidecyc[1:, :]
+        plot_profelev_cover_hrly = set_profelev_cover_hrly[1:, :]
+        plot_profelev_cover_total[plot_profelev_cover_total == 0] = np.nan
+        plot_profelev_cover_daily[plot_profelev_cover_daily == 0] = np.nan
+        plot_profelev_cover_tidecyc[plot_profelev_cover_tidecyc == 0] = np.nan
+        plot_profelev_cover_hrly[plot_profelev_cover_hrly == 0] = np.nan
 
 
-    # now do some plotting...
-    fig = plt.figure()
-    fig.set_size_inches(8.5, 5)
+        # now do some plotting...
+        fig = plt.figure()
+        fig.set_size_inches(19, 9.5)
+        scattersz = 3
+        mycmap = plt.colormaps['rainbow'].resampled(5)
 
-    # plot fraction hydro availability
-    ax1 = fig.add_subplot(5, 1, 1)
-    ax1.plot(set_start,set_watlev_cover,label='WSE')
-    ax1.plot(set_start,set_wave_cover,label='waves')
-    ax1.plot(set_start,set_lidarwg_cover,label='lidar wg')
-    xfmt = md.DateFormatter('%m/%d')
-    ax1.xaxis.set_major_formatter(xfmt)
-    ax1.set_title('Nlook = '+str(Nlook))
-    ax1.legend()
+        # plot fraction hydro availability
+        tplot = pd.to_datetime(set_start, unit='s', origin='unix')
+        ax1 = fig.add_subplot(1, 5, 1)
+        ax1.plot(set_watlev_cover,tplot,'+',label='WSE')
+        ax1.plot(set_wave_cover,tplot,'.',label='waves')
+        ax1.plot(set_lidarwg_cover,tplot,'x',label='lidar wg')
+        yfmt = md.DateFormatter('%m/%d')
+        format_str = '%m/%d'
+        format_ = md.DateFormatter(format_str)
+        ax1.yaxis.set_major_formatter(format_)
+        ax1.yaxis.set_major_formatter(yfmt)
+        fig.suptitle(str(tplot[0])+', Nlook = '+str(Nlook))
+        ax1.legend()
+        # ax1.set_xticks([])
 
-    # plot scatter for "set_profelev_cover_total"
-    xplot = lidar_xFRF
-    tplot = pd.to_datetime(set_start, unit='s', origin='unix')
-    XX, TT = np.meshgrid(xplot, tplot)
-    timescatter = np.reshape(TT, TT.size)
-    xscatter = np.reshape(XX, XX.size)
-    zscatter = np.reshape(plot_profelev_cover_total, plot_profelev_cover_total.size)
-    tt = timescatter[~np.isnan(zscatter)]
-    xx = xscatter[~np.isnan(zscatter)]
-    zz = zscatter[~np.isnan(zscatter)]
-    ax2 = fig.add_subplot(5, 1, 2)
-    ph = ax2.scatter(xx, tt, s=5, c=zz, cmap='rainbow')
-    cbar = fig.colorbar(ph, ax=ax2)
-    cbar.set_label('frac avail')
-    yfmt = md.DateFormatter('%m/%d')
-    ax2.yaxis.set_major_formatter(yfmt)
-    # ax2.set_xlabel('xFRF [m]')
-    ax2.set_title('Available across each set of Nlook times')
+        # plot scatter for "set_profelev_cover_total"
+        xplot = lidar_xFRF
+        XX, TT = np.meshgrid(xplot, tplot)
+        timescatter = np.reshape(TT, TT.size)
+        xscatter = np.reshape(XX, XX.size)
+        zscatter = np.reshape(plot_profelev_cover_total, plot_profelev_cover_total.size)
+        tt = timescatter[~np.isnan(zscatter)]
+        xx = xscatter[~np.isnan(zscatter)]
+        zz = zscatter[~np.isnan(zscatter)]
+        ax2 = fig.add_subplot(1, 5, 2)
+        ph = ax2.scatter(xx, tt, s=scattersz, c=zz, cmap=mycmap, vmin=0, vmax=1)
+        # cbar = fig.colorbar(ph, ax=ax2)
+        # cbar.set_label('frac avail')
+        # ax2.yaxis.set_major_formatter(yfmt)
+        ax2.set_xlabel('xFRF [m]')
+        ax2.set_title('Total avail for each set \n of Nlook times')
+        ax2.set_yticks([])
 
-    # plot "plot_profelev_cover_daily"
-    zscatter = np.reshape(plot_profelev_cover_daily, plot_profelev_cover_daily.size)
-    tt = timescatter[~np.isnan(zscatter)]
-    xx = xscatter[~np.isnan(zscatter)]
-    zz = zscatter[~np.isnan(zscatter)]
-    ax3 = fig.add_subplot(5, 1, 3)
-    ph = ax3.scatter(xx, tt, s=5, c=zz, cmap='rainbow')
-    cbar = fig.colorbar(ph, ax=ax3)
-    cbar.set_label('frac avail')
-    yfmt = md.DateFormatter('%m/%d')
-    ax3.yaxis.set_major_formatter(yfmt)
-    ax3.set_title('Frac of days with at least 2 returns/day in each set')
+        # plot "plot_profelev_cover_daily"
+        zscatter = np.reshape(plot_profelev_cover_daily, plot_profelev_cover_daily.size)
+        tt = timescatter[~np.isnan(zscatter)]
+        xx = xscatter[~np.isnan(zscatter)]
+        zz = zscatter[~np.isnan(zscatter)]
+        ax3 = fig.add_subplot(1, 5, 3)
+        ph = ax3.scatter(xx, tt, s=scattersz, c=zz, cmap=mycmap, vmin=0, vmax=1)
+        # cbar = fig.colorbar(ph, ax=ax3)
+        # cbar.set_label('frac avail')
+        # ax3.yaxis.set_major_formatter(yfmt)
+        ax3.set_title('Frac of days w/ at least \n 2 returns/day in each set')
+        ax3.set_yticks([])
+        ax3.set_xlabel('xFRF [m]')
 
-    # plot "plot_profelev_cover_tidecyc"
-    zscatter = np.reshape(plot_profelev_cover_tidecyc, plot_profelev_cover_tidecyc.size)
-    tt = timescatter[~np.isnan(zscatter)]
-    xx = xscatter[~np.isnan(zscatter)]
-    zz = zscatter[~np.isnan(zscatter)]
-    ax4 = fig.add_subplot(5, 1, 4)
-    ph = ax4.scatter(xx, tt, s=5, c=zz, cmap='rainbow')
-    cbar = fig.colorbar(ph, ax=ax4)
-    cbar.set_label('frac avail')
-    yfmt = md.DateFormatter('%m/%d')
-    ax4.yaxis.set_major_formatter(yfmt)
-    ax4.set_title('Frac of tidal cycles with at least 2 returns/cycle in each set')
+        # plot "plot_profelev_cover_tidecyc"
+        zscatter = np.reshape(plot_profelev_cover_tidecyc, plot_profelev_cover_tidecyc.size)
+        tt = timescatter[~np.isnan(zscatter)]
+        xx = xscatter[~np.isnan(zscatter)]
+        zz = zscatter[~np.isnan(zscatter)]
+        ax4 = fig.add_subplot(1, 5, 4)
+        ph = ax4.scatter(xx, tt, s=scattersz, c=zz, cmap=mycmap, vmin=0, vmax=1)
+        # cbar = fig.colorbar(ph, ax=ax4)
+        # cbar.set_label('frac avail')
+        # ax4.yaxis.set_major_formatter(yfmt)
+        ax4.set_title('Frac of tidecycs w/ at least \n 2 returns/cyc in each set')
+        ax4.set_yticks([])
+        ax4.set_xlabel('xFRF [m]')
 
-    # plot "plot_profelev_cover_hrly"
-    zscatter = np.reshape(plot_profelev_cover_hrly, plot_profelev_cover_hrly.size)
-    tt = timescatter[~np.isnan(zscatter)]
-    xx = xscatter[~np.isnan(zscatter)]
-    zz = zscatter[~np.isnan(zscatter)]
-    ax5 = fig.add_subplot(5, 1, 5)
-    ph = ax5.scatter(xx, tt, s=5, c=zz, cmap='rainbow')
-    cbar = fig.colorbar(ph, ax=ax5)
-    cbar.set_label('frac avail')
-    yfmt = md.DateFormatter('%m/%d')
-    ax5.yaxis.set_major_formatter(yfmt)
-    ax5.set_xlabel('xFRF [m]')
-    ax5.set_title('Frac of days with at least 75% returns/day in each set')
+        # plot "plot_profelev_cover_hrly"
+        zscatter = np.reshape(plot_profelev_cover_hrly, plot_profelev_cover_hrly.size)
+        tt = timescatter[~np.isnan(zscatter)]
+        xx = xscatter[~np.isnan(zscatter)]
+        zz = zscatter[~np.isnan(zscatter)]
+        ax5 = fig.add_subplot(1, 5, 5)
+        ph = ax5.scatter(xx, tt, s=scattersz, c=zz, cmap=mycmap, vmin=0, vmax=1)
+        cbar = fig.colorbar(ph, ax=ax5)
+        cbar.set_label('frac avail')
+        # ax5.yaxis.set_major_formatter(yfmt)
+        ax5.set_xlabel('xFRF [m]')
+        ax5.set_yticks([])
+        ax5.set_title('Frac of days w/ at least \n 75% returns/day in each set')
 
-    # save figure
+        # save figure
+        figpath = 'C:/Users/rdchlerh/PycharmProjects/frf_python_share/figs/data/poststorm_timeslices_Nlook='+str(Nlook)+'/'
+        fig.savefig(figpath + 'poststorm_' + str(jj) + '.png', dpi=300)  # save the figure to file
+        plt.close(fig)
 
 
 ## ____________BELOW HERE IS OLD AND PROB WORTHLESS__________________________
