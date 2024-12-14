@@ -184,12 +184,13 @@ data_fullspan["fullspan_bathylidar_10Dec24"] = bathylidar_fill
 ################### NOW OPEN DICTS AND DO ANALYSIS ON AVAILABLE DATA ###################
 
 ## OPEN DICTS
-picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_10Dec2024/'
+# picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_10Dec2024/'
+picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_10Dec2024/'
 with open(picklefile_dir+'data_poststorm_sliced.pickle','rb') as file:
     data_poststorm_all = pickle.load(file)
 with open(picklefile_dir+'data_fullspan.pickle','rb') as file:
     data_fullspan = pickle.load(file)
-picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_26Nov2024/'
+# picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_26Nov2024/'
 with open(picklefile_dir+'lidar_xFRF.pickle', 'rb') as file:
     lidar_xFRF = np.array(pickle.load(file))
     lidar_xFRF = lidar_xFRF[0][:]
@@ -336,6 +337,7 @@ profelev_numdaily_thresh = 2    # use to count percent of days (by x-locs) where
 profelev_numtidal_tresh = 2     # use to count percent of tidal cycles (by x-locs) where atleast THRESH profile available during a tidal cycle
 profelev_perctotal_tresh = 0.5  # use to count x-locs where THRESH % profile data available over Nlook
 profelev_numhrly_thresh = 0.75  # use to count percent of days (by x-locs) where THRESH % profile data available over Nlook
+os.mkdir('./figs/data/poststorm_timeslices_Nlook=96')
 
 ## Go through profiles
 for jj in np.arange(len(data_poststorm_all)):
