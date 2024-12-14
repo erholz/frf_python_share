@@ -14,11 +14,13 @@ from funcs.wavefuncs import *
 
 
 ## OPEN DICTS
-picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_26Nov2024/'
+# picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_26Nov2024/'
+picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_10Dec2024/'
 with open(picklefile_dir+'lidar_xFRF.pickle', 'rb') as file:
     lidar_xFRF = np.array(pickle.load(file))
     lidar_xFRF = lidar_xFRF[0][:]
-picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_10Dec2024/'
+# picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_10Dec2024/'
+picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_10Dec2024/'
 with open(picklefile_dir+'data_poststorm_sliced.pickle','rb') as file:
     data_poststorm_all = pickle.load(file)
 with open(picklefile_dir+'data_fullspan.pickle','rb') as file:
@@ -188,14 +190,18 @@ plot_start_iikeep = set_start_iikeep[:]
 
 ## Find the profiles where profiles are "good", long "enough", and we have watlev & wave data
 dx = 0.1
-length_profdatavail = np.nansum(plot_profelev_cover_hrly,axis=1)
-length_criterion = (length_profdatavail >= 25/dx)       # profiles for ML analysis must have minimum length (for now)
-wave_criterion = (plot_wavethreshmet == 1)
-watlev_criterion = (plot_watlevthreshmet == 1)
-set_id_tokeep = np.where( length_criterion & wave_criterion & watlev_criterion)[0]
+# length_profdatavail = np.nansum(plot_profelev_cover_hrly,axis=1)
+# length_criterion = (length_profdatavail >= 25/dx)       # profiles for ML analysis must have minimum length (for now)
+# wave_criterion = (plot_wavethreshmet == 1)
+# watlev_criterion = (plot_watlevthreshmet == 1)
+# set_id_tokeep = np.where( length_criterion & wave_criterion & watlev_criterion)[0]
 # picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_10Dec2024/'
+picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_10Dec2024/'
 # with open(picklefile_dir+'set_id_tokeep_14Dec2024.pickle', 'wb') as file:
-#     pickle.dump(set_id_tokeep,file)
+#     pickle.dump([set_id_tokeep,plot_start_iikeep],file)
+with open(picklefile_dir+'set_id_tokeep_14Dec2024.pickle', 'rb') as file:
+    set_id_tokeep, plot_start_iikeep = pickle.load(file)
+
 
 ## save data from these times as unique dictionary
 datasets_ML = {}
@@ -204,9 +210,9 @@ for jj in np.arange(set_id_tokeep.size):
     outputname = 'dataset_' + str(jj)
     exec('datasets_ML["' + outputname + '"] = {}')
     # get indeces for fullspan...
-    ii_start = plot_start_iikeep[set_id_tokeep[jj]]
+    ii_start = int(plot_start_iikeep[set_id_tokeep[jj]])
     ii_end = ii_start + Nlook
-    ii_foroutput = np.arange(int(ii_start), time_fullspan.size)
+    ii_foroutput = np.arange(ii_start,ii_end)
 
     # time, waterlevel, wave8m, wave17m, lidarwg_110, elev2p, etc
     exec('datasets_ML["' + outputname + '"]["set_timeslice"] = time_fullspan[ii_foroutput]')
@@ -221,7 +227,8 @@ for jj in np.arange(set_id_tokeep.size):
     exec('datasets_ML["' + outputname + '"]["set_lidarwg"] = lidarwg_fullspan[ii_foroutput]')
     exec('datasets_ML["' + outputname + '"]["set_topobathy"] = elev_fullspan[:,ii_foroutput]')
 
-
+with open(picklefile_dir+'datasets_ML_14Dec2024.pickle', 'wb') as file:
+    pickle.dump(datasets_ML,file)
 
 
 
