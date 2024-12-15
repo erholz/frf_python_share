@@ -12,6 +12,7 @@ from funcs.create_contours import *
 from funcs.wavefuncs import *
 from scipy.optimize import curve_fit
 from scipy.interpolate import splrep, BSpline, splev, CubicSpline
+from funcs.find_nangaps import *
 
 
 
@@ -90,9 +91,22 @@ for jj in np.arange(2214,num_datasets):
         Lgrab = 5          # try fitting equilibrium profile to last [Lgrab] meters of available data
         watlev_tt = waterlevel[tt]
         wlbuffer = 0.25
+        # first find if there are ANY gaps in the profile
+        zinput = topobathy[:, tt]
+        ix_notnan = np.where(~np.isnan(zinput))[0]
+        if len(ix_notnan) > 0:
+            zinput = zinput[np.arange(ix_notnan[0],ix_notnan[-1])]
+            gapstart, gapend, gapsize, maxgap = find_nangaps(zinput)
+            if maxgap > 50:
+                print('max gap size = ' + str(maxgap)+' for tt = '+str(tt))
+
         if (sum(~np.isnan(topobathy[:,tt])) > 10) & (~np.isnan(watlev_tt)):
+
+
+
             ii_submerged = np.where(topobathy[:, tt] <= watlev_tt + wlbuffer)[0]
             iiclose = np.where(abs(topobathy[:, tt]-(wlbuffer+watlev_tt)) == np.nanmin(abs(topobathy[:,tt]-(wlbuffer+watlev_tt))))[0]
+            doublebuffer_flag = 0
             if iiclose.size > 1:
                 iiclose = iiclose[0]
             prof_x_wl[tt] = np.interp((wlbuffer + watlev_tt)[0], topobathy[np.arange(iiclose - 1, iiclose + 1), tt],lidar_xFRF[np.arange(iiclose - 1, iiclose + 1)])
@@ -102,27 +116,41 @@ for jj in np.arange(2214,num_datasets):
                 if iiclose.size > 1:
                     iiclose = iiclose[0]
                 prof_x_wl[tt] = np.interp((wlbuffer + 2*watlev_tt)[0], topobathy[np.arange(iiclose - 1, iiclose + 1), tt],lidar_xFRF[np.arange(iiclose - 1, iiclose + 1)])
+                doublebuffer_flag = 1
             if len(ii_submerged) > 5:
+                # print('double buffer = ' + str(doublebuffer_flag) + 'for tt = '+str(tt))
                 iitest = ii_submerged
-                htmp = (wlbuffer + watlev_tt) - topobathy[iitest,tt]
+                if doublebuffer_flag == 1:
+                    htmp = (2*wlbuffer + watlev_tt) - topobathy[iitest, tt]
+                else:
+                    htmp = (wlbuffer + watlev_tt) - topobathy[iitest,tt]
                 xtmp = dx*np.arange(htmp.size)
                 iitest = iitest[~np.isnan(htmp)]
                 xtmp = xtmp[~np.isnan(htmp)]
                 htmp = htmp[~np.isnan(htmp)]
-                zobs_final[tt] = (wlbuffer + watlev_tt) - htmp[-1]
+                if doublebuffer_flag == 1:
+                    zobs_final[tt] = (2*wlbuffer + watlev_tt) - htmp[-1]
+                else:
+                    zobs_final[tt] = (wlbuffer + watlev_tt) - htmp[-1]
                 profile_extend_testdata[iitest,tt] = topobathy[iitest,tt]
-                htmp = htmp - htmp[0]   # make initial value 0
+                h_init = htmp[0]
+                htest = htmp - h_init # make initial value 0
                 # popt, pcov = curve_fit(equilibriumprofile_func_2param, xtmp, htmp, bounds=([0, -np.inf], [15, np.inf]))
                 # popt, pcov = curve_fit(equilibriumprofile_func_2param, xtmp, ztmp)
-                popt, pcov = curve_fit(equilibriumprofile_func_1param, xtmp, htmp, bounds=([0.05], [1]))
+                popt, pcov = curve_fit(equilibriumprofile_func_1param, xtmp, htest, bounds=([0.15], [0.3]))
                 Acoef[tt] = popt[0]
                 # bcoef[tt] = popt[1]
                 hfit = equilibriumprofile_func_1param(xtmp, *popt)
-                fitrmse[tt] = np.sqrt(np.mean((hfit-htmp)**2))
+                fitrmse[tt] = np.sqrt(np.mean((hfit-htest)**2))
                 # x_extend = np.arange(lidar_xFRF_shift[iitest[-1]]+dx,lidar_xFRF_shift[-1],dx)
                 x_extend = np.arange(lidar_xFRF[iitest[0]] + dx, lidar_xFRF[-1], dx)
                 x_extend_norm = x_extend - x_extend[0]
-                z_extend = (wlbuffer + watlev_tt) - equilibriumprofile_func_1param(x_extend_norm, *popt)
+                h_extend_norm = equilibriumprofile_func_1param(x_extend_norm, *popt)
+                h_extend = h_extend_norm + h_init
+                if doublebuffer_flag == 1:
+                    z_extend = (2*wlbuffer + watlev_tt) - h_extend
+                else:
+                    z_extend = (wlbuffer + watlev_tt) - h_extend
                 profile_extend[np.arange(iitest[0] + 1, nx - 1),tt] = z_extend
                 # # # # # # #
                 # # PLOT
@@ -144,7 +172,6 @@ for jj in np.arange(2214,num_datasets):
     elif sum(~np.isnan(Acoef)) == 0:
         numprof_notextended[jj] = sum(np.isnan(Acoef))
 
-
 fig, ax = plt.subplots()
 ax.plot(avg_fiterror,avg_Acoef,'.')
 fig, ax = plt.subplots()
@@ -152,6 +179,59 @@ tplot = pd.to_datetime(time_fullspan[plot_start_iikeep[set_id_tokeep].astype(int
 ax.plot(tplot,numprof_notextended,'.')
 fig, ax = plt.subplots()
 ax.plot(tplot,avg_zobsfinal,'.')
+
+for tti in (np.floor(np.linspace(40,num_datasets-1,20))):
+    tt = int(tti)
+    fig, ax = plt.subplots()
+    ax.plot(lidar_xFRF,topobaty_preextend[:,:,tt])
+
+    fig, ax = plt.subplots()
+    ax.plot(lidar_xFRF,topobaty_postextend[:,:,jj])
+    fig, ax = plt.subplots()
+    ax.plot(lidar_xFRF, topobaty_preextend[:, :, jj])
+
+# cubic spline fix - tt =  1,26,76
+exec('topobathy = datasets_ML["' + varname + '"]["set_topobathy"]')
+mhw = 3.6
+tt = 1
+xprof_tt = lidar_xFRF[0:]
+zprof_tt = topobathy[:, tt]
+ix_notnan = np.where(~np.isnan(zprof_tt))[0]
+zinput = zprof_tt[np.arange(ix_notnan[0], ix_notnan[-1])]
+xinput = xprof_tt[np.arange(ix_notnan[0], ix_notnan[-1])]
+gapstart, gapend, gapsize, maxgap = find_nangaps(zinput)
+
+ii_tofill = np.where((np.isnan(zinput)))[0]
+xin = xinput[~np.isnan(zinput)]
+yin = zinput[~np.isnan(zinput)]
+cs = CubicSpline(xin, yin, bc_type='natural')
+Lspline = xtmp[-1] - xtmp[0]
+xspline = np.linspace(xtmp[0],xtmp[-1],int(np.ceil(Lspline/0.01)))
+zspline_tmp = cs(xspline)
+
+
+
+zspline_tfill = np.interp(lidar_xFRF[ii_tofill],xspline,zspline_tmp)
+
+fig, ax = plt.subplots()
+ax.plot(xprof_tt,zprof_tt,'o')
+ax.plot(xspline,zspline_tmp,'.')
+ax.plot(lidar_xFRF[ii_tofill],zspline_tfill,'x')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

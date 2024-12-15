@@ -190,19 +190,19 @@ plot_start_iikeep = set_start_iikeep[:]
 
 ## Find the profiles where profiles are "good", long "enough", and we have watlev & wave data
 dx = 0.1
-# length_profdatavail = np.nansum(plot_profelev_cover_hrly,axis=1)
-# length_criterion = (length_profdatavail >= 25/dx)       # profiles for ML analysis must have minimum length (for now)
-# wave_criterion = (plot_wavethreshmet == 1)
-# watlev_criterion = (plot_watlevthreshmet == 1)
-# set_id_tokeep = np.where( length_criterion & wave_criterion & watlev_criterion)[0]
+length_profdatavail = np.nansum(plot_profelev_cover_hrly,axis=1)
+length_criterion = (length_profdatavail >= 25/dx)       # profiles for ML analysis must have minimum length (for now)
+wave_criterion = (plot_wavethreshmet == 1)
+watlev_criterion = (plot_watlevthreshmet == 1)
+set_id_tokeep = np.where( length_criterion & wave_criterion & watlev_criterion)[0]
 
 
 picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_10Dec2024/'
 # picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_10Dec2024/'
 # with open(picklefile_dir+'set_id_tokeep_14Dec2024.pickle', 'wb') as file:
 #     pickle.dump([set_id_tokeep,plot_start_iikeep],file)
-with open(picklefile_dir+'set_id_tokeep_14Dec2024.pickle', 'rb') as file:
-    set_id_tokeep, plot_start_iikeep = pickle.load(file)
+# with open(picklefile_dir+'set_id_tokeep_14Dec2024.pickle', 'rb') as file:
+#     set_id_tokeep, plot_start_iikeep = pickle.load(file)
 
 ## save data from these times as unique dictionary
 datasets_ML = {}
@@ -230,6 +230,14 @@ for jj in np.arange(set_id_tokeep.size):
 
 # with open(picklefile_dir+'datasets_ML_14Dec2024.pickle', 'wb') as file:
 #     pickle.dump(datasets_ML,file)
+
+
+
+
+
+
+
+
 
 
 

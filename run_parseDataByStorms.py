@@ -18,8 +18,8 @@ picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_26Nov2024/'
 # picklefile_dir = './'
 with open(picklefile_dir+'IO_alignedintime.pickle', 'rb') as file:
     time_fullspan,data_wave8m,data_wave17m,data_tidegauge,data_lidar_elev2p,data_lidarwg080,data_lidarwg090,data_lidarwg100,data_lidarwg110,data_lidarwg140,_,_,lidarelev_fullspan = pickle.load(file)
-with open(picklefile_dir+'bathylidar_combo.pickle','rb') as file:
-    lidar_xFRF,bathylidar_combo = pickle.load(file)
+# with open(picklefile_dir+'bathylidar_combo.pickle','rb') as file:
+#     lidar_xFRF,bathylidar_combo = pickle.load(file)
 with open(picklefile_dir+'waves_8m&17m_2015_2024.pickle','rb') as file:
     [data_wave8m,data_wave17m,data_wave8m_filled] = pickle.load(file)
 with open(picklefile_dir+'stormHs95_Over12Hours.pickle','rb') as f:
@@ -42,8 +42,8 @@ Hs_17m_fullspan = data_wave17m[:,0]
 Tp_17m_fullspan = data_wave17m[:,1]
 dir_17m_fullspan = data_wave17m[:,2]
 
-fig, ax = plt.subplots()
-ax.plot(time_fullspan,)
+# fig, ax = plt.subplots()
+# ax.plot(time_fullspan,)
 
 
 cuspfile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/cusp_presence/'
@@ -129,7 +129,8 @@ for jj in np.arange(len(storm_timeend_all)):
     ax.plot([storm_timeend_all[jj],storm_timeend_all[jj]],yplot,'r')
 ax.set_title('1 == Stormy, -1 == Calm/Non-stormy')
 
-picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_26Nov2024/'
+# picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_26Nov2024/'
+picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_10Dec2024/'
 with open(picklefile_dir+'bathylidar_fill.pickle','rb') as file:
     lidar_xFRF,bathylidar_fill = pickle.load(file)
 
@@ -173,11 +174,11 @@ data_fullspan["fullspan_bathylidar_10Dec24"] = bathylidar_fill
 
 #
 ## SAVE DICTS
-# picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_10Dec2024/'
-# with open(picklefile_dir+'data_poststorm_sliced.pickle','wb') as file:
-#     pickle.dump(data_poststorm_all, file)
-# with open(picklefile_dir+'data_fullspan.pickle','wb') as file:
-#     pickle.dump(data_fullspan, file)
+picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_10Dec2024/'
+with open(picklefile_dir+'data_poststorm_sliced.pickle','wb') as file:
+    pickle.dump(data_poststorm_all, file)
+with open(picklefile_dir+'data_fullspan.pickle','wb') as file:
+    pickle.dump(data_fullspan, file)
 
 
 
