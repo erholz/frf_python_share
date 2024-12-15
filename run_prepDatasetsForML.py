@@ -14,13 +14,13 @@ from funcs.wavefuncs import *
 
 
 ## OPEN DICTS
-# picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_26Nov2024/'
-picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_10Dec2024/'
+picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_26Nov2024/'
+# picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_10Dec2024/'
 with open(picklefile_dir+'lidar_xFRF.pickle', 'rb') as file:
     lidar_xFRF = np.array(pickle.load(file))
     lidar_xFRF = lidar_xFRF[0][:]
-# picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_10Dec2024/'
-picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_10Dec2024/'
+picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_10Dec2024/'
+# picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_10Dec2024/'
 with open(picklefile_dir+'data_poststorm_sliced.pickle','rb') as file:
     data_poststorm_all = pickle.load(file)
 with open(picklefile_dir+'data_fullspan.pickle','rb') as file:
@@ -195,13 +195,14 @@ dx = 0.1
 # wave_criterion = (plot_wavethreshmet == 1)
 # watlev_criterion = (plot_watlevthreshmet == 1)
 # set_id_tokeep = np.where( length_criterion & wave_criterion & watlev_criterion)[0]
-# picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_10Dec2024/'
-picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_10Dec2024/'
+
+
+picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_10Dec2024/'
+# picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_10Dec2024/'
 # with open(picklefile_dir+'set_id_tokeep_14Dec2024.pickle', 'wb') as file:
 #     pickle.dump([set_id_tokeep,plot_start_iikeep],file)
 with open(picklefile_dir+'set_id_tokeep_14Dec2024.pickle', 'rb') as file:
     set_id_tokeep, plot_start_iikeep = pickle.load(file)
-
 
 ## save data from these times as unique dictionary
 datasets_ML = {}
@@ -227,8 +228,8 @@ for jj in np.arange(set_id_tokeep.size):
     exec('datasets_ML["' + outputname + '"]["set_lidarwg"] = lidarwg_fullspan[ii_foroutput]')
     exec('datasets_ML["' + outputname + '"]["set_topobathy"] = elev_fullspan[:,ii_foroutput]')
 
-with open(picklefile_dir+'datasets_ML_14Dec2024.pickle', 'wb') as file:
-    pickle.dump(datasets_ML,file)
+# with open(picklefile_dir+'datasets_ML_14Dec2024.pickle', 'wb') as file:
+#     pickle.dump(datasets_ML,file)
 
 
 
