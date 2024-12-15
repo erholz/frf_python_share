@@ -374,7 +374,7 @@ ax.plot(tplot[maxgap_below_MHW!=1],maxgap_bathylidar[maxgap_below_MHW!=1],'+')
 ii_maxgap_aboveMHW = np.where(maxgap_below_MHW!=1)[0]
 ii_maxgap_belowMHW = np.where(maxgap_below_MHW==1)[0]
 fig, ax = plt.subplots()
-ax.plot(lidar_xFRF,bathylidar_combo[:,ii_maxgap_belowMHW[20:30]],'o')
+# ax.plot(lidar_xFRF,bathylidar_combo[:,ii_maxgap_belowMHW[20:30]],'o')
 
 ii_maxgap_tofiill = np.where(maxgap_bathylidar <= 100)[0]
 bathylidar_fillmaxgaps = np.empty(shape=bathylidar_combo.shape)
@@ -382,21 +382,28 @@ bathylidar_fillmaxgaps[:] = bathylidar_combo[:]
 bathylidar_fill = np.empty(shape=bathylidar_combo.shape)
 bathylidar_fill[:] = np.nan
 for jj in ii_maxgap_tofiill:
-    if ~np.isnan(maxgap_bathylidar[jj]):
-        iitmp = np.arange(lidar_xFRF.size)
-        xtmp = lidar_xFRF[0:]
-        ztmp = bathylidar_combo[:,jj]
-        iitmp = iitmp[ztmp <= mhw]
-        xtmp = xtmp[ztmp <= mhw]
-        ztmp = ztmp[ztmp <= mhw]
-        iiin = iitmp[~np.isnan(ztmp)]
-        xin = xtmp[~np.isnan(ztmp)]
-        yin = ztmp[~np.isnan(ztmp)]
-        # cs = CubicSpline(xin, yin, bc_type='natural')
-        cs = CubicSpline(xin, yin)
-        zspline_tmp = cs(xtmp)
-        bathylidar_fillmaxgaps[iiin[2:-2],jj] = zspline_tmp[2:-2]
-        bathylidar_fill[iiin[2:-2],jj] = zspline_tmp[2:-2]
+    if ~np.isnan(maxgap_bathylidar[jj]) & (maxgap_below_MHW[jj] == 1):
+        xprof_tt = lidar_xFRF[0:]
+        zprof_tt = bathylidar_combo[:, jj]
+        ix_notnan = np.where(~np.isnan(zprof_tt) & (zprof_tt <= mhw))[0]
+        zinput = zprof_tt[np.arange(ix_notnan[0], ix_notnan[-1])]
+        xinput = xprof_tt[np.arange(ix_notnan[0], ix_notnan[-1])]
+        # gapstart, gapend, gapsize, maxgap = find_nangaps(zinput)
+        ii_tofill = np.where(np.isnan(zinput))
+        # ii_tofill = ii_tofill[zinput < mhw]
+        xin = xinput[~np.isnan(zinput)]
+        yin = zinput[~np.isnan(zinput)]
+        cs = CubicSpline(xin, yin, bc_type='natural')
+        Lspline = xin[-1] - xin[0]
+        xspline = np.linspace(xin[0], xin[-1], int(np.ceil(Lspline / 0.01)))
+        zspline_tmp = cs(xspline)
+        zspline_tmp[zspline_tmp >= mhw] = np.nan
+        zspline_tofill = np.interp(lidar_xFRF[ii_tofill], xspline, zspline_tmp)
+        zspline_tofill[zspline_tofill >= 3.45] = np.nan
+        bathylidar_fillmaxgaps[ii_tofill,jj] = zspline_tofill
+        bathylidar_fill[ii_tofill,jj] = zspline_tofill
+
+
 
 fig, ax = plt.subplots()
 # ax.plot(lidar_xFRF,bathylidar_fill)
@@ -404,10 +411,17 @@ ax.plot(lidar_xFRF,bathylidar_fillmaxgaps)
 fig, ax = plt.subplots()
 tmp = bathylidar_combo[:,ii_maxgap_tofiill]
 # tmp[tmp > mhw] = np.nan
-ax.plot(lidar_xFRF,tmp)
+ax.plot(lidar_xFRF,tmp,'.')
 
-with open(picklefile_dir+'bathylidar_fill.pickle','wb') as file:
-    pickle.dump([lidar_xFRF,bathylidar_fillmaxgaps], file)
+fig, ax = plt.subplots()
+tmp = bathylidar_fillmaxgaps[:,ii_maxgap_tofiill]
+# tmp[tmp > mhw] = np.nan
+ax.plot(lidar_xFRF,tmp,'.')
+
+
+# picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_10Dec2024/'
+# with open(picklefile_dir+'bathylidar_fill.pickle','wb') as file:
+#     pickle.dump([lidar_xFRF,bathylidar_fillmaxgaps], file)
 
 
 
