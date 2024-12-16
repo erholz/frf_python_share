@@ -79,7 +79,10 @@ for jj in np.arange(num_datasets):
 # # fig, ax = plt.subplots()
 # ax.plot(lidar_xFRF, topobaty_postxshoreinterp[:, :, jj],'.')
 
-
+# # SAVE THIS
+# picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_10Dec2024/'
+# with open(picklefile_dir+'topobathy_xshoreinterp.pickle','wb') as file:
+#     pickle.dump([topobaty_prexshoreinterp,topobaty_postxshoreinterp], file)
 
 
 
@@ -117,7 +120,8 @@ for jj in np.arange(num_datasets):
 # for jj in np.arange(2214):
     varname = outputname = 'dataset_' + str(int(jj))
     exec('timeslice = datasets_ML["' + varname + '"]["set_timeslice"]')
-    exec('topobathy = datasets_ML["' + varname + '"]["set_topobathy"]')
+    # exec('topobathy = datasets_ML["' + varname + '"]["set_topobathy"]')
+    topobathy = topobaty_postxshoreinterp[:,:,jj]
     exec('waterlevel = datasets_ML["' + varname + '"]["set_waterlevel"]')
     topobaty_preextend[:,:,jj] = topobathy[:]
     topobaty_postextend[:,:,jj] = topobathy[:]
@@ -217,6 +221,17 @@ for jj in np.arange(num_datasets):
         avg_zobsfinal[jj] = np.nanmean(zobs_final)
     elif sum(~np.isnan(Acoef)) == 0:
         numprof_notextended[jj] = sum(np.isnan(Acoef))
+
+picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_10Dec2024/'
+with open(picklefile_dir+'topobathy_extend.pickle','wb') as file:
+    pickle.dump([topobaty_preextend,topobaty_postextend], file)
+
+
+
+
+
+
+
 
 fig, ax = plt.subplots()
 ax.plot(avg_fiterror,avg_Acoef,'.')

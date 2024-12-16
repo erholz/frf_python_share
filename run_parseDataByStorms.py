@@ -174,11 +174,11 @@ data_fullspan["fullspan_bathylidar_10Dec24"] = bathylidar_fill
 
 #
 ## SAVE DICTS
-picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_10Dec2024/'
-with open(picklefile_dir+'data_poststorm_sliced.pickle','wb') as file:
-    pickle.dump(data_poststorm_all, file)
-with open(picklefile_dir+'data_fullspan.pickle','wb') as file:
-    pickle.dump(data_fullspan, file)
+# picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_10Dec2024/'
+# with open(picklefile_dir+'data_poststorm_sliced.pickle','wb') as file:
+#     pickle.dump(data_poststorm_all, file)
+# with open(picklefile_dir+'data_fullspan.pickle','wb') as file:
+#     pickle.dump(data_fullspan, file)
 
 
 
