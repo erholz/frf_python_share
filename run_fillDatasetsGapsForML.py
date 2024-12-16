@@ -39,6 +39,58 @@ for jj in np.floor(np.linspace(0,len(datasets_ML)-1,20)):
     tplot = pd.to_datetime(timeslice, unit='s', origin='unix')
     ax.set_title(str(tplot[0]))
 
+# First try interpolating in the cross-shore
+Nlook = 4*24
+topobaty_prexshoreinterp = np.empty((lidar_xFRF.size,Nlook,num_datasets))
+topobaty_prexshoreinterp[:] = np.nan
+topobaty_postxshoreinterp = np.empty((lidar_xFRF.size,Nlook,num_datasets))
+topobaty_postxshoreinterp[:] = np.nan
+for jj in np.arange(num_datasets):
+# for jj in np.arange(2214):
+    varname = outputname = 'dataset_' + str(int(jj))
+    exec('timeslice = datasets_ML["' + varname + '"]["set_timeslice"]')
+    exec('topobathy = datasets_ML["' + varname + '"]["set_topobathy"]')
+    topobaty_prexshoreinterp[:,:,jj] = topobathy[:]
+    topobaty_postxshoreinterp[:,:,jj] = topobathy[:]
+
+    # find cross-shore contour position
+    mwl = -0.13
+    zero = 0
+    mhw = 3.6
+    dune_toe = 3.22
+    cont_elev = np.array([mhw]) #np.arange(0,2.5,0.5)   # <<< MUST BE POSITIVELY INCREASING
+    cont_ts, cmean, cstd = create_contours(topobathy.T,timeslice,lidar_xFRF,cont_elev)
+    # meanprofile = np.nanmean(topobathy,axis=1)
+    ix_cont = np.nanmax(np.where(lidar_xFRF <= np.nanmax(cont_ts))[0])-5
+
+    # go through x-shore locations ix_cont -> end
+    for ii in np.arange(ix_cont,nx):
+        xshore_slice = topobathy[ii,:]
+        percent_avail = sum(~np.isnan(xshore_slice))/Nlook
+        if percent_avail >= 0.66:
+            tin = np.arange(0,Nlook)
+            zin = xshore_slice
+            tin = tin[~np.isnan(zin)]
+            zin = zin[~np.isnan(zin)]
+            zout = np.interp(np.arange(0,Nlook),tin,zin)
+            topobaty_postxshoreinterp[ii,:,jj] = zout
+# fig, ax = plt.subplots()
+# ax.plot(lidar_xFRF,topobaty_prexshoreinterp[:,:,jj],'o')
+# # fig, ax = plt.subplots()
+# ax.plot(lidar_xFRF, topobaty_postxshoreinterp[:, :, jj],'.')
+
+
+
+
+
+
+
+
+
+
+
+
+
 # Ok, try to fill in from edge of profiles to at least z = -1m
 def equilibriumprofile_func_2param(x, a, b):
     return a * x * np.exp(b)
@@ -46,16 +98,13 @@ def equilibriumprofile_func_1param(x, a):
     return a * x ** (2/3)
 
 # Initialize the aggregate topobathy for pre- and post- extensions
+dx = 0.1
+nx = lidar_xFRF.size
 Nlook = 4*24
 topobaty_preextend = np.empty((lidar_xFRF.size,Nlook,num_datasets))
 topobaty_preextend[:] = np.nan
 topobaty_postextend = np.empty((lidar_xFRF.size,Nlook,num_datasets))
 topobaty_postextend[:] = np.nan
-
-
-# Go through, pull out topobathy, extend if possible
-dx = 0.1
-nx = lidar_xFRF.size
 avg_fiterror = np.empty(num_datasets,)
 avg_fiterror[:] = np.nan
 avg_Acoef = np.empty(num_datasets,)
@@ -64,13 +113,14 @@ numprof_notextended = np.empty(num_datasets,)
 numprof_notextended[:] = np.nan
 avg_zobsfinal = np.empty(num_datasets,)
 avg_zobsfinal[:] = np.nan
-# for jj in np.arange(num_datasets):
-for jj in np.arange(2214,num_datasets):
+for jj in np.arange(num_datasets):
+# for jj in np.arange(2214):
     varname = outputname = 'dataset_' + str(int(jj))
     exec('timeslice = datasets_ML["' + varname + '"]["set_timeslice"]')
     exec('topobathy = datasets_ML["' + varname + '"]["set_topobathy"]')
     exec('waterlevel = datasets_ML["' + varname + '"]["set_waterlevel"]')
-    topobaty_preextend[:,:,jj] = topobathy
+    topobaty_preextend[:,:,jj] = topobathy[:]
+    topobaty_postextend[:,:,jj] = topobathy[:]
 
     # initialize fit coefficints
     Acoef = np.empty(shape=timeslice.shape)
@@ -97,13 +147,9 @@ for jj in np.arange(2214,num_datasets):
         if len(ix_notnan) > 0:
             zinput = zinput[np.arange(ix_notnan[0],ix_notnan[-1])]
             gapstart, gapend, gapsize, maxgap = find_nangaps(zinput)
-            if maxgap > 50:
-                print('max gap size = ' + str(maxgap)+' for tt = '+str(tt))
-
+            # if maxgap > 50:
+            #     print('max gap size = ' + str(maxgap)+' for tt = '+str(tt))
         if (sum(~np.isnan(topobathy[:,tt])) > 10) & (~np.isnan(watlev_tt)):
-
-
-
             ii_submerged = np.where(topobathy[:, tt] <= watlev_tt + wlbuffer)[0]
             iiclose = np.where(abs(topobathy[:, tt]-(wlbuffer+watlev_tt)) == np.nanmin(abs(topobathy[:,tt]-(wlbuffer+watlev_tt))))[0]
             doublebuffer_flag = 0
@@ -183,7 +229,7 @@ ax.plot(tplot,avg_zobsfinal,'.')
 for tti in (np.floor(np.linspace(40,num_datasets-1,20))):
     tt = int(tti)
     fig, ax = plt.subplots()
-    ax.plot(lidar_xFRF,topobaty_preextend[:,:,tt])
+    ax.plot(lidar_xFRF,topobaty_postextend[:,:,tt])
 
     fig, ax = plt.subplots()
     ax.plot(lidar_xFRF,topobaty_postextend[:,:,jj])
