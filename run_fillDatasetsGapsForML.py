@@ -222,9 +222,14 @@ for jj in np.arange(num_datasets):
     elif sum(~np.isnan(Acoef)) == 0:
         numprof_notextended[jj] = sum(np.isnan(Acoef))
 
-picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_10Dec2024/'
-with open(picklefile_dir+'topobathy_extend.pickle','wb') as file:
-    pickle.dump([topobaty_preextend,topobaty_postextend], file)
+# picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_10Dec2024/'
+# with open(picklefile_dir+'topobathy_extend.pickle','wb') as file:
+#     pickle.dump([topobaty_preextend,topobaty_postextend], file)
+
+
+num_profiles = int(topobathy_preextend.size[1]*topobathy_preextend.size[2])
+topobathy_check = np.empty((lidar_xFRF.size,))
+
 
 fig, ax = plt.subplots()
 for jj in np.arange(num_datasets):
