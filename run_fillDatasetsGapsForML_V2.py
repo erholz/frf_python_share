@@ -15,11 +15,13 @@ from scipy.interpolate import splrep, BSpline, splev, CubicSpline
 from funcs.find_nangaps import *
 
 
-picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_10Dec2024/'
-# picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_10Dec2024/'
+# picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_10Dec2024/'
+picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_10Dec2024/'
 with open(picklefile_dir+'datasets_ML_14Dec2024.pickle', 'rb') as file:
     datasets_ML = pickle.load(file)
     num_datasets = len(datasets_ML)
+with open(picklefile_dir+'data_fullspan.pickle','rb') as file:
+    data_fullspan = pickle.load(file)
 with open(picklefile_dir+'set_id_tokeep_14Dec2024.pickle', 'rb') as file:
     set_id_tokeep, plot_start_iikeep = pickle.load(file)
 picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_26Nov2024/'
@@ -80,10 +82,11 @@ for jj in np.arange(num_datasets):
 # ax.plot(lidar_xFRF, topobaty_postxshoreinterp[:, :, jj],'.')
 
 # # SAVE THIS
-# picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_10Dec2024/'
+picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_10Dec2024/'
 # with open(picklefile_dir+'topobathy_xshoreinterp.pickle','wb') as file:
 #     pickle.dump([topobaty_prexshoreinterp,topobaty_postxshoreinterp], file)
-
+with open(picklefile_dir+'topobathy_xshoreinterp.pickle','rb') as file:
+    topobathy_prexshoreinterp,topobathy_postxshoreinterp = pickle.load(file)
 
 
 
@@ -222,14 +225,9 @@ for jj in np.arange(num_datasets):
     elif sum(~np.isnan(Acoef)) == 0:
         numprof_notextended[jj] = sum(np.isnan(Acoef))
 
-<<<<<<< HEAD
 # picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_10Dec2024/'
 # with open(picklefile_dir+'topobathy_extend.pickle','wb') as file:
 #     pickle.dump([topobaty_preextend,topobaty_postextend], file)
-
-
-num_profiles = int(topobathy_preextend.size[1]*topobathy_preextend.size[2])
-topobathy_check = np.empty((lidar_xFRF.size,))
 
 # ___________ SAVE!!! _____________________
 # picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_10Dec2024/'
@@ -239,8 +237,8 @@ topobathy_check = np.empty((lidar_xFRF.size,))
 #     pickle.dump([[avg_Acoef,avg_fiterror,numprof_notextended,avg_zobsfinal],file])
 # picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_10Dec2024/'
 # picklefile_dir = 'F:/Projects/FY24/FY24_SMARTSEED/FRF_data/processed_10Dec2024/'
-# with open(picklefile_dir+'topobathy_extend.pickle','rb') as file:
-#     _, topobathy_postextend = pickle.load(file)
+with open(picklefile_dir+'topobathy_extend.pickle','rb') as file:
+    _, topobathy_postextend = pickle.load(file)
 
 # REPEAT X-SHORE INTERP
 Nlook = 4*24
@@ -265,7 +263,7 @@ for jj in np.arange(num_datasets):
     ix_cont = np.nanmax(np.where(lidar_xFRF <= np.nanmax(cont_ts))[0])-5
 
     # go through x-shore locations ix_cont -> end
-    for ii in np.arange(ix_cont,nx):
+    for ii in np.arange(ix_cont,lidar_xFRF.size):
         xshore_slice = topobathy[ii,:]
         percent_avail = sum(~np.isnan(xshore_slice))/Nlook
         if (percent_avail >= 0.66) & (percent_avail < 1.0):
@@ -275,6 +273,11 @@ for jj in np.arange(num_datasets):
             zin = zin[~np.isnan(zin)]
             zout = np.interp(np.arange(0,Nlook),tin,zin)
             topobathy_xshoreinterpX2[ii,:,jj] = zout
+
+
+# # Save post-interpX2 data
+# with open(picklefile_dir+'topobathy_xshoreinterpX2.pickle','wb') as file:
+#     pickle.dump(topobathy_xshoreinterpX2, file)
 
 
 
@@ -307,7 +310,7 @@ topobathy_numstillnan = np.empty((lidar_xFRF.size,num_datasets))
 for jj in np.arange(num_datasets):
     varname = 'dataset_' + str(int(jj))
     exec('timeslice = datasets_ML["' + varname + '"]["set_timeslice"]')
-    z_postxshore = topobathy_postxshoreinterp[:, :, jj]
+    z_postxshore = topobaty_postxshoreinterp[:, :, jj]
     z_postextend = topobathy_postextend[:,:,jj]
     z_postxshoreX2 = topobathy_xshoreinterpX2[:,:,jj]
 
@@ -328,19 +331,50 @@ for jj in np.arange(num_datasets):
     # Find the number of profiles in each set with nans as a func of x-loc
     topobathy_numstillnan[:,jj] = np.nansum(np.isnan(topobathy),axis=1)
 
+# ## SAVE THESE!!!!
+# picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_10Dec2024/'
+# with open(picklefile_dir+'topobathy_reshapeToNXbyNumUmiqueT.pickle','wb') as file:
+#     pickle.dump([tt_unique,origin_set,topobathy_xshoreInterp_plot,topobathy_extension_plot,topobathy_xshoreInterpX2_plot], file)
 
 # Plot all the unique profiles together
+pre_interpextend = data_fullspan["fullspan_bathylidar_10Dec24"]
+pre_interpextend = pre_interpextend[:,np.isin(time_fullspan,tt_unique)]
 fig, ax = plt.subplots()
-ax.plot(lidar_xFRF,topobathy_plot)
+ax.plot(lidar_xFRF,pre_interpextend)
 plt.grid()
+ax.set_title('pre interp/extension')
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF,topobathy_xshoreInterp_plot)
+plt.grid()
+ax.set_title('post x-shore interp')
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF,topobathy_extension_plot)
+plt.grid()
+ax.set_title('post equilibrium extension')
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF,topobathy_xshoreInterpX2_plot)
+plt.grid()
+ax.set_title('post SECOND x-shore interp')
+
 # Plot the number of profiles where elev still nan...
 fig, ax = plt.subplots()
 ax.plot(lidar_xFRF,topobathy_numstillnan,'.')
 
 
 # Plot the availability of the data
-
-
+yplot1 = np.sum(~np.isnan(pre_interpextend),axis=1)/tt_unique.size
+yplot2 = np.sum(~np.isnan(topobathy_xshoreInterp_plot),axis=1)/tt_unique.size
+yplot3 = np.sum(~np.isnan(topobathy_extension_plot),axis=1)/tt_unique.size
+yplot4 = np.sum(~np.isnan(topobathy_xshoreInterpX2_plot),axis=1)/tt_unique.size
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF,yplot1,label='1. pre additions')
+ax.plot(lidar_xFRF,yplot2,label='2. post x-shore interp')
+ax.plot(lidar_xFRF,yplot3,label='3. post equilibrium extension')
+ax.plot(lidar_xFRF,yplot4,label='4. post x-shore interp (again)')
+ax.legend()
+plt.grid()
+ax.set_ylabel('frac avail.')
+ax.set_xlabel('xFRF [m]')
 
 
 

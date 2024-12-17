@@ -226,10 +226,10 @@ for jj in np.arange(set_id_tokeep.size):
     exec('datasets_ML["' + outputname + '"]["set_dir17m"] = dir17m_fullspan[ii_foroutput]')
     exec('datasets_ML["' + outputname + '"]["set_elev2p"] = elev2p_fullspan[ii_foroutput]')
     exec('datasets_ML["' + outputname + '"]["set_lidarwg"] = lidarwg_fullspan[ii_foroutput]')
-    exec('datasets_ML["' + outputname + '"]["set_topobathy"] = elev_fullspan[:,ii_foroutput]')
+    # exec('datasets_ML["' + outputname + '"]["set_topobathy"] = elev_fullspan[:,ii_foroutput]')
 
-# with open(picklefile_dir+'datasets_ML_14Dec2024.pickle', 'wb') as file:
-#     pickle.dump(datasets_ML,file)
+with open(picklefile_dir+'datasets_ML_HydroOnly.pickle', 'wb') as file:
+    pickle.dump(datasets_ML,file)
 
 
 
