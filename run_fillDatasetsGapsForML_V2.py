@@ -15,21 +15,23 @@ from scipy.interpolate import splrep, BSpline, splev, CubicSpline
 from funcs.find_nangaps import *
 
 
-# picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_10Dec2024/'
-picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_10Dec2024/'
+picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_10Dec2024/'
+# picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_10Dec2024/'
 with open(picklefile_dir+'datasets_ML_14Dec2024.pickle', 'rb') as file:
     datasets_ML = pickle.load(file)
     num_datasets = len(datasets_ML)
 with open(picklefile_dir+'data_fullspan.pickle','rb') as file:
     data_fullspan = pickle.load(file)
+    time_fullspan = data_fullspan["fullspan_time"]
 with open(picklefile_dir+'set_id_tokeep_14Dec2024.pickle', 'rb') as file:
     set_id_tokeep, plot_start_iikeep = pickle.load(file)
-picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_26Nov2024/'
+# picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_26Nov2024/'
 with open(picklefile_dir+'lidar_xFRF.pickle', 'rb') as file:
     lidar_xFRF = np.array(pickle.load(file))
     lidar_xFRF = lidar_xFRF[0][:]
-with open(picklefile_dir+'IO_alignedintime.pickle', 'rb') as file:
-    time_fullspan,_,_,_,_,_,_,_,_,_,_,_,_ = pickle.load(file)
+    nx = lidar_xFRF.size
+# with open(picklefile_dir+'IO_alignedintime.pickle', 'rb') as file:
+#     time_fullspan,_,_,_,_,_,_,_,_,_,_,_,_ = pickle.load(file)
 
 # Examine some sample profiles
 for jj in np.floor(np.linspace(0,len(datasets_ML)-1,20)):
@@ -60,13 +62,14 @@ for jj in np.arange(num_datasets):
     zero = 0
     mhw = 3.6
     dune_toe = 3.22
-    cont_elev = np.array([mhw]) #np.arange(0,2.5,0.5)   # <<< MUST BE POSITIVELY INCREASING
-    cont_ts, cmean, cstd = create_contours(topobathy.T,timeslice,lidar_xFRF,cont_elev)
+    cont_elev = np.array([6]) #np.arange(0,2.5,0.5)   # <<< MUST BE POSITIVELY INCREASING
+    # cont_ts, cmean, cstd = create_contours(topobathy.T,timeslice,lidar_xFRF,cont_elev)
     # meanprofile = np.nanmean(topobathy,axis=1)
-    ix_cont = np.nanmax(np.where(lidar_xFRF <= np.nanmax(cont_ts))[0])-5
+    # ix_cont = np.nanmax(np.where(lidar_xFRF <= np.nanmax(cont_ts))[0])-5
 
     # go through x-shore locations ix_cont -> end
-    for ii in np.arange(ix_cont,nx):
+    # for ii in np.arange(ix_cont,nx):
+    for ii in np.arange(nx):
         xshore_slice = topobathy[ii,:]
         percent_avail = sum(~np.isnan(xshore_slice))/Nlook
         if percent_avail >= 0.66:
@@ -76,17 +79,29 @@ for jj in np.arange(num_datasets):
             zin = zin[~np.isnan(zin)]
             zout = np.interp(np.arange(0,Nlook),tin,zin)
             topobaty_postxshoreinterp[ii,:,jj] = zout
+# Compare pre- and post-interp methods
+yplot1 = np.nansum(np.nansum(~np.isnan(topobaty_prexshoreinterp),axis=2),axis=1)
+yplot2 = np.nansum(np.nansum(~np.isnan(topobaty_postxshoreinterp),axis=2),axis=1)
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF,yplot1,label='1. pre x-shore interp')
+ax.plot(lidar_xFRF,yplot2,label='2. post x-shore interp')
+ax.legend()
+plt.grid()
+ax.set_ylabel('num avail.')
+ax.set_xlabel('xFRF [m]')
+# # Visualize sample dataset
 # fig, ax = plt.subplots()
-# ax.plot(lidar_xFRF,topobaty_prexshoreinterp[:,:,jj],'o')
-# # fig, ax = plt.subplots()
-# ax.plot(lidar_xFRF, topobaty_postxshoreinterp[:, :, jj],'.')
+# ax.plot(lidar_xFRF,np.squeeze(topobaty_prexshoreinterp[:,:,jj]),'o')
+# ax.plot(lidar_xFRF, np.squeeze(topobaty_postxshoreinterp[:, :, jj]),'.')
+
 
 # # SAVE THIS
-picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_10Dec2024/'
+# picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_10Dec2024/'
+picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_10Dec2024/'
 # with open(picklefile_dir+'topobathy_xshoreinterp.pickle','wb') as file:
 #     pickle.dump([topobaty_prexshoreinterp,topobaty_postxshoreinterp], file)
 with open(picklefile_dir+'topobathy_xshoreinterp.pickle','rb') as file:
-    topobathy_prexshoreinterp,topobathy_postxshoreinterp = pickle.load(file)
+    _,topobathy_postxshoreinterp = pickle.load(file)
 
 
 
@@ -107,14 +122,19 @@ def equilibriumprofile_func_1param(x, a):
 dx = 0.1
 nx = lidar_xFRF.size
 Nlook = 4*24
-topobaty_preextend = np.empty((lidar_xFRF.size,Nlook,num_datasets))
-topobaty_preextend[:] = np.nan
+# topobaty_preextend = np.empty((lidar_xFRF.size,Nlook,num_datasets))
+# topobaty_preextend[:] = np.nan
+topobaty_preextend = []
 topobaty_postextend = np.empty((lidar_xFRF.size,Nlook,num_datasets))
 topobaty_postextend[:] = np.nan
 avg_fiterror = np.empty(num_datasets,)
 avg_fiterror[:] = np.nan
 avg_Acoef = np.empty(num_datasets,)
 avg_Acoef[:] = np.nan
+Acoef_alldatasets = np.empty((Nlook,num_datasets))
+Acoef_alldatasets[:] = np.nan
+fitrmse_alldatasets = np.empty((Nlook,num_datasets))
+fitrmse_alldatasets[:] = np.nan
 numprof_notextended = np.empty(num_datasets,)
 numprof_notextended[:] = np.nan
 avg_zobsfinal = np.empty(num_datasets,)
@@ -124,9 +144,9 @@ for jj in np.arange(num_datasets):
     varname = 'dataset_' + str(int(jj))
     exec('timeslice = datasets_ML["' + varname + '"]["set_timeslice"]')
     # exec('topobathy = datasets_ML["' + varname + '"]["set_topobathy"]')
-    topobathy = topobaty_postxshoreinterp[:,:,jj]
+    topobathy = topobathy_postxshoreinterp[:,:,jj]
     exec('waterlevel = datasets_ML["' + varname + '"]["set_waterlevel"]')
-    topobaty_preextend[:,:,jj] = topobathy[:]
+    # topobaty_preextend[:,:,jj] = topobathy[:]
     topobaty_postextend[:,:,jj] = topobathy[:]
 
     # initialize fit coefficints
@@ -222,12 +242,14 @@ for jj in np.arange(num_datasets):
         avg_fiterror[jj] = np.nanmean(fitrmse)
         numprof_notextended[jj] = sum(np.isnan(Acoef))
         avg_zobsfinal[jj] = np.nanmean(zobs_final)
+        Acoef_alldatasets[:,jj] = Acoef
+        fitrmse_alldatasets[:,jj] = fitrmse
     elif sum(~np.isnan(Acoef)) == 0:
         numprof_notextended[jj] = sum(np.isnan(Acoef))
 
-# picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_10Dec2024/'
-# with open(picklefile_dir+'topobathy_extend.pickle','wb') as file:
-#     pickle.dump([topobaty_preextend,topobaty_postextend], file)
+picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_10Dec2024/'
+with open(picklefile_dir+'topobathy_extend.pickle','wb') as file:
+    pickle.dump([topobaty_preextend,topobaty_postextend], file)
 
 # ___________ SAVE!!! _____________________
 # picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_10Dec2024/'
