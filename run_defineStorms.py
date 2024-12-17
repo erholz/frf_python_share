@@ -288,8 +288,8 @@ output['peakTimeStormListWIS'] = peakTimeStormListWIS
 
 
 picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_26Nov2024/'
-with open(picklefile_dir+clusterPickle,'wb') as f:
-    pickle.dump(output, f)
+# with open(picklefile_dir+clusterPickle,'wb') as f:
+#     pickle.dump(output, f)
 
 
 

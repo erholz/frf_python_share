@@ -317,3 +317,38 @@ def wavetransform_point(H0, theta0, H1, theta1, T, h2, h1, g, breakcrit):
         H2[gamma > breakcrit] = breakcrit * h2
 
     return H2, theta2
+
+
+
+
+################################ UPCROSS ################################
+def upcross(yval,timeval):
+    """
+        Calculates wave time series from WSE time series, and provides upcross positions
+
+          :param: yval, timeval
+          :return: H, T, cross
+          """
+
+    yy = yval[0:-1]*yval[1:]
+    cross = np.where((yy < 0) & (yval[0:-1] < 0))[0]
+
+    numcyc = cross.size - 1
+    ymin = np.zeros(numcyc,)
+    ymax = np.zeros(numcyc,)
+    tmin = np.zeros(numcyc, )
+    tmax = np.zeros(numcyc, )
+
+    for jj in np.arange(numcyc):
+        for kk in np.arange(cross[jj],cross[jj+1]):
+            if yval[kk] < ymin[jj]:
+                ymin[jj] = yval[kk]
+            elif yval[kk] > ymax[jj]:
+                ymax[jj] = yval[kk]
+        tmin[jj] = timeval[cross[jj]]
+        tmax[jj] = timeval[cross[jj+1]]
+
+    H = ymax - ymin
+    T = tmax - tmin
+
+    return H, T, cross
