@@ -45,6 +45,9 @@ for jj in np.floor(np.linspace(0,len(datasets_ML)-1,20)):
     tplot = pd.to_datetime(timeslice, unit='s', origin='unix')
     ax.set_title(str(tplot[0]))
 
+
+################# STEP 1 - INTERPOLATE IN TIME FOR EACH X_i #################
+
 # First try interpolating in the cross-shore
 Nlook = 4*24
 topobaty_prexshoreinterp = np.empty((lidar_xFRF.size,Nlook,num_datasets))
@@ -107,12 +110,7 @@ with open(picklefile_dir+'topobathy_xshoreinterp.pickle','rb') as file:
 
 
 
-
-
-
-
-
-
+################# STEP 2 - CROSS-SHORE EXTEND VIA EQUILIBRIUM EQN #################
 
 # Ok, try to fill in from edge of profiles to at least z = -1m
 def equilibriumprofile_func_2param(x, a, b):
@@ -277,10 +275,7 @@ with open(picklefile_dir+'topobathy_extend.pickle','rb') as file:
     _, topobathy_postextend = pickle.load(file)
 
 
-
-
-
-
+################# STEP 3 - REPEAT INTERP IN TIME #################
 
 # REPEAT X-SHORE INTERP
 Nlook = 4*24
@@ -335,6 +330,7 @@ ax.set_ylabel('num avail.')
 ax.set_xlabel('xFRF [m]')
 
 
+################# MAKE SMALLER ARRAYS FOR PLOTTING #################
 
 
 # Find unique times of all ML datasets to create smaller plotting matrices
@@ -468,6 +464,7 @@ ax.legend()
 
 
 
+################# CREATE SCALED & SHIFTED PROFILES #################
 
 
 # Ok, now create shifted and scaled profile datasets
@@ -481,7 +478,7 @@ mwl = -0.13
 zero = 0
 mhw = 3.6
 dune_toe = 3.22
-cont_elev = np.array([mwl,zero,dune_toe,mhw]) #np.arange(0,2.5,0.5)   # <<< MUST BE POSITIVELY INCREASING
+cont_elev = np.array([mwl,mhw]) #np.arange(0,2.5,0.5)   # <<< MUST BE POSITIVELY INCREASING
 cont_ts, cmean, cstd = create_contours(topobathy.T,tt_unique,lidar_xFRF,cont_elev)
 for tt in np.arange(num_datasets):
     xc_shore = cont_ts[-1, tt]
@@ -519,6 +516,45 @@ for tt in np.arange(num_datasets):
             topobathy_scale_plot[:,tt] = ztrim_BetweenXCs
 
 
+fig, ax = plt.subplots()
+dx = 0.1
+xplot = dx*np.arange(lidar_xFRF.size)
+profmean = np.nanmean(topobathy_shift_plot,axis=1)
+profstd = np.nanstd(topobathy_shift_plot,axis=1)
+ax.plot(xplot,topobathy_shift_plot,color='0.5',linewidth=0.5,alpha=0.01)
+ax.plot(xplot,profmean,'k')
+ax.plot(xplot,profmean+profstd,'k:')
+ax.plot(xplot,profmean-profstd,'k:')
+plt.grid()
+ax.set_ylabel('z [m]')
+ax.set_xlabel('x [m]')
+ax.plot(xplot,cont_elev[0]+np.zeros(shape=lidar_xFRF.shape),color=cmap[0, :],label='MWL')
+ax.plot(xplot,cont_elev[1]+np.zeros(shape=lidar_xFRF.shape),color=cmap[1, :],label='MHW')
+ax.legend()
+ax.set_xlim(0,80)
+ax.set_ylim(-3,4)
+
+
+fig, ax = plt.subplots()
+# dx = 0.1
+xplot = np.linspace(0,1,lidar_xFRF.size)
+profmean = np.nanmean(topobathy_scale_plot,axis=1)
+profstd = np.nanstd(topobathy_scale_plot,axis=1)
+ax.plot(xplot,topobathy_scale_plot,color='0.5',linewidth=0.5,alpha=0.01)
+ax.plot(xplot,profmean,'k')
+ax.plot(xplot,profmean+profstd,'k:')
+ax.plot(xplot,profmean-profstd,'k:')
+plt.grid()
+ax.set_ylabel('z [m]')
+ax.set_xlabel('x/L [-]')
+ax.plot(xplot,cont_elev[0]+np.zeros(shape=lidar_xFRF.shape),color=cmap[0, :],label='MWL')
+ax.plot(xplot,cont_elev[1]+np.zeros(shape=lidar_xFRF.shape),color=cmap[1, :],label='MHW')
+ax.legend()
+ax.set_xlim(0,1)
+ax.set_ylim(-0.75,4)
+
+
+
 # ## SAVE THESE!!!!
 # picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_10Dec2024/'
 # with open(picklefile_dir+'topobathy_scale&shift.pickle','wb') as file:
@@ -527,36 +563,43 @@ with open(picklefile_dir+'topobathy_scale&shift.pickle','rb') as file:
    topobathy_shift_plot,topobathy_scale_plot = pickle.load(file)
 
 
-# Go through each datasets, find the entries that match, then calculate the number of length of continuous no-nans
-ix_total_coverage = np.empty((lidar_xFRF.size,num_datasets))
-ix_total_coverage[:] = np.nan
-ix_total_coverage_shift = np.empty((lidar_xFRF.size,num_datasets))
-ix_total_coverage_shift[:] = np.nan
-for jj in np.arange(num_datasets):
-    iislice = np.where(np.isin(tt_unique,time_fullspan[dataset_index_fullspan[jj,:].astype(int)]))
-    topobathy_slice = np.squeeze(topobathy_shift_plot[:,iislice])
-    tmp = np.sum(~np.isnan(topobathy_slice), axis=1)
-    iinotnan = np.where(tmp == Nlook)
-    ix_total_coverage_shift[iinotnan,jj] = 1
-    topobathy_slice = np.squeeze(topobathy_xshoreInterpX2_plot[:, iislice])
-    tmp = np.sum(~np.isnan(topobathy_slice), axis=1)
-    iinotnan = np.where(tmp == Nlook)
-    ix_total_coverage[iinotnan, jj] = 1
 
-fig, ax = plt.subplots()
-ax.plot(lidar_xFRF,np.nansum(ix_total_coverage,axis=1),'x')
+
+
+
+
+
+
+
+############## OLD #################
+
+#
+# # Go through each datasets, find the entries that match, then calculate the number of length of continuous no-nans
+# ix_total_coverage = np.empty((lidar_xFRF.size,num_datasets))
+# ix_total_coverage[:] = np.nan
+# ix_total_coverage_shift = np.empty((lidar_xFRF.size,num_datasets))
+# ix_total_coverage_shift[:] = np.nan
+# for jj in np.arange(num_datasets):
+#     iislice = np.where(np.isin(tt_unique,time_fullspan[dataset_index_fullspan[jj,:].astype(int)]))
+#     topobathy_slice = np.squeeze(topobathy_shift_plot[:,iislice])
+#     tmp = np.sum(~np.isnan(topobathy_slice), axis=1)
+#     iinotnan = np.where(tmp == Nlook)
+#     ix_total_coverage_shift[iinotnan,jj] = 1
+#     topobathy_slice = np.squeeze(topobathy_xshoreInterpX2_plot[:, iislice])
+#     tmp = np.sum(~np.isnan(topobathy_slice), axis=1)
+#     iinotnan = np.where(tmp == Nlook)
+#     ix_total_coverage[iinotnan, jj] = 1
+#
 # fig, ax = plt.subplots()
-ax.plot(lidar_xFRF,np.nansum(ix_total_coverage_shift,axis=1),'.')
-
-fig, ax = plt.subplots()
-ax.plot(lidar_xFRF,np.sum(~np.isnan(topobathy_slice), axis=1))
-fig, ax = plt.subplots()
-ax.plot(topobathy_slice)
-np.where(np.sum(np.isnan(topobathy_slice), axis=1) == 0)
-
-
-
-
+# ax.plot(lidar_xFRF,np.nansum(ix_total_coverage,axis=1),'x')
+# # fig, ax = plt.subplots()
+# ax.plot(lidar_xFRF,np.nansum(ix_total_coverage_shift,axis=1),'.')
+#
+# fig, ax = plt.subplots()
+# ax.plot(lidar_xFRF,np.sum(~np.isnan(topobathy_slice), axis=1))
+# fig, ax = plt.subplots()
+# ax.plot(topobathy_slice)
+# np.where(np.sum(np.isnan(topobathy_slice), axis=1) == 0)
 
 # OLD/ come back to Acoef fit errors
 
