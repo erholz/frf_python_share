@@ -387,7 +387,8 @@ for jj in np.arange(num_datasets):
     topobathy_numstillnan[:,jj] = np.nansum(np.isnan(topobathy),axis=1)
 
 # # ## SAVE THESE!!!!
-# picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_10Dec2024/'
+# # picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_10Dec2024/'
+# picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_10Dec2024/'
 # with open(picklefile_dir+'topobathy_reshapeToNXbyNumUmiqueT.pickle','wb') as file:
 #     pickle.dump([tt_unique,origin_set,dataset_index_fullspan,topobathy_xshoreInterp_plot,topobathy_extension_plot,topobathy_xshoreInterpX2_plot], file)
 
@@ -417,19 +418,56 @@ ax.plot(lidar_xFRF,topobathy_numstillnan,'.')
 
 
 # Plot the availability of the data
-yplot1 = np.sum(~np.isnan(pre_interpextend),axis=1)/tt_unique.size
-yplot2 = np.sum(~np.isnan(topobathy_xshoreInterp_plot),axis=1)/tt_unique.size
-yplot3 = np.sum(~np.isnan(topobathy_extension_plot),axis=1)/tt_unique.size
-yplot4 = np.sum(~np.isnan(topobathy_xshoreInterpX2_plot),axis=1)/tt_unique.size
+all_topobathy = data_fullspan["fullspan_bathylidar_10Dec24"]
+yplot0 = np.sum(~np.isnan(all_topobathy),axis=1)#/tt_unique.size
+yplot1 = np.sum(~np.isnan(pre_interpextend),axis=1)#/tt_unique.size
+yplot2 = np.sum(~np.isnan(topobathy_xshoreInterp_plot),axis=1)#/tt_unique.size
+yplot3 = np.sum(~np.isnan(topobathy_extension_plot),axis=1)#/tt_unique.size
+yplot4 = np.sum(~np.isnan(topobathy_xshoreInterpX2_plot),axis=1)#/tt_unique.size
 fig, ax = plt.subplots()
-ax.plot(lidar_xFRF,yplot1,label='1. pre additions')
-ax.plot(lidar_xFRF,yplot2,label='2. post x-shore interp')
-ax.plot(lidar_xFRF,yplot3,label='3. post equilibrium extension')
-ax.plot(lidar_xFRF,yplot4,label='4. post x-shore interp (again)')
+ax.plot(lidar_xFRF,yplot0,label='1) Filtered topobathy',color='0.5')
+ax.plot(lidar_xFRF,yplot1,'--',label='2) Sub-selected for ML ',color='0.5')
+ax.plot(lidar_xFRF,yplot2,'k--',label='3) Cross-shore gap-fill')
+ax.plot(lidar_xFRF,yplot3,'k:',label='4) Equilibrium extension')
+ax.plot(lidar_xFRF,yplot4,'k',label='5) Repeat cross-shore gap-fill')
+mwl = -0.13
+zero = 0
+mhw = 3.6
+dune_toe = 3.22
+cont_elev = np.array([mwl,mhw]) #np.arange(0,2.5,0.5)   # <<< MUST BE POSITIVELY INCREASING
+cont_ts, cmean, cstd = create_contours(all_topobathy.T,time_fullspan,lidar_xFRF,cont_elev)
+cmap = plt.cm.rainbow(np.linspace(0, 1, cont_elev.size ))
+# for cc in np.arange(cont_elev.size):
+#     ax.plot([0, 0] + cmean[cc], [0, 9999999999], label='z = ' + str(cont_elev[cc]) + ' m', color=cmap[cc, :])#, label='X_{c,MWL}')
+ax.plot([0, 0] + cmean[0], [0, 9999999999], color=cmap[0, :], label='$X_{c,MWL}$')
+ax.plot([0, 0] + cmean[1], [0, 9999999999], color=cmap[1, :], label='$X_{c,MHW}$')
+for cc in np.arange(cont_elev.size):
+    left, bottom, width, height = (cmean[cc] - cstd[cc], 0, cstd[cc] * 2, 9999999999)
+    patch = plt.Rectangle((left, bottom), width, height, alpha=0.1, color=cmap[cc, :])
+    ax.add_patch(patch)
+ax.set_ylim(0,43000)
+ax.set_xlim(45,200)
 ax.legend()
 plt.grid()
-ax.set_ylabel('frac avail.')
+ax.set_ylabel('Num. unique profiles')
 ax.set_xlabel('xFRF [m]')
+
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF,topobathy_xshoreInterpX2_plot,color='0.5',linewidth=0.5,alpha=0.1)
+profmean = np.nanmean(topobathy_xshoreInterpX2_plot,axis=1)
+profstd = np.nanstd(topobathy_xshoreInterpX2_plot,axis=1)
+ax.plot(lidar_xFRF,profmean,'k')
+ax.plot(lidar_xFRF,profmean+profstd,'k:')
+ax.plot(lidar_xFRF,profmean-profstd,'k:')
+plt.grid()
+ax.set_ylabel('z [m]')
+ax.set_xlabel('xFRF [m]')
+ax.plot(lidar_xFRF,cont_elev[0]+np.zeros(shape=lidar_xFRF.shape),color=cmap[0, :],label='MWL')
+ax.plot(lidar_xFRF,cont_elev[1]+np.zeros(shape=lidar_xFRF.shape),color=cmap[1, :],label='MHW')
+ax.legend()
+
+
+
 
 
 # Ok, now create shifted and scaled profile datasets
