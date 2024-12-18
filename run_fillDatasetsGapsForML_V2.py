@@ -350,43 +350,50 @@ tt_alreadyinset = np.zeros(shape=tt_unique.shape)
 origin_set = np.empty(shape=tt_unique.shape)
 origin_set[:] = np.nan
 
-# Now create the smaller matrices
-topobathy_xshoreInterp_plot = np.empty((lidar_xFRF.size,tt_unique.size))
-topobathy_xshoreInterp_plot[:] = np.nan
-topobathy_extension_plot = np.empty((lidar_xFRF.size,tt_unique.size))
-topobathy_extension_plot[:] = np.nan
-topobathy_xshoreInterpX2_plot = np.empty((lidar_xFRF.size,tt_unique.size))
-topobathy_xshoreInterpX2_plot[:] = np.nan
-topobathy_numstillnan = np.empty((lidar_xFRF.size,num_datasets))
+# # Now create the smaller matrices
+# topobathy_xshoreInterp_plot = np.empty((lidar_xFRF.size,tt_unique.size))
+# topobathy_xshoreInterp_plot[:] = np.nan
+# topobathy_extension_plot = np.empty((lidar_xFRF.size,tt_unique.size))
+# topobathy_extension_plot[:] = np.nan
+# topobathy_xshoreInterpX2_plot = np.empty((lidar_xFRF.size,tt_unique.size))
+# topobathy_xshoreInterpX2_plot[:] = np.nan
+# topobathy_numstillnan = np.empty((lidar_xFRF.size,num_datasets))
+dataset_index_plot = np.empty((num_datasets,Nlook))
+dataset_index_plot[:] = np.nan
 for jj in np.arange(num_datasets):
     varname = 'dataset_' + str(int(jj))
     exec('timeslice = datasets_ML["' + varname + '"]["set_timeslice"]')
-    z_postxshore = topobathy_postxshoreinterp[:, :, jj]
-    z_postextend = topobathy_postextend[:,:,jj]
-    z_postxshoreX2 = topobathy_xshoreinterpX2[:,:,jj]
+    # z_postxshore = topobathy_postxshoreinterp[:, :, jj]
+    # z_postextend = topobathy_postextend[:,:,jj]
+    # z_postxshoreX2 = topobathy_xshoreinterpX2[:,:,jj]
 
     # find if any times are in the unique set
     ii_match_set = np.isin(tt_unique,timeslice)
     ii_to_be_added = np.where(ii_match_set & (tt_alreadyinset == 0))[0]
+    dataset_index_plot[jj,:] = np.where(np.isin(tt_unique,timeslice))[0]
 
-    # add topobathy profiles that match that time
-    ii_to_add = np.isin(timeslice,tt_unique[ii_to_be_added])
-    if sum(ii_to_add) > 0:
-        topobathy_xshoreInterp_plot[:,ii_to_be_added] = z_postxshore[:,ii_to_add]
-        topobathy_extension_plot[:,ii_to_be_added] = z_postextend[:,ii_to_add]
-        topobathy_xshoreInterpX2_plot[:,ii_to_be_added] = z_postxshoreX2[:,ii_to_add]
-        # set matching times to already-in-set array
-        tt_alreadyinset[ii_match_set] = 1
-        origin_set[ii_match_set] = jj
-
-    # Find the number of profiles in each set with nans as a func of x-loc
-    topobathy_numstillnan[:,jj] = np.nansum(np.isnan(topobathy),axis=1)
+    # # add topobathy profiles that match that time
+    # ii_to_add = np.isin(timeslice,tt_unique[ii_to_be_added])
+    # if sum(ii_to_add) > 0:
+    #     topobathy_xshoreInterp_plot[:,ii_to_be_added] = z_postxshore[:,ii_to_add]
+    #     topobathy_extension_plot[:,ii_to_be_added] = z_postextend[:,ii_to_add]
+    #     topobathy_xshoreInterpX2_plot[:,ii_to_be_added] = z_postxshoreX2[:,ii_to_add]
+    #     # set matching times to already-in-set array
+    #     tt_alreadyinset[ii_match_set] = 1
+    #     origin_set[ii_match_set] = jj
+    #
+    # # Find the number of profiles in each set with nans as a func of x-loc
+    # topobathy_numstillnan[:,jj] = np.nansum(np.isnan(topobathy),axis=1)
 
 # # ## SAVE THESE!!!!
 # # picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_10Dec2024/'
-# picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_10Dec2024/'
+picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_10Dec2024/'
 # with open(picklefile_dir+'topobathy_reshapeToNXbyNumUmiqueT.pickle','wb') as file:
 #     pickle.dump([tt_unique,origin_set,dataset_index_fullspan,topobathy_xshoreInterp_plot,topobathy_extension_plot,topobathy_xshoreInterpX2_plot], file)
+with open(picklefile_dir+'topobathy_reshapeToNXbyNumUmiqueT.pickle','rb') as file:
+    tt_unique,_,_,topobathy_xshoreInterp_plot,topobathy_extension_plot,topobathy_xshoreInterpX2_plot = pickle.load(file)
+# with open(picklefile_dir+'topobathy_reshape_indexKeeper.pickle','wb') as file:
+#     pickle.dump([tt_unique,origin_set,dataset_index_fullspan,dataset_index_plot], file)
 
 # Plot all the unique profiles together
 pre_interpextend = data_fullspan["fullspan_bathylidar_10Dec24"]
@@ -480,40 +487,35 @@ mhw = 3.6
 dune_toe = 3.22
 cont_elev = np.array([mwl,mhw]) #np.arange(0,2.5,0.5)   # <<< MUST BE POSITIVELY INCREASING
 cont_ts, cmean, cstd = create_contours(topobathy.T,tt_unique,lidar_xFRF,cont_elev)
-for tt in np.arange(num_datasets):
+for tt in np.arange(topobathy.shape[1]):
     xc_shore = cont_ts[-1, tt]
     xc_sea = cont_ts[0, tt]
-    if (~np.isnan(xc_shore)) & (~np.isnan(xc_sea)):
+    # if (~np.isnan(xc_shore)) & (~np.isnan(xc_sea)):
+    if (~np.isnan(xc_shore)):
         # first, map to *_shift vectors
-        ix_inspan = np.where((lidar_xFRF >= xc_shore) & (lidar_xFRF <= xc_sea))[0]
-        # padding = 2
-        # itrim = np.arange(ix_inspan[0] - padding, lidar_xFRF.size)
+        ix_inspan = np.where((lidar_xFRF >= xc_shore))[0]
         itrim = np.arange(ix_inspan[0], lidar_xFRF.size)
-        xtmp = lidar_xFRF[itrim]
         ztmp = topobathy[itrim, tt]
-        xtmp = xtmp[~np.isnan(ztmp)]        # remove nans
-        ztmp = ztmp[~np.isnan(ztmp)]        # remove nans
-        # xinterp = np.linspace(xc_shore, np.nanmax(xtmp), xtmp.size-(padding-1))
-        xinterp = np.linspace(xc_shore, np.nanmax(xtmp), xtmp.size - 1)
-        zinterp = np.interp(xinterp, xtmp, ztmp)
-        ztrim_FromXCshore = zinterp
+        ztrim_FromXCshore = ztmp
         topobathy_shift_plot[0:ztrim_FromXCshore.size,tt] = ztrim_FromXCshore
 
         # then, map to *_scale vectors
-        # padding = 2
-        # itrim = np.arange(ix_inspan[0]-padding, ix_inspan[-1]+padding+1)
-        itrim = np.arange(ix_inspan[0], ix_inspan[-1] + 1)
-        xtmp = lidar_xFRF[itrim]
-        ztmp = topobathy[itrim,tt]
-        # remove nans
-        xtmp = xtmp[~np.isnan(ztmp)]
-        ztmp = ztmp[~np.isnan(ztmp)]
-        if np.sum(~np.isnan(ztmp)) > 0:
-            # create scaled profile (constrain length to be equal between XC_sea and XC_shore0
-            xinterp = np.linspace(xc_shore,xc_sea,lidar_xFRF.size)
-            zinterp = np.interp(xinterp, xtmp, ztmp)
-            ztrim_BetweenXCs = zinterp
-            topobathy_scale_plot[:,tt] = ztrim_BetweenXCs
+        if (~np.isnan(xc_sea)):
+            ix_inspan = np.where((lidar_xFRF >= xc_shore) & (lidar_xFRF <= xc_sea))[0]
+            # padding = 2
+            # itrim = np.arange(ix_inspan[0]-padding, ix_inspan[-1]+padding+1)
+            itrim = np.arange(ix_inspan[0], ix_inspan[-1] + 1)
+            xtmp = lidar_xFRF[itrim]
+            ztmp = topobathy[itrim,tt]
+            # remove nans
+            xtmp = xtmp[~np.isnan(ztmp)]
+            ztmp = ztmp[~np.isnan(ztmp)]
+            if np.sum(~np.isnan(ztmp)) > 0:
+                # create scaled profile (constrain length to be equal between XC_sea and XC_shore0
+                xinterp = np.linspace(xc_shore,xc_sea,lidar_xFRF.size)
+                zinterp = np.interp(xinterp, xtmp, ztmp)
+                ztrim_BetweenXCs = zinterp
+                topobathy_scale_plot[:,tt] = ztrim_BetweenXCs
 
 
 fig, ax = plt.subplots()
@@ -559,8 +561,8 @@ ax.set_ylim(-0.75,4)
 # picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_10Dec2024/'
 # with open(picklefile_dir+'topobathy_scale&shift.pickle','wb') as file:
 #     pickle.dump([topobathy_shift_plot,topobathy_scale_plot], file)
-with open(picklefile_dir+'topobathy_scale&shift.pickle','rb') as file:
-   topobathy_shift_plot,topobathy_scale_plot = pickle.load(file)
+# with open(picklefile_dir+'topobathy_scale&shift.pickle','rb') as file:
+#    topobathy_shift_plot,topobathy_scale_plot = pickle.load(file)
 
 
 
