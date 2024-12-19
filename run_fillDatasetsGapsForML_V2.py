@@ -481,11 +481,12 @@ topobathy_shift_plot = np.empty(shape=topobathy_xshoreInterpX2_plot.shape)
 topobathy_shift_plot[:] = np.nan
 topobathy_scale_plot = np.empty(shape=topobathy_xshoreInterpX2_plot.shape)
 topobathy_scale_plot[:] = np.nan
+mlw = -0.62
 mwl = -0.13
 zero = 0
-mhw = 3.6
+mhw = 0.36
 dune_toe = 3.22
-cont_elev = np.array([mwl,mhw]) #np.arange(0,2.5,0.5)   # <<< MUST BE POSITIVELY INCREASING
+cont_elev = np.array([mwl,dune_toe]) #np.arange(0,2.5,0.5)   # <<< MUST BE POSITIVELY INCREASING
 cont_ts, cmean, cstd = create_contours(topobathy.T,tt_unique,lidar_xFRF,cont_elev)
 for tt in np.arange(topobathy.shape[1]):
     xc_shore = cont_ts[-1, tt]
@@ -499,24 +500,27 @@ for tt in np.arange(topobathy.shape[1]):
         ztrim_FromXCshore = ztmp
         topobathy_shift_plot[0:ztrim_FromXCshore.size,tt] = ztrim_FromXCshore
 
-        # then, map to *_scale vectors
-        if (~np.isnan(xc_sea)):
-            ix_inspan = np.where((lidar_xFRF >= xc_shore) & (lidar_xFRF <= xc_sea))[0]
-            # padding = 2
-            # itrim = np.arange(ix_inspan[0]-padding, ix_inspan[-1]+padding+1)
-            itrim = np.arange(ix_inspan[0], ix_inspan[-1] + 1)
-            xtmp = lidar_xFRF[itrim]
-            ztmp = topobathy[itrim,tt]
-            # remove nans
-            xtmp = xtmp[~np.isnan(ztmp)]
-            ztmp = ztmp[~np.isnan(ztmp)]
-            if np.sum(~np.isnan(ztmp)) > 0:
-                # create scaled profile (constrain length to be equal between XC_sea and XC_shore0
-                xinterp = np.linspace(xc_shore,xc_sea,lidar_xFRF.size)
-                zinterp = np.interp(xinterp, xtmp, ztmp)
-                ztrim_BetweenXCs = zinterp
-                topobathy_scale_plot[:,tt] = ztrim_BetweenXCs
+        # # then, map to *_scale vectors
+        # if (~np.isnan(xc_sea)):
+        #     ix_inspan = np.where((lidar_xFRF >= xc_shore) & (lidar_xFRF <= xc_sea))[0]
+        #     # padding = 2
+        #     # itrim = np.arange(ix_inspan[0]-padding, ix_inspan[-1]+padding+1)
+        #     itrim = np.arange(ix_inspan[0], ix_inspan[-1] + 1)
+        #     xtmp = lidar_xFRF[itrim]
+        #     ztmp = topobathy[itrim,tt]
+        #     # remove nans
+        #     xtmp = xtmp[~np.isnan(ztmp)]
+        #     ztmp = ztmp[~np.isnan(ztmp)]
+        #     if np.sum(~np.isnan(ztmp)) > 0:
+        #         # create scaled profile (constrain length to be equal between XC_sea and XC_shore0
+        #         xinterp = np.linspace(xc_shore,xc_sea,lidar_xFRF.size)
+        #         zinterp = np.interp(xinterp, xtmp, ztmp)
+        #         ztrim_BetweenXCs = zinterp
+        #         topobathy_scale_plot[:,tt] = ztrim_BetweenXCs
 
+cont_elev = np.array([mlw, mwl,dune_toe]) #np.arange(0,2.5,0.5)   # <<< MUST BE POSITIVELY INCREASING
+cont_ts, cmean, cstd = create_contours(topobathy.T,tt_unique,lidar_xFRF,cont_elev)
+cmap = plt.cm.rainbow(np.linspace(0, 1, cont_elev.size ))
 
 fig, ax = plt.subplots()
 dx = 0.1
@@ -530,8 +534,10 @@ ax.plot(xplot,profmean-profstd,'k:')
 plt.grid()
 ax.set_ylabel('z [m]')
 ax.set_xlabel('x [m]')
-ax.plot(xplot,cont_elev[0]+np.zeros(shape=lidar_xFRF.shape),color=cmap[0, :],label='MWL')
-ax.plot(xplot,cont_elev[1]+np.zeros(shape=lidar_xFRF.shape),color=cmap[1, :],label='MHW')
+ax.plot(xplot,cont_elev[0]+np.zeros(shape=lidar_xFRF.shape),color=cmap[0, :],label='MLW')
+ax.plot(xplot,cont_elev[1]+np.zeros(shape=lidar_xFRF.shape),color=cmap[1, :],label='MWL')
+# ax.plot(xplot,cont_elev[2]+np.zeros(shape=lidar_xFRF.shape),color=cmap[2, :],label='MHW')
+ax.plot(xplot,cont_elev[2]+np.zeros(shape=lidar_xFRF.shape),color=cmap[2, :],label='dune toe')
 ax.legend()
 ax.set_xlim(0,80)
 ax.set_ylim(-3,4)
@@ -550,7 +556,9 @@ plt.grid()
 ax.set_ylabel('z [m]')
 ax.set_xlabel('x/L [-]')
 ax.plot(xplot,cont_elev[0]+np.zeros(shape=lidar_xFRF.shape),color=cmap[0, :],label='MWL')
-ax.plot(xplot,cont_elev[1]+np.zeros(shape=lidar_xFRF.shape),color=cmap[1, :],label='MHW')
+# ax.plot(xplot,cont_elev[1]+np.zeros(shape=lidar_xFRF.shape),color=cmap[1, :],label='MHW')
+ax.plot(xplot,cont_elev[1]+np.zeros(shape=lidar_xFRF.shape),color=cmap[1, :],label='dune toe')
+
 ax.legend()
 ax.set_xlim(0,1)
 ax.set_ylim(-0.75,4)
@@ -559,11 +567,15 @@ ax.set_ylim(-0.75,4)
 
 # ## SAVE THESE!!!!
 # picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_10Dec2024/'
+picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_10Dec2024/'
 # with open(picklefile_dir+'topobathy_scale&shift.pickle','wb') as file:
 #     pickle.dump([topobathy_shift_plot,topobathy_scale_plot], file)
 # with open(picklefile_dir+'topobathy_scale&shift.pickle','rb') as file:
 #    topobathy_shift_plot,topobathy_scale_plot = pickle.load(file)
-
+# with open(picklefile_dir+'topobathy_scale&shift_Zdunetoe_3p2m.pickle','wb') as file:
+#     pickle.dump([topobathy_shift_plot,topobathy_scale_plot], file)
+# with open(picklefile_dir + 'topobathy_scale&shift_ZMHW_0p36m.pickle', 'wb') as file:
+#     pickle.dump([topobathy_shift_plot, topobathy_scale_plot], file)
 
 
 
