@@ -17,12 +17,16 @@ import seaborn as sns
 ## LOAD TOPOBATHY
 # picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_10Dec2024/'
 picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_10Dec2024/'
-with open(picklefile_dir+'topobathy_scale&shift.pickle','rb') as file:
-   topobathy_shift_plot,topobathy_scale_plot = pickle.load(file)
+# with open(picklefile_dir+'topobathy_scale&shift.pickle','rb') as file:
+#    topobathy_shift_plot,topobathy_scale_plot = pickle.load(file)
 with open(picklefile_dir+'topobathy_reshape_indexKeeper.pickle','rb') as file:
     tt_unique,origin_set,dataset_index_fullspan,dataset_index_plot = pickle.load(file)
 # with open(picklefile_dir+'topobathy_reshapeToNXbyNumUmiqueT.pickle','rb') as file:
 #     _,_,_,_,_,_ = pickle.load(file)
+# with open(picklefile_dir+'topobathy_scale&shift_Zdunetoe_3p2m.pickle','rb') as file:
+#     topobathy_shift_plot,_ = pickle.load(file)
+with open(picklefile_dir + 'topobathy_scale&shift_ZMHW_0p36m.pickle', 'rb') as file:
+    topobathy_shift_plot, _ = pickle.load(file)
 
 
 # DEFINE DATASET FOR PCA
@@ -32,7 +36,8 @@ nx = topobathy_check.shape[0]
 nt = topobathy_check.shape[1]
 dx = 0.1
 xplot = dx*np.arange(nx)
-check_data = topobathy_check[xplot < 100,:]
+Lmin = 50
+check_data = topobathy_check[xplot <= Lmin,:]
 yy = np.nansum(np.isnan(check_data),axis=0 )
 # yy = yy[(yy < check_data.shape[0]) & (yy > 0)]
 yy = yy[(yy > 0)]
@@ -109,7 +114,7 @@ for jj in np.arange(unique_baddatasets.size):
 check_data_filled = np.empty(shape=check_data.shape)
 nx = check_data_filled.shape[0]
 xplot = dx*np.arange(nx)
-check_data_filled[:] = topobathy_check_xshoreFill[xplot < 100,:]
+check_data_filled[:] = topobathy_check_xshoreFill[xplot <= Lmin,:]
 yy = np.nansum(np.isnan(check_data_filled),axis=0 )
 iiisnan = np.where(yy > 0)[0]
 xcoor_wherenan = np.empty((check_data_filled.shape[0],iiisnan.size))
@@ -159,8 +164,10 @@ ZZ = topobathy_check_xshoreFill[:,iirow_finalcheck]
 #     pickle.dump([topobathy_check_xshoreFill,dataset_passFinalCheck,iiDS_passFinalCheck,iirow_finalcheck], file)
 # with open(picklefile_dir+'topobathy_finalCheckBeforePCA.pickle','rb') as file:
 #     topobathy_check_xshoreFill,dataset_passFinalCheck,iiDS_passFinalCheck,iirow_finalcheck = pickle.load(file)
-
-
+# with open(picklefile_dir+'topobathy_finalCheckBeforePCA_Zdunetoe_3p2m.pickle','wb') as file:
+#     pickle.dump([topobathy_check_xshoreFill,dataset_passFinalCheck,iiDS_passFinalCheck,iirow_finalcheck], file)
+# with open(picklefile_dir+'topobathy_finalCheckBeforePCA_ZMHW_0p36m.pickle','wb') as file:
+#     pickle.dump([topobathy_check_xshoreFill,dataset_passFinalCheck,iiDS_passFinalCheck,iirow_finalcheck], file)
 
 ############################# NORMALIZE PROFILES FOR PCA #############################
 
@@ -189,7 +196,7 @@ ax.set_xlabel('x* [m]')
 ax.set_ylabel('z [m]')
 ax.set_title('Profiles input to PCA')
 fig, ax = plt.subplots()
-ax.plot(dataNorm,linewidth=0.5,alpha=0.5)
+ax.plot(xplot,dataNorm,linewidth=0.5,alpha=0.5)
 # ax.plot(xplot,dataMean,'k')
 # ax.plot(xplot,dataMean+dataStd,'k--')
 # ax.plot(xplot,dataMean-dataStd,'k--')
@@ -214,16 +221,72 @@ time_PCA = tt_unique[iirow_finalcheck]
 tplot = pd.to_datetime(time_PCA, unit='s', origin='unix')
 nx = dataNorm.shape[0]
 dx = 0.1
+ccsize = 1
 xplot = dx*np.arange(nx)
-ax[0,0].scatter(tplot,PCs[:,0],4)
-ax[0,0].set_title('Mode 1')
+ax[0,0].scatter(tplot,PCs[:,0],ccsize)
+ax[0,0].set_ylim(-75,130)
+ax[0,0].set_title('Mode 1'+'\n Total Var. = '+str(round(APEV[0],1))+'%')
 ax[1,0].plot(xplot,EOFs[0,:])
-ax[0,1].scatter(tplot,PCs[:,1],4)
-ax[0,1].set_title('Mode 2')
+ax[1,0].set_ylim(-0.12,0.12)
+ax[0,1].scatter(tplot,PCs[:,1],ccsize)
+ax[0,1].set_ylim(-75,130)
+ax[0,1].set_title('Mode 2'+'\n Total Var. = '+str(round(APEV[1],1))+'%')
 ax[1,1].plot(xplot,EOFs[1,:])
-ax[0,2].scatter(tplot,PCs[:,2],4)
-ax[0,2].set_title('Mode 3')
+ax[1,1].set_ylim(-0.12,0.12)
+ax[0,2].scatter(tplot,PCs[:,2],ccsize)
+ax[0,2].set_ylim(-75,130)
+ax[0,2].set_title('Mode 3'+'\n Total Var. = '+str(round(APEV[2],1))+'%')
 ax[1,2].plot(xplot,EOFs[2,:])
-ax[0,3].scatter(tplot,PCs[:,3],4)
-ax[0,3].set_title('Mode 4')
+ax[1,2].set_ylim(-0.12,0.12)
+ax[0,3].scatter(tplot,PCs[:,3],ccsize)
+ax[0,3].set_ylim(-75,130)
+ax[0,3].set_title('Mode 4'+'\n Total Var. = '+str(round(APEV[3],1))+'%')
 ax[1,3].plot(xplot,EOFs[3,:])
+ax[1,3].set_ylim(-0.12,0.12)
+
+# Find contour position of input profiles to add to plot...
+mwl = -0.13
+zero = 0
+mhw = 3.6
+dune_toe = 3.22
+cont_elev = np.array([mwl,mhw]) #np.arange(0,2.5,0.5)   # <<< MUST BE POSITIVELY INCREASING
+cont_ts, cmean, cstd = create_contours(data.T,time_PCA,xplot,cont_elev)
+cmap = plt.cm.rainbow(np.linspace(0, 1, cont_elev.size ))
+# for cc in np.arange(cont_elev.size):
+#     ax.plot([0, 0] + cmean[cc], [0, 9999999999], label='z = ' + str(cont_elev[cc]) + ' m', color=cmap[cc, :])#, label='X_{c,MWL}')
+ax.plot([0, 0] + cmean[0], [0, 9999999999], color=cmap[0, :], label='$X_{c,MWL}$')
+# ax.plot([0, 0] + cmean[1], [0, 9999999999], color=cmap[1, :], label='$X_{c,MHW}$')
+for cc in np.arange(cont_elev.size):
+    left, bottom, width, height = (cmean[cc] - cstd[cc], 0, cstd[cc] * 2, 9999999999)
+    patch = plt.Rectangle((left, bottom), width, height, alpha=0.1, color=cmap[cc, :])
+    ax.add_patch(patch)
+
+
+# Can we re-create the profiles from the PCA?
+reconstruct_profileNorm = np.empty(shape=dataNorm.shape)
+reconstruct_profileNorm[:] = np.nan
+for tt in np.arange(tplot.size):
+    mode1 = EOFs[0,:]*PCs[tt,0]
+    mode2 = EOFs[1,:]*PCs[tt,1]
+    mode3 = EOFs[2, :] * PCs[tt, 2]
+    mode4 = EOFs[3, :] * PCs[tt, 3]
+    prof_tt = mode1 + mode2 + mode3 + mode4
+    reconstruct_profileNorm[:,tt] = prof_tt
+reconstruct_profileT = reconstruct_profileNorm.T*dataStd.T + dataMean.T
+reconstruct_profile = reconstruct_profileT.T
+
+fig, ax = plt.subplots()
+xplot = dx*np.arange(nx)
+ax.plot(xplot,reconstruct_profileNorm,linewidth=0.5,alpha=0.5)
+ax.set_xlabel('x* [m]')
+ax.set_ylabel('z [m]')
+ax.set_title('Normalized profiles reconstructed from PCA')
+fig, ax = plt.subplots()
+xplot = dx*np.arange(nx)
+ax.plot(xplot,reconstruct_profile,linewidth=0.5,alpha=0.5)
+ax.plot(xplot,dataMean,'k')
+ax.plot(xplot,dataMean+dataStd,'k--')
+ax.plot(xplot,dataMean-dataStd,'k--')
+ax.set_xlabel('x* [m]')
+ax.set_ylabel('z [m]')
+ax.set_title('Profiles reconstructed from PCA')
