@@ -169,6 +169,53 @@ ZZ = topobathy_check_xshoreFill[:,iirow_finalcheck]
 # with open(picklefile_dir+'topobathy_finalCheckBeforePCA_ZMHW_0p36m.pickle','wb') as file:
 #     pickle.dump([topobathy_check_xshoreFill,dataset_passFinalCheck,iiDS_passFinalCheck,iirow_finalcheck], file)
 
+############################# MAKE NICE PLOTS OF DATA BEFORE PCA #############################
+
+ZprePCA = topobathy_check_xshoreFill[:,iirow_finalcheck]
+
+yplot1 = np.sum(~np.isnan(topobathy_check_xshoreFill),axis=1)#/tt_unique.size
+yplot2 = np.sum(~np.isnan(ZprePCA),axis=1)
+dx = 0.1
+xplot = dx*np.arange(yplot2.size)
+fig, ax = plt.subplots()
+ax.plot(xplot,yplot1,'b',label='6) Shift origin to x*=0, then cross-time interp')
+ax.plot(xplot,yplot2,'r--',label='7) Final selection for ML')
+ax.set_ylim(0,43000)
+ax.set_xlim(0,75)
+ax.legend()
+plt.grid()
+ax.set_ylabel('Num. unique profiles')
+ax.set_xlabel('x* [m]')
+
+# get contours for plotting
+mlw = -0.62
+mwl = -0.13
+zero = 0
+mhw = 0.36
+dune_toe = 3.22
+cont_elev = np.array([mlw,mwl,mhw,dune_toe]) #np.arange(0,2.5,0.5)   # <<< MUST BE POSITIVELY INCREASING
+cmap = plt.cm.rainbow(np.linspace(0, 1, cont_elev.size ))
+
+
+fig, ax = plt.subplots()
+ax.plot(xplot,ZprePCA,color='0.5',linewidth=0.5,alpha=0.1)
+profmean = np.nanmean(ZprePCA,axis=1)
+profstd = np.nanstd(ZprePCA,axis=1)
+ax.plot(xplot,profmean,'k')
+ax.plot(xplot,profmean+profstd,'k:')
+ax.plot(xplot,profmean-profstd,'k:')
+plt.grid()
+ax.set_xlim(0,75)
+ax.set_ylabel('z [m]')
+ax.set_xlabel('x* [m]')
+ax.plot(xplot,cont_elev[0]+np.zeros(shape=xplot.shape),color=cmap[0, :],label='MLW')
+ax.plot(xplot,cont_elev[1]+np.zeros(shape=xplot.shape),color=cmap[1, :],label='MWL')
+ax.plot(xplot,cont_elev[2]+np.zeros(shape=xplot.shape),color=cmap[2, :],label='MHW')
+ax.plot(xplot,cont_elev[3]+np.zeros(shape=xplot.shape),color=cmap[3, :],label='Dune toe')
+ax.legend()
+
+
+
 ############################# NORMALIZE PROFILES FOR PCA #############################
 
 # with open(picklefile_dir+'topobathy_finalCheckBeforePCA_Zdunetoe_3p2m.pickle','rb') as file:

@@ -394,6 +394,8 @@ with open(picklefile_dir+'topobathy_reshapeToNXbyNumUmiqueT.pickle','rb') as fil
     tt_unique,_,_,topobathy_xshoreInterp_plot,topobathy_extension_plot,topobathy_xshoreInterpX2_plot = pickle.load(file)
 # with open(picklefile_dir+'topobathy_reshape_indexKeeper.pickle','wb') as file:
 #     pickle.dump([tt_unique,origin_set,dataset_index_fullspan,dataset_index_plot], file)
+with open(picklefile_dir+'topobathy_finalCheckBeforePCA_Zdunetoe_3p2m.pickle','rb') as file:
+    topobathy_check_xshoreFill,dataset_passFinalCheck,iiDS_passFinalCheck,iirow_finalcheck = pickle.load(file)
 
 # Plot all the unique profiles together
 pre_interpextend = data_fullspan["fullspan_bathylidar_10Dec24"]
@@ -429,28 +431,31 @@ yplot3 = np.sum(~np.isnan(topobathy_extension_plot),axis=1)#/tt_unique.size
 yplot4 = np.sum(~np.isnan(topobathy_xshoreInterpX2_plot),axis=1)#/tt_unique.size
 fig, ax = plt.subplots()
 ax.plot(lidar_xFRF,yplot0,label='1) Filtered topobathy',color='0.5')
-ax.plot(lidar_xFRF,yplot1,'--',label='2) Sub-selected for ML ',color='0.5')
-ax.plot(lidar_xFRF,yplot2,'k--',label='3) Cross-shore gap-fill')
+ax.plot(lidar_xFRF,yplot1,'--',label='2) Prelim selected for ML ',color='0.5')
+ax.plot(lidar_xFRF,yplot2,'k--',label='3) Cross-time gap-fill')
 ax.plot(lidar_xFRF,yplot3,'k:',label='4) Equilibrium extension')
-ax.plot(lidar_xFRF,yplot4,'k',label='5) Repeat cross-shore gap-fill')
+ax.plot(lidar_xFRF,yplot4,'k',label='5) Repeat cross-time gap-fill')
+mlw = -0.62
 mwl = -0.13
 zero = 0
-mhw = 3.6
+mhw = 0.36
 dune_toe = 3.22
-cont_elev = np.array([mwl,mhw]) #np.arange(0,2.5,0.5)   # <<< MUST BE POSITIVELY INCREASING
+cont_elev = np.array([mlw,mwl,mhw,dune_toe]) #np.arange(0,2.5,0.5)   # <<< MUST BE POSITIVELY INCREASING
 cont_ts, cmean, cstd = create_contours(all_topobathy.T,time_fullspan,lidar_xFRF,cont_elev)
 cmap = plt.cm.rainbow(np.linspace(0, 1, cont_elev.size ))
 # for cc in np.arange(cont_elev.size):
 #     ax.plot([0, 0] + cmean[cc], [0, 9999999999], label='z = ' + str(cont_elev[cc]) + ' m', color=cmap[cc, :])#, label='X_{c,MWL}')
-ax.plot([0, 0] + cmean[0], [0, 9999999999], color=cmap[0, :], label='$X_{c,MWL}$')
-ax.plot([0, 0] + cmean[1], [0, 9999999999], color=cmap[1, :], label='$X_{c,MHW}$')
+ax.plot([0, 0] + cmean[0], [0, 9999999999], color=cmap[0, :], label='$X_{c,MLW}$')
+ax.plot([0, 0] + cmean[1], [0, 9999999999], color=cmap[1, :], label='$X_{c,MWL}$')
+ax.plot([0, 0] + cmean[2], [0, 9999999999], color=cmap[2, :], label='$X_{c,MHW}$')
+ax.plot([0, 0] + cmean[3], [0, 9999999999], color=cmap[3, :], label='$X_{c,dune toe}$')
 for cc in np.arange(cont_elev.size):
     left, bottom, width, height = (cmean[cc] - cstd[cc], 0, cstd[cc] * 2, 9999999999)
     patch = plt.Rectangle((left, bottom), width, height, alpha=0.1, color=cmap[cc, :])
     ax.add_patch(patch)
 ax.set_ylim(0,43000)
 ax.set_xlim(45,200)
-ax.legend()
+ax.legend(loc='upper right')
 plt.grid()
 ax.set_ylabel('Num. unique profiles')
 ax.set_xlabel('xFRF [m]')
