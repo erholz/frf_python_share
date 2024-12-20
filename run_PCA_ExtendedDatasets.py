@@ -171,6 +171,10 @@ ZZ = topobathy_check_xshoreFill[:,iirow_finalcheck]
 
 ############################# NORMALIZE PROFILES FOR PCA #############################
 
+# with open(picklefile_dir+'topobathy_finalCheckBeforePCA_Zdunetoe_3p2m.pickle','rb') as file:
+#     topobathy_check_xshoreFill,dataset_passFinalCheck,iiDS_passFinalCheck,iirow_finalcheck = pickle.load(file)
+# with open(picklefile_dir+'topobathy_finalCheckBeforePCA_ZMHW_0p36m.pickle','rb') as file:
+#     topobathy_check_xshoreFill,dataset_passFinalCheck,iiDS_passFinalCheck,iirow_finalcheck = pickle.load(file)
 
 profiles_to_process = np.empty(shape=topobathy_check_xshoreFill.shape)
 profiles_to_process[:] = topobathy_check_xshoreFill
@@ -270,7 +274,8 @@ for tt in np.arange(tplot.size):
     mode2 = EOFs[1,:]*PCs[tt,1]
     mode3 = EOFs[2, :] * PCs[tt, 2]
     mode4 = EOFs[3, :] * PCs[tt, 3]
-    prof_tt = mode1 + mode2 + mode3 + mode4
+    # prof_tt = mode1 + mode2 + mode3 + mode4
+    prof_tt = mode1 + mode2
     reconstruct_profileNorm[:,tt] = prof_tt
 reconstruct_profileT = reconstruct_profileNorm.T*dataStd.T + dataMean.T
 reconstruct_profile = reconstruct_profileT.T
@@ -290,3 +295,108 @@ ax.plot(xplot,dataMean-dataStd,'k--')
 ax.set_xlabel('x* [m]')
 ax.set_ylabel('z [m]')
 ax.set_title('Profiles reconstructed from PCA')
+
+#
+# with open(picklefile_dir+'topobathy_PCA_ZMHW_0p36m_Lmin_50m.pickle','wb') as file:
+#     pickle.dump([dataNorm,dataMean,dataStd,PCs,EOFs,APEV,reconstruct_profileNorm,reconstruct_profile], file)
+# with open(picklefile_dir+'topobathy_PCA_Zdunetoe_3p2m_Lmin_75.pickle','wb') as file:
+#     pickle.dump([dataNorm,dataMean,dataStd,PCs,EOFs,APEV,reconstruct_profileNorm,reconstruct_profile], file)
+# with open(picklefile_dir+'topobathy_PCA_ZMHW_0p36m_Lmin_50m.pickle','rb') as file:
+#     dataNorm,dataMean,dataStd,PCs,EOFs,APEV,reconstruct_profileNorm,reconstruct_profile = pickle.load(file)
+
+
+
+
+############################# Conservation of Mass --> Loss function? #############################
+### For each dataset, calculate the change in volume (dVol) between time steps for OBS+ data and compare
+###  with DV between time steps for the PCA-reconstructed data...
+
+
+# Load dataset we are going to compare with...
+# with open(picklefile_dir+'topobathy_finalCheckBeforePCA_Zdunetoe_3p2m.pickle','rb') as file:
+#    topobathy_check_xshoreFill,dataset_passFinalCheck,iiDS_passFinalCheck,iirow_finalcheck = pickle.load(file)
+with open(picklefile_dir+'topobathy_finalCheckBeforePCA_ZMHW_0p36m.pickle','rb') as file:
+    topobathy_check_xshoreFill,dataset_passFinalCheck,iiDS_passFinalCheck,iirow_finalcheck = pickle.load(file)
+
+# First, isolate the data that ultimately goes into the PCA
+num_datasets = iiDS_passFinalCheck.size
+profiles_to_process = np.empty(shape=topobathy_check_xshoreFill.shape)
+profiles_to_process[:] = topobathy_check_xshoreFill
+iikeep = iirow_finalcheck
+# iikeep = rows_nonans
+# data = profiles_to_process[:,iikeep]
+data = profiles_to_process[:,:]
+dataset_profileIndeces = dataset_index_plot[dataset_passFinalCheck == 1,:]
+
+# then go through each dataset and pull the profiles that correspond
+dx = 0.1
+num_profs_inset = dataset_profileIndeces.shape[1]
+Vol_obsdata = np.empty((num_profs_inset,num_datasets))
+dVol_obsdata = np.empty((num_profs_inset-1,num_datasets))
+for nn in np.arange(num_datasets):
+    iiprof_in_dataset = dataset_profileIndeces[nn,:].astype(int)
+    prof_in_dataset = data[:,iiprof_in_dataset]
+    Vol_setnn = np.empty(num_profs_inset,)
+    for tt in np.arange(num_profs_inset):
+        Vol_setnn[tt] = np.nansum(prof_in_dataset[:,tt]*dx)
+    dVol_setnn = Vol_setnn[1:] - Vol_setnn[0:-1]
+    Vol_obsdata[:,nn] = Vol_setnn
+    dVol_obsdata[:,nn] = dVol_setnn
+fig, ax = plt.subplots()
+# ax.plot(dVol_obsdata,'.')
+plt.hist(np.resize(dVol_obsdata,(dVol_obsdata.size,)),bins=np.arange(-60,60,5))
+
+# do the same for the pca_reconstructed profiles...
+dx = 0.1
+# remake the PCA_reconstruct array so that it is the same size as "data" above
+PCAprofiles_sizedata = np.empty(shape=data.shape)
+PCAprofiles_sizedata[:] = np.nan
+PCAprofiles_sizedata[:,iikeep] = reconstruct_profile
+Vol_pcaRecon = np.empty((num_profs_inset,num_datasets))
+dVol_pcaRecon = np.empty((num_profs_inset-1,num_datasets))
+for nn in np.arange(num_datasets):
+    iiprof_in_dataset = dataset_profileIndeces[nn,:].astype(int)
+    prof_in_dataset = PCAprofiles_sizedata[:,iiprof_in_dataset]
+    Vol_setnn = np.empty(num_profs_inset,)
+    for tt in np.arange(num_profs_inset):
+        Vol_setnn[tt] = np.nansum(prof_in_dataset[:,tt]*dx)
+    dVol_setnn = Vol_setnn[1:] - Vol_setnn[0:-1]
+    Vol_pcaRecon[:,nn] = Vol_setnn
+    dVol_pcaRecon[:,nn] = dVol_setnn
+fig, ax = plt.subplots()
+# ax.plot(dVol_obsdata,'.')
+dVol_obsdata_plot = np.resize(dVol_obsdata,(dVol_obsdata.size,))
+dVol_obsdata_mean = np.mean(dVol_obsdata_plot)
+dVol_obsdata_std = np.std(dVol_obsdata_plot)
+dVol_pcaRecon_plot = np.resize(dVol_pcaRecon,(dVol_pcaRecon.size,))
+dVol_pcaRecon_mean = np.mean(dVol_pcaRecon_plot)
+dVol_pcaRecon_std = np.std(dVol_pcaRecon_plot)
+plt.hist(dVol_obsdata_plot,density=True,bins=np.arange(-60,60,.1),alpha=0.5,label='observed, PCA input')
+plt.hist(dVol_pcaRecon_plot,density=True,bins=np.arange(-60,60,.1),alpha=0.5,label='constructed from PCs')
+ax.plot([0,0]+dVol_obsdata_mean,[0, 0.65],'c')
+ax.plot([0,0]+dVol_obsdata_mean+dVol_obsdata_mean,[0, 0.65],'c--')
+ax.plot([0,0]+dVol_obsdata_mean-dVol_obsdata_mean,[0, 0.65],'c--')
+ax.plot([0,0]+dVol_obsdata_mean+2*dVol_obsdata_mean,[0, 0.65],'c:')
+ax.plot([0,0]+dVol_obsdata_mean-2*dVol_obsdata_mean,[0, 0.65],'c:')
+ax.plot([0,0]+dVol_pcaRecon_mean,[0, 0.65],'m')
+ax.plot([0,0]+dVol_pcaRecon_mean+dVol_pcaRecon_std,[0, 0.65],'m--')
+ax.plot([0,0]+dVol_pcaRecon_mean-dVol_pcaRecon_std,[0, 0.65],'m--')
+ax.plot([0,0]+dVol_pcaRecon_mean+2*dVol_pcaRecon_std,[0, 0.65],'m:')
+ax.plot([0,0]+dVol_pcaRecon_mean-2*dVol_pcaRecon_std,[0, 0.65],'m:')
+ax.set_xlabel('dVol [m^3/m]')
+ax.set_ylabel('pdf [-]')
+ax.legend()
+ax.set_xlim(-15,15)
+ax.set_ylim(0, 0.65)
+fig, ax = plt.subplots()
+xplot = np.resize(dVol_obsdata,(dVol_obsdata.size,))
+yplot = np.resize(dVol_pcaRecon,(dVol_pcaRecon.size,))
+ax.plot(xplot,yplot,'.')
+fig, ax = plt.subplots()
+ax.plot(xplot,xplot-yplot,'.',alpha=0.01)
+plt.grid()
+ax.set_ylabel('Error = dVol_obs - dVol_PCA [m^3/m]')
+ax.set_xlabel('dVol_obs [m^3/m]')
+ax.set_ylim(-0.5,0.5)
+
+
