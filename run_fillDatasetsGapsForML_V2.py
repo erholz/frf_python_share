@@ -122,11 +122,11 @@ def equilibriumprofile_func_1param(x, a):
 dx = 0.1
 nx = lidar_xFRF.size
 Nlook = 4*24
-# topobaty_preextend = np.empty((lidar_xFRF.size,Nlook,num_datasets))
-# topobaty_preextend[:] = np.nan
-topobaty_preextend = []
-topobaty_postextend = np.empty((lidar_xFRF.size,Nlook,num_datasets))
-topobaty_postextend[:] = np.nan
+# topobathy_preextend = np.empty((lidar_xFRF.size,Nlook,num_datasets))
+# topobathy_preextend[:] = np.nan
+topobathy_preextend = []
+topobathy_postextend = np.empty((lidar_xFRF.size,Nlook,num_datasets))
+topobathy_postextend[:] = np.nan
 avg_fiterror = np.empty(num_datasets,)
 avg_fiterror[:] = np.nan
 avg_Acoef = np.empty(num_datasets,)
@@ -147,7 +147,7 @@ for jj in np.arange(num_datasets):
     topobathy = topobathy_postxshoreinterp[:,:,jj]
     exec('waterlevel = datasets_ML["' + varname + '"]["set_waterlevel"]')
     # topobaty_preextend[:,:,jj] = topobathy[:]
-    topobaty_postextend[:,:,jj] = topobathy[:]
+    topobathy_postextend[:,:,jj] = topobathy[:]
 
     # initialize fit coefficints
     Acoef = np.empty(shape=timeslice.shape)
@@ -210,7 +210,7 @@ for jj in np.arange(num_datasets):
                 htest = htmp - h_init # make initial value 0
                 # popt, pcov = curve_fit(equilibriumprofile_func_2param, xtmp, htmp, bounds=([0, -np.inf], [15, np.inf]))
                 # popt, pcov = curve_fit(equilibriumprofile_func_2param, xtmp, ztmp)
-                popt, pcov = curve_fit(equilibriumprofile_func_1param, xtmp, htest, bounds=([0.15], [0.3]))
+                popt, pcov = curve_fit(equilibriumprofile_func_1param, xtmp, htest, bounds=([0.1], [0.165]))
                 Acoef[tt] = popt[0]
                 # bcoef[tt] = popt[1]
                 hfit = equilibriumprofile_func_1param(xtmp, *popt)
@@ -236,7 +236,7 @@ for jj in np.arange(num_datasets):
                 # ax.plot(lidar_xFRF,profile_extend[:,tt],':k',label='extend profile')
                 # ax.plot(lidar_xFRF,watlev_tt*np.ones(shape=lidar_xFRF.shape),'b',label='waterline')
                 # ax.legend()
-        topobaty_postextend[:,:,jj] = profile_extend
+        topobathy_postextend[:,:,jj] = profile_extend
     if sum(~np.isnan(Acoef)) > 0:
         avg_Acoef[jj] = np.nanmean(Acoef)
         avg_fiterror[jj] = np.nanmean(fitrmse)
@@ -250,10 +250,10 @@ for jj in np.arange(num_datasets):
 
 # Compare pre- and post-interp methods
 yplot1 = np.nansum(np.nansum(~np.isnan(topobathy_postxshoreinterp),axis=2),axis=1)
-yplot2 = np.nansum(np.nansum(~np.isnan(topobaty_postextend),axis=2),axis=1)
+yplot2 = np.nansum(np.nansum(~np.isnan(topobathy_postextend),axis=2),axis=1)
 fig, ax = plt.subplots()
 ax.plot(lidar_xFRF,yplot1,label='1. pre x-shore interp')
-ax.plot(lidar_xFRF,yplot2,label='2. post x-shore interp')
+ax.plot(lidar_xFRF,yplot2,label='2. post x-shore extend')
 ax.legend()
 plt.grid()
 ax.set_ylabel('num avail.')
@@ -266,9 +266,10 @@ ax.plot(yplot,xplot,'.')
 
 
 # picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_10Dec2024/'
-picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_10Dec2024/'
+# picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_10Dec2024/'
+picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_12Jan2025/'
 # with open(picklefile_dir+'topobathy_extend.pickle','wb') as file:
-#     pickle.dump([topobaty_preextend,topobaty_postextend], file)
+#     pickle.dump([topobathy_preextend,topobathy_postextend], file)
 # with open(picklefile_dir+'topobathy_extendStats.pickle','wb') as file:
 #     pickle.dump([avg_Acoef,avg_fiterror,avg_zobsfinal,numprof_notextended,Acoef_alldatasets,fitrmse_alldatasets], file)
 with open(picklefile_dir+'topobathy_extend.pickle','rb') as file:
@@ -313,10 +314,11 @@ for jj in np.arange(num_datasets):
 
 
 # # Save post-interpX2 data
+picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_12Jan2025/'
 # with open(picklefile_dir+'topobathy_xshoreinterpX2.pickle','wb') as file:
 #     pickle.dump(topobathy_xshoreinterpX2, file)
-with open(picklefile_dir+'topobathy_xshoreinterpX2.pickle','rb') as file:
-    topobathy_xshoreinterpX2 = pickle.load(file)
+# with open(picklefile_dir+'topobathy_xshoreinterpX2.pickle','rb') as file:
+#     topobathy_xshoreinterpX2 = pickle.load(file)
 
 # plot the change in available data
 yplot1 = np.nansum(np.nansum(~np.isnan(topobathy_postextend),axis=2),axis=1)
@@ -350,52 +352,53 @@ tt_alreadyinset = np.zeros(shape=tt_unique.shape)
 origin_set = np.empty(shape=tt_unique.shape)
 origin_set[:] = np.nan
 
-# # Now create the smaller matrices
-# topobathy_xshoreInterp_plot = np.empty((lidar_xFRF.size,tt_unique.size))
-# topobathy_xshoreInterp_plot[:] = np.nan
-# topobathy_extension_plot = np.empty((lidar_xFRF.size,tt_unique.size))
-# topobathy_extension_plot[:] = np.nan
-# topobathy_xshoreInterpX2_plot = np.empty((lidar_xFRF.size,tt_unique.size))
-# topobathy_xshoreInterpX2_plot[:] = np.nan
-# topobathy_numstillnan = np.empty((lidar_xFRF.size,num_datasets))
+# Now create the smaller matrices
+topobathy_xshoreInterp_plot = np.empty((lidar_xFRF.size,tt_unique.size))
+topobathy_xshoreInterp_plot[:] = np.nan
+topobathy_extension_plot = np.empty((lidar_xFRF.size,tt_unique.size))
+topobathy_extension_plot[:] = np.nan
+topobathy_xshoreInterpX2_plot = np.empty((lidar_xFRF.size,tt_unique.size))
+topobathy_xshoreInterpX2_plot[:] = np.nan
+topobathy_numstillnan = np.empty((lidar_xFRF.size,num_datasets))
 dataset_index_plot = np.empty((num_datasets,Nlook))
 dataset_index_plot[:] = np.nan
 for jj in np.arange(num_datasets):
     varname = 'dataset_' + str(int(jj))
     exec('timeslice = datasets_ML["' + varname + '"]["set_timeslice"]')
-    # z_postxshore = topobathy_postxshoreinterp[:, :, jj]
-    # z_postextend = topobathy_postextend[:,:,jj]
-    # z_postxshoreX2 = topobathy_xshoreinterpX2[:,:,jj]
+    z_postxshore = topobathy_postxshoreinterp[:, :, jj]
+    z_postextend = topobathy_postextend[:,:,jj]
+    z_postxshoreX2 = topobathy_xshoreinterpX2[:,:,jj]
 
     # find if any times are in the unique set
     ii_match_set = np.isin(tt_unique,timeslice)
     ii_to_be_added = np.where(ii_match_set & (tt_alreadyinset == 0))[0]
     dataset_index_plot[jj,:] = np.where(np.isin(tt_unique,timeslice))[0]
 
-    # # add topobathy profiles that match that time
-    # ii_to_add = np.isin(timeslice,tt_unique[ii_to_be_added])
-    # if sum(ii_to_add) > 0:
-    #     topobathy_xshoreInterp_plot[:,ii_to_be_added] = z_postxshore[:,ii_to_add]
-    #     topobathy_extension_plot[:,ii_to_be_added] = z_postextend[:,ii_to_add]
-    #     topobathy_xshoreInterpX2_plot[:,ii_to_be_added] = z_postxshoreX2[:,ii_to_add]
-    #     # set matching times to already-in-set array
-    #     tt_alreadyinset[ii_match_set] = 1
-    #     origin_set[ii_match_set] = jj
-    #
-    # # Find the number of profiles in each set with nans as a func of x-loc
-    # topobathy_numstillnan[:,jj] = np.nansum(np.isnan(topobathy),axis=1)
+    # add topobathy profiles that match that time
+    ii_to_add = np.isin(timeslice,tt_unique[ii_to_be_added])
+    if sum(ii_to_add) > 0:
+        topobathy_xshoreInterp_plot[:,ii_to_be_added] = z_postxshore[:,ii_to_add]
+        topobathy_extension_plot[:,ii_to_be_added] = z_postextend[:,ii_to_add]
+        topobathy_xshoreInterpX2_plot[:,ii_to_be_added] = z_postxshoreX2[:,ii_to_add]
+        # set matching times to already-in-set array
+        tt_alreadyinset[ii_match_set] = 1
+        origin_set[ii_match_set] = jj
+
+    # Find the number of profiles in each set with nans as a func of x-loc
+    topobathy_numstillnan[:,jj] = np.nansum(np.isnan(topobathy),axis=1)
 
 # # ## SAVE THESE!!!!
 # # picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_10Dec2024/'
 picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_10Dec2024/'
+picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_12Jan2025/'
 # with open(picklefile_dir+'topobathy_reshapeToNXbyNumUmiqueT.pickle','wb') as file:
 #     pickle.dump([tt_unique,origin_set,dataset_index_fullspan,topobathy_xshoreInterp_plot,topobathy_extension_plot,topobathy_xshoreInterpX2_plot], file)
-with open(picklefile_dir+'topobathy_reshapeToNXbyNumUmiqueT.pickle','rb') as file:
-    tt_unique,_,_,topobathy_xshoreInterp_plot,topobathy_extension_plot,topobathy_xshoreInterpX2_plot = pickle.load(file)
+# with open(picklefile_dir+'topobathy_reshapeToNXbyNumUmiqueT.pickle','rb') as file:
+#     tt_unique,_,_,topobathy_xshoreInterp_plot,topobathy_extension_plot,topobathy_xshoreInterpX2_plot = pickle.load(file)
 # with open(picklefile_dir+'topobathy_reshape_indexKeeper.pickle','wb') as file:
 #     pickle.dump([tt_unique,origin_set,dataset_index_fullspan,dataset_index_plot], file)
-with open(picklefile_dir+'topobathy_finalCheckBeforePCA_Zdunetoe_3p2m.pickle','rb') as file:
-    topobathy_check_xshoreFill,dataset_passFinalCheck,iiDS_passFinalCheck,iirow_finalcheck = pickle.load(file)
+# with open(picklefile_dir+'topobathy_finalCheckBeforePCA_Zdunetoe_3p2m.pickle','rb') as file:
+#     topobathy_check_xshoreFill,dataset_passFinalCheck,iiDS_passFinalCheck,iirow_finalcheck = pickle.load(file)
 
 # Plot all the unique profiles together
 pre_interpextend = data_fullspan["fullspan_bathylidar_10Dec24"]
@@ -523,7 +526,7 @@ for tt in np.arange(topobathy.shape[1]):
         #         ztrim_BetweenXCs = zinterp
         #         topobathy_scale_plot[:,tt] = ztrim_BetweenXCs
 
-cont_elev = np.array([mlw, mwl,dune_toe]) #np.arange(0,2.5,0.5)   # <<< MUST BE POSITIVELY INCREASING
+cont_elev = np.array([mlw, mwl, mhw, dune_toe]) #np.arange(0,2.5,0.5)   # <<< MUST BE POSITIVELY INCREASING
 cont_ts, cmean, cstd = create_contours(topobathy.T,tt_unique,lidar_xFRF,cont_elev)
 cmap = plt.cm.rainbow(np.linspace(0, 1, cont_elev.size ))
 
@@ -538,13 +541,13 @@ ax.plot(xplot,profmean+profstd,'k:')
 ax.plot(xplot,profmean-profstd,'k:')
 plt.grid()
 ax.set_ylabel('z [m]')
-ax.set_xlabel('x [m]')
+ax.set_xlabel('x* [m]')
 ax.plot(xplot,cont_elev[0]+np.zeros(shape=lidar_xFRF.shape),color=cmap[0, :],label='MLW')
 ax.plot(xplot,cont_elev[1]+np.zeros(shape=lidar_xFRF.shape),color=cmap[1, :],label='MWL')
-# ax.plot(xplot,cont_elev[2]+np.zeros(shape=lidar_xFRF.shape),color=cmap[2, :],label='MHW')
-ax.plot(xplot,cont_elev[2]+np.zeros(shape=lidar_xFRF.shape),color=cmap[2, :],label='dune toe')
+ax.plot(xplot,cont_elev[2]+np.zeros(shape=lidar_xFRF.shape),color=cmap[2, :],label='MHW')
+ax.plot(xplot,cont_elev[3]+np.zeros(shape=lidar_xFRF.shape),color=cmap[3, :],label='dune toe')
 ax.legend()
-ax.set_xlim(0,80)
+ax.set_xlim(0,75)
 ax.set_ylim(-3,4)
 
 
@@ -573,6 +576,7 @@ ax.set_ylim(-0.75,4)
 # ## SAVE THESE!!!!
 # picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_10Dec2024/'
 picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_10Dec2024/'
+picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_12Jan2025/'
 # with open(picklefile_dir+'topobathy_scale&shift.pickle','wb') as file:
 #     pickle.dump([topobathy_shift_plot,topobathy_scale_plot], file)
 # with open(picklefile_dir+'topobathy_scale&shift.pickle','rb') as file:
