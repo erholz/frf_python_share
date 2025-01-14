@@ -17,16 +17,17 @@ import seaborn as sns
 ## LOAD TOPOBATHY
 # picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_10Dec2024/'
 picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_10Dec2024/'
+picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_12Jan2025/'
 # with open(picklefile_dir+'topobathy_scale&shift.pickle','rb') as file:
 #    topobathy_shift_plot,topobathy_scale_plot = pickle.load(file)
 with open(picklefile_dir+'topobathy_reshape_indexKeeper.pickle','rb') as file:
     tt_unique,origin_set,dataset_index_fullspan,dataset_index_plot = pickle.load(file)
 # with open(picklefile_dir+'topobathy_reshapeToNXbyNumUmiqueT.pickle','rb') as file:
 #     _,_,_,_,_,_ = pickle.load(file)
-# with open(picklefile_dir+'topobathy_scale&shift_Zdunetoe_3p2m.pickle','rb') as file:
-#     topobathy_shift_plot,_ = pickle.load(file)
-with open(picklefile_dir + 'topobathy_scale&shift_ZMHW_0p36m.pickle', 'rb') as file:
-    topobathy_shift_plot, _ = pickle.load(file)
+with open(picklefile_dir+'topobathy_scale&shift_Zdunetoe_3p2m.pickle','rb') as file:
+    topobathy_shift_plot,_ = pickle.load(file)
+# with open(picklefile_dir + 'topobathy_scale&shift_ZMHW_0p36m.pickle', 'rb') as file:
+#     topobathy_shift_plot, _ = pickle.load(file)
 
 
 # DEFINE DATASET FOR PCA
@@ -36,7 +37,8 @@ nx = topobathy_check.shape[0]
 nt = topobathy_check.shape[1]
 dx = 0.1
 xplot = dx*np.arange(nx)
-Lmin = 50
+# Lmin = 50
+Lmin = 75
 check_data = topobathy_check[xplot <= Lmin,:]
 yy = np.nansum(np.isnan(check_data),axis=0 )
 # yy = yy[(yy < check_data.shape[0]) & (yy > 0)]
@@ -166,6 +168,8 @@ ZZ = topobathy_check_xshoreFill[:,iirow_finalcheck]
 #     topobathy_check_xshoreFill,dataset_passFinalCheck,iiDS_passFinalCheck,iirow_finalcheck = pickle.load(file)
 # with open(picklefile_dir+'topobathy_finalCheckBeforePCA_Zdunetoe_3p2m.pickle','wb') as file:
 #     pickle.dump([topobathy_check_xshoreFill,dataset_passFinalCheck,iiDS_passFinalCheck,iirow_finalcheck], file)
+# with open(picklefile_dir+'topobathy_finalCheckBeforePCA_Zdunetoe_3p2m.pickle','rb') as file:
+#     topobathy_check_xshoreFill,dataset_passFinalCheck,iiDS_passFinalCheck,iirow_finalcheck = pickle.load(file)
 # with open(picklefile_dir+'topobathy_finalCheckBeforePCA_ZMHW_0p36m.pickle','wb') as file:
 #     pickle.dump([topobathy_check_xshoreFill,dataset_passFinalCheck,iiDS_passFinalCheck,iirow_finalcheck], file)
 
@@ -267,6 +271,15 @@ nPercent = variance / np.sum(variance)  # this is the percent explained (the fir
 APEV = np.cumsum(variance) / np.sum(variance) * 100.0   # this is the cumulative variance
 nterm = np.where(APEV <= 0.95 * 100)[0][-1]
 
+fig, ax = plt.subplots()
+xplot = np.arange(1,21)
+ax.plot(xplot,APEV[0:20],'o')
+plt.grid()
+ax.plot([0,25],[95,95],'k')
+ax.set_ylabel('cum. variance explained')
+ax.set_xlabel('EOF')
+ax.set_xlim(0,20)
+
 fig, ax = plt.subplots(2,4)
 time_PCA = tt_unique[iirow_finalcheck]
 tplot = pd.to_datetime(time_PCA, unit='s', origin='unix')
@@ -305,7 +318,7 @@ cont_ts, cmean, cstd = create_contours(data.T,time_PCA,xplot,cont_elev)
 cmap = plt.cm.rainbow(np.linspace(0, 1, cont_elev.size ))
 # for cc in np.arange(cont_elev.size):
 #     ax.plot([0, 0] + cmean[cc], [0, 9999999999], label='z = ' + str(cont_elev[cc]) + ' m', color=cmap[cc, :])#, label='X_{c,MWL}')
-ax.plot([0, 0] + cmean[0], [0, 9999999999], color=cmap[0, :], label='$X_{c,MWL}$')
+# ax.plot([0, 0] + cmean[0], [0, 9999999999], color=cmap[0, :], label='$X_{c,MWL}$')
 # ax.plot([0, 0] + cmean[1], [0, 9999999999], color=cmap[1, :], label='$X_{c,MHW}$')
 for cc in np.arange(cont_elev.size):
     left, bottom, width, height = (cmean[cc] - cstd[cc], 0, cstd[cc] * 2, 9999999999)
@@ -321,8 +334,8 @@ for tt in np.arange(tplot.size):
     mode2 = EOFs[1,:]*PCs[tt,1]
     mode3 = EOFs[2, :] * PCs[tt, 2]
     mode4 = EOFs[3, :] * PCs[tt, 3]
-    # prof_tt = mode1 + mode2 + mode3 + mode4
-    prof_tt = mode1 + mode2
+    prof_tt = mode1 + mode2 + mode3 + mode4
+    # prof_tt = mode1 + mode2
     reconstruct_profileNorm[:,tt] = prof_tt
 reconstruct_profileT = reconstruct_profileNorm.T*dataStd.T + dataMean.T
 reconstruct_profile = reconstruct_profileT.T
@@ -364,6 +377,8 @@ ax.set_title('Profiles reconstructed from PCA')
 #    topobathy_check_xshoreFill,dataset_passFinalCheck,iiDS_passFinalCheck,iirow_finalcheck = pickle.load(file)
 with open(picklefile_dir+'topobathy_finalCheckBeforePCA_ZMHW_0p36m.pickle','rb') as file:
     topobathy_check_xshoreFill,dataset_passFinalCheck,iiDS_passFinalCheck,iirow_finalcheck = pickle.load(file)
+with open(picklefile_dir+'topobathy_reshapeToNXbyNumUmiqueT.pickle','rb') as file:
+    tt_unique,_,_,topobathy_xshoreInterp_plot,topobathy_extension_plot,topobathy_xshoreInterpX2_plot = pickle.load(file)
 
 # First, isolate the data that ultimately goes into the PCA
 num_datasets = iiDS_passFinalCheck.size
@@ -389,6 +404,21 @@ for nn in np.arange(num_datasets):
     dVol_setnn = Vol_setnn[1:] - Vol_setnn[0:-1]
     Vol_obsdata[:,nn] = Vol_setnn
     dVol_obsdata[:,nn] = dVol_setnn
+    # find where dVol is very high
+    dVol_thresh = 5
+    if sum(dVol_setnn > dVol_thresh) > 0:
+        flag_prof_dVol_setnn = iiprof_in_dataset[np.where(dVol_setnn > dVol_thresh)]
+        for jj in np.arange(flag_prof_dVol_setnn.size):
+            fig, ax = plt.subplots()
+            ax.plot(data[:,flag_prof_dVol_setnn[jj]])
+            ax.plot(data[:, flag_prof_dVol_setnn[jj]+1])
+            ax.plot(topobathy_xshoreInterp_plot[:,flag_prof_dVol_setnn[jj]])
+            ax.plot(topobathy_xshoreInterp_plot[:, flag_prof_dVol_setnn[jj]+1])
+
+
+
+
+
 fig, ax = plt.subplots()
 # ax.plot(dVol_obsdata,'.')
 plt.hist(np.resize(dVol_obsdata,(dVol_obsdata.size,)),bins=np.arange(-60,60,5))

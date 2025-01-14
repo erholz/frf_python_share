@@ -210,7 +210,7 @@ for jj in np.arange(num_datasets):
                 htest = htmp - h_init # make initial value 0
                 # popt, pcov = curve_fit(equilibriumprofile_func_2param, xtmp, htmp, bounds=([0, -np.inf], [15, np.inf]))
                 # popt, pcov = curve_fit(equilibriumprofile_func_2param, xtmp, ztmp)
-                popt, pcov = curve_fit(equilibriumprofile_func_1param, xtmp, htest, bounds=([0.1], [0.165]))
+                popt, pcov = curve_fit(equilibriumprofile_func_1param, xtmp, htest, bounds=([0.05], [0.165]))
                 Acoef[tt] = popt[0]
                 # bcoef[tt] = popt[1]
                 hfit = equilibriumprofile_func_1param(xtmp, *popt)
@@ -272,9 +272,89 @@ picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_
 #     pickle.dump([topobathy_preextend,topobathy_postextend], file)
 # with open(picklefile_dir+'topobathy_extendStats.pickle','wb') as file:
 #     pickle.dump([avg_Acoef,avg_fiterror,avg_zobsfinal,numprof_notextended,Acoef_alldatasets,fitrmse_alldatasets], file)
-with open(picklefile_dir+'topobathy_extend.pickle','rb') as file:
-    _, topobathy_postextend = pickle.load(file)
+# with open(picklefile_dir+'topobathy_extend.pickle','rb') as file:
+#     _, topobathy_postextend = pickle.load(file)
+# with open(picklefile_dir+'topobathy_extendStats.pickle','rb') as file:
+#     avg_Acoef,avg_fiterror,avg_zobsfinal,numprof_notextended,Acoef_alldatasets,fitrmse_alldatasets = pickle.load(file)
 
+################# STEP 2.1 - REVIEW/SMOOTH ACoeff #################
+
+
+fig, ax = plt.subplots()
+yplot = np.nanmean(Acoef_alldatasets,axis=0)
+ysprd = np.nanstd(Acoef_alldatasets,axis=0)
+yplot2 = np.nanmean(fitrmse_alldatasets,axis=0)
+xplot = np.arange(yplot.size)
+ax.errorbar(xplot,yplot,ysprd)
+fig, ax = plt.subplots()
+ph = ax.scatter(xplot,yplot,5,yplot2,vmin=0,vmax=0.3)
+cbar = fig.colorbar(ph)
+cbar.set_label('fit RMSE')
+
+# map to same format as the smaller arrays (Step 4)
+Nlook = 24*4
+timeslice_all = np.empty(0)
+dataset_index_fullspan = np.empty((num_datasets,Nlook))
+dataset_index_fullspan[:] = np.nan
+for jj in np.arange(num_datasets):
+    varname = 'dataset_' + str(int(jj))
+    exec('timeslice = datasets_ML["' + varname + '"]["set_timeslice"]')
+    timeslice_all = np.append(timeslice_all,timeslice)
+    dataset_index_fullspan[jj,:] = np.where(np.isin(time_fullspan,timeslice))[0]
+timeslice_all = np.unique(timeslice_all)
+iiplot = np.isin(time_fullspan,timeslice_all)
+tt_unique = time_fullspan[iiplot]
+tt_alreadyinset = np.zeros(shape=tt_unique.shape)
+
+# Now create the smaller equilib matrices
+equilibprof_Acoef_plot = np.empty((tt_unique.size,))
+equilibprof_Acoef_plot[:] = np.nan
+equilibprof_fitrmse_plot = np.empty((tt_unique.size,))
+equilibprof_fitrmse_plot[:] = np.nan
+for jj in np.arange(num_datasets):
+    varname = 'dataset_' + str(int(jj))
+    exec('timeslice = datasets_ML["' + varname + '"]["set_timeslice"]')
+    Acoef_setnn = Acoef_alldatasets[:, jj]
+    fitrmse_setnn = fitrmse_alldatasets[:, jj]
+    # find if any times are in the unique set
+    ii_match_set = np.isin(tt_unique,timeslice)
+    ii_to_be_added = np.where(ii_match_set & (tt_alreadyinset == 0))[0]
+    # add topobathy profiles that match that time
+    ii_to_add = np.isin(timeslice,tt_unique[ii_to_be_added])
+    if sum(ii_to_add) > 0:
+        equilibprof_Acoef_plot[ii_to_be_added] = Acoef_setnn[ii_to_add]
+        equilibprof_fitrmse_plot[ii_to_be_added] = fitrmse_setnn[ii_to_add]
+        # set matching times to already-in-set array
+        tt_alreadyinset[ii_match_set] = 1
+
+
+################# STEP 2.2 - REVIEW PROFILES WITH (high vs low) ERROR #################
+
+
+
+sets_to_review = np.where(avg_fiterror < 0.01)[0]
+# for jj in np.arange(100,110):
+for jj in np.floor(np.linspace(0,sets_to_review.size,20)):
+    setjj = sets_to_review[int(jj)]
+    fig, ax = plt.subplots(3,1)
+    pre_extend = topobathy_postxshoreinterp[:,:,setjj]
+    post_extend = topobathy_postextend[:,:,setjj]
+    ax[0].plot(lidar_xFRF,pre_extend,'.')
+    ax[0].plot(lidar_xFRF,post_extend)
+    ax[0].set_xlim(45,130)
+    Aplot = Acoef_alldatasets[:,setjj]
+    errplot = fitrmse_alldatasets[:,setjj]
+    ph = ax[1].scatter(np.arange(96),Aplot, 20, errplot, vmin=0, vmax=0.05)
+    cbar = fig.colorbar(ph)
+    cbar.set_label('fit RMSE')
+    plt.grid()
+    dx = 0.1
+    Vol = np.nansum(post_extend[(lidar_xFRF >= 45) & (lidar_xFRF <= 130),:]*dx,axis=0)
+    dVol = Vol[1:] - Vol[0:-1]
+    ph2 = ax[2].scatter(np.arange(95), np.log10(abs(dVol)), 20, Aplot[1:], vmin=0.05, vmax=0.15, cmap='rainbow')
+    cbar2 = fig.colorbar(ph2)
+    cbar2.set_label('Acoef')
+    plt.grid()
 
 ################# STEP 3 - REPEAT INTERP IN TIME #################
 
@@ -332,7 +412,7 @@ ax.set_ylabel('num avail.')
 ax.set_xlabel('xFRF [m]')
 
 
-################# MAKE SMALLER ARRAYS FOR PLOTTING #################
+################# STEP 4 - MAKE SMALLER ARRAYS FOR PLOTTING #################
 
 
 # Find unique times of all ML datasets to create smaller plotting matrices
@@ -393,8 +473,8 @@ picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_
 picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_12Jan2025/'
 # with open(picklefile_dir+'topobathy_reshapeToNXbyNumUmiqueT.pickle','wb') as file:
 #     pickle.dump([tt_unique,origin_set,dataset_index_fullspan,topobathy_xshoreInterp_plot,topobathy_extension_plot,topobathy_xshoreInterpX2_plot], file)
-# with open(picklefile_dir+'topobathy_reshapeToNXbyNumUmiqueT.pickle','rb') as file:
-#     tt_unique,_,_,topobathy_xshoreInterp_plot,topobathy_extension_plot,topobathy_xshoreInterpX2_plot = pickle.load(file)
+with open(picklefile_dir+'topobathy_reshapeToNXbyNumUmiqueT.pickle','rb') as file:
+    tt_unique,_,_,topobathy_xshoreInterp_plot,topobathy_extension_plot,topobathy_xshoreInterpX2_plot = pickle.load(file)
 # with open(picklefile_dir+'topobathy_reshape_indexKeeper.pickle','wb') as file:
 #     pickle.dump([tt_unique,origin_set,dataset_index_fullspan,dataset_index_plot], file)
 # with open(picklefile_dir+'topobathy_finalCheckBeforePCA_Zdunetoe_3p2m.pickle','rb') as file:
@@ -479,7 +559,9 @@ ax.legend()
 
 
 
-################# CREATE SCALED & SHIFTED PROFILES #################
+
+
+################# STEP 5 - CREATE SCALED & SHIFTED PROFILES #################
 
 
 # Ok, now create shifted and scaled profile datasets
