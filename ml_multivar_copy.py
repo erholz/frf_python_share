@@ -1,4 +1,6 @@
+import pickle
 from math import sqrt
+import numpy as np
 from numpy import concatenate
 import matplotlib
 matplotlib.use("TKAgg")
@@ -22,27 +24,7 @@ import pydot
 import visualkeras
 
 
-
-# load data and prep data
-fname = "C:/Users/rdchlerh/Downloads/raw.csv"
-def parse(x):
-	return dt.strptime(x, '%Y %m %d %H')
-dataset = read_csv(fname,  parse_dates = [['year', 'month', 'day', 'hour']], index_col=0, date_parser=parse)
-dataset.drop('No', axis=1, inplace=True)
-# manually specify column names
-dataset.columns = ['pollution', 'dew', 'temp', 'press', 'wnd_dir', 'wnd_spd', 'snow', 'rain']
-dataset.index.name = 'date'
-# mark all NA values with 0
-dataset['pollution'].fillna(0, inplace=True)
-# drop the first 24 hours
-dataset = dataset[24:]
-# summarize first 5 rows
-print(dataset.head(5))
-# save to file
-dataset.to_csv('C:/Users/rdchlerh/Downloads/pollution.csv')
-
-
-# convert series to supervised learning
+# FUNC from sample - convert series to supervised learning
 def series_to_supervised(data, n_in=1, n_out=1, dropnan=True):
     n_vars = 1 if type(data) is list else data.shape[1]
     df = DataFrame(data)
@@ -66,26 +48,83 @@ def series_to_supervised(data, n_in=1, n_out=1, dropnan=True):
         agg.dropna(inplace=True)
     return agg
 
+############### Step 1 - Load and prep data ###############
+
+picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_10Dec2024/'
+# picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_10Dec2024/'
+with open(picklefile_dir+'datasets_ML_14Dec2024.pickle', 'rb') as file:
+    datasets_ML = pickle.load(file)
+    num_datasets = len(datasets_ML)
+with open(picklefile_dir+'topobathy_finalCheckBeforePCA_Zdunetoe_3p2m.pickle','rb') as file:
+    topobathy_check_xshoreFill,dataset_passFinalCheck,iiDS_passFinalCheck,iirow_finalcheck = pickle.load(file)
+
+iiDS = iiDS_passFinalCheck[:]
+num_features = 8
+num_steps = 24*4
+num_datasets = iiDS.size
+train_X = np.empty((num_datasets,num_steps,num_features))
+train_X[:] = np.nan
+for jj in np.arange(iiDS.size):
+    # get input hydro
+    varname = 'dataset_' + str(int(jj))
+    exec('waterlevel = datasets_ML["' + varname + '"]["set_waterlevel"]')
+    ds_watlev = waterlevel
+    exec('Hs = datasets_ML["' + varname + '"]["set_Hs8m"]')
+    ds_Hs = Hs
+    exec('Tp = datasets_ML["' + varname + '"]["set_Tp8m"]')
+    ds_Tp = Tp
+    exec('wdir = datasets_ML["' + varname + '"]["set_dir8m"]')
+    ds_wdir = wdir
+    # load into training matrix
+    train_X[jj, :, 0] = ds_watlev
+    train_X[jj, :, 1] = ds_Hs
+    train_X[jj, :, 2] = ds_Tp
+    train_X[jj, :, 3] = ds_wdir
 
 
 
-# load dataset
-fname = "C:/Users/rdchlerh/Downloads/pollution.csv"
-dataset = read_csv(fname, header=0, index_col=0)
-values = dataset.values
-# integer encode wind direction
-encoder = LabelEncoder()
-values[:, 4] = encoder.fit_transform(values[:, 4])
-# ensure all data is float
-values = values.astype('float32')
-# normalize features
-scaler = MinMaxScaler(feature_range=(0, 1))
-scaled = scaler.fit_transform(values)
-# frame as supervised learning
-reframed = series_to_supervised(scaled, 1, 1)
-# drop columns we don't want to predict
-reframed.drop(reframed.columns[[9, 10, 11, 12, 13, 14, 15]], axis=1, inplace=True)
-print(reframed.head())
+# # from sample - load data and prep data
+# fname = "C:/Users/rdchlerh/Downloads/raw.csv"
+# def parse(x):
+# 	return dt.strptime(x, '%Y %m %d %H')
+# dataset = read_csv(fname,  parse_dates = [['year', 'month', 'day', 'hour']], index_col=0, date_parser=parse)
+# dataset.drop('No', axis=1, inplace=True)
+# # manually specify column names
+# dataset.columns = ['pollution', 'dew', 'temp', 'press', 'wnd_dir', 'wnd_spd', 'snow', 'rain']
+# dataset.index.name = 'date'
+# # mark all NA values with 0
+# dataset['pollution'].fillna(0, inplace=True)
+# # drop the first 24 hours
+# dataset = dataset[24:]
+# # summarize first 5 rows
+# print(dataset.head(5))
+# # save to file
+# dataset.to_csv('C:/Users/rdchlerh/Downloads/pollution.csv')
+#
+# # load dataset
+# fname = "C:/Users/rdchlerh/Downloads/pollution.csv"
+# dataset = read_csv(fname, header=0, index_col=0)
+# values = dataset.values
+# # integer encode wind direction
+# encoder = LabelEncoder()
+# values[:, 4] = encoder.fit_transform(values[:, 4])
+# # ensure all data is float
+# values = values.astype('float32')
+# # normalize features
+# scaler = MinMaxScaler(feature_range=(0, 1))
+# scaled = scaler.fit_transform(values)
+# # frame as supervised learning
+# reframed = series_to_supervised(scaled, 1, 1)
+# # drop columns we don't want to predict
+# reframed.drop(reframed.columns[[9, 10, 11, 12, 13, 14, 15]], axis=1, inplace=True)
+# print(reframed.head())
+
+
+
+
+
+
+############### Step 2 - Split into test/train ###############
 
 # split into train and test sets
 values = reframed.values
