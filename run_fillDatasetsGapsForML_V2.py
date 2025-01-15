@@ -11,7 +11,7 @@ from funcs.align_data_time import align_data_fullspan
 from funcs.create_contours import *
 from funcs.wavefuncs import *
 from scipy.optimize import curve_fit
-from scipy.interpolate import splrep, BSpline, splev, CubicSpline
+from scipy.interpolate import splrep, BSpline, splev, CubicSpline, RectBivariateSpline, griddata
 from funcs.find_nangaps import *
 
 
@@ -423,8 +423,354 @@ plt.grid()
 ax.set_xlabel('Acoef')
 ax.set_ylabel('pdf')
 
+################# STEP 2.4 - Perform 2D scatter interp on datasets #################
 
-################# STEP 2.4 - REPEAT EXTENSION WITH AVG ACoef #################
+dx = 0.1
+nx = lidar_xFRF.size
+Nlook = 4*24
+topobathy_scatterInterp = np.empty((lidar_xFRF.size,Nlook,num_datasets))
+topobathy_scatterInterp[:] = np.nan
+for jj in np.arange(num_datasets):
+    pre_extend = topobathy_postxshoreinterp[:, :, jj]
+    tplot = np.arange(Nlook)
+    xplot = np.arange(nx)
+    XX, TT = np.meshgrid(xplot, tplot)
+    ZZ = pre_extend
+    timescatter = np.reshape(TT, TT.size)
+    xscatter = np.reshape(XX, XX.size)
+    zscatter = np.reshape(ZZ.T, ZZ.size)
+    tt = timescatter[~np.isnan(zscatter)]
+    xx = xscatter[~np.isnan(zscatter)]
+    zz = zscatter[~np.isnan(zscatter)]
+    points = np.empty((xx.size, 2))
+    points[:, 0] = xx[:]
+    points[:, 1] = tt[:]
+    values = zz
+    ZZfill = griddata(points, values, (XX, TT), method='linear')
+    topobathy_scatterInterp[:,:,jj] = ZZfill.T
+
+    # fig, ax = plt.subplots()
+    # ax.plot(lidar_xFRF, topobathy_scatterInterp[:,:,jj])
+    # ax.set_xlim(45, 150)
+    # fig, ax = plt.subplots()
+    # ax.plot(lidar_xFRF, topobathy_postxshoreinterp[:, :, jj])
+    # ax.set_xlim(45, 150)
+
+picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_12Jan2025/'
+with open(picklefile_dir+'topobathy_scatterInterp.pickle','wb') as file:
+    pickle.dump([topobathy_scatterInterp], file)
+
+################# STEP X - REPEAT EXTENSION WITH AVG ACoef #################
+
+# Initialize the aggregate topobathy for pre- and post- extensions
+dx = 0.1
+nx = lidar_xFRF.size
+Nlook = 4*24
+topobathy_postextend_avgAcoefPerSet = np.empty((lidar_xFRF.size,Nlook,num_datasets))
+topobathy_postextend_avgAcoefPerSet[:] = np.nan
+Acoef_alldatasets_avgAcoefPerSet = np.empty((Nlook,num_datasets))
+Acoef_alldatasets_avgAcoefPerSet[:] = np.nan
+fitrmse_alldatasets_avgAcoefPerSet = np.empty((Nlook,num_datasets))
+fitrmse_alldatasets_avgAcoefPerSet[:] = np.nan
+for jj in np.arange(num_datasets):
+# for jj in np.arange(2214):
+    varname = 'dataset_' + str(int(jj))
+    exec('timeslice = datasets_ML["' + varname + '"]["set_timeslice"]')
+    # exec('topobathy = datasets_ML["' + varname + '"]["set_topobathy"]')
+    topobathy = topobathy_postxshoreinterp[:,:,jj]
+    exec('waterlevel = datasets_ML["' + varname + '"]["set_waterlevel"]')
+    topobathy_postextend_avgAcoefPerSet[:,:,jj] = topobathy[:]
+
+    # initialize fit coefficints
+    Acoef = np.empty(shape=timeslice.shape)
+    Acoef[:] = np.nan
+    fitrmse = np.empty(shape=timeslice.shape)
+    fitrmse[:] = np.nan
+    profile_extend = np.empty(shape=topobathy.shape)
+    profile_extend[:] = topobathy[:]
+    profile_extend_testdata = np.empty(shape=topobathy.shape)
+    profile_extend_testdata[:] = np.nan
+    prof_x_wl = np.empty(shape=timeslice.shape)
+    prof_x_wl[:] = np.nan
+    zobs_final = np.empty(shape=timeslice.shape)
+    zobs_final[:] = np.nan
+    for tt in np.arange(timeslice.size):
+        Lgrab = 5          # try fitting equilibrium profile to last [Lgrab] meters of available data
+        watlev_tt = waterlevel[tt]
+        wlbuffer = 0.25
+        # first find if there are ANY gaps in the profile
+        zinput = topobathy[:, tt]
+        ix_notnan = np.where(~np.isnan(zinput))[0]
+        if len(ix_notnan) > 0:
+            zinput = zinput[np.arange(ix_notnan[0],ix_notnan[-1])]
+            gapstart, gapend, gapsize, maxgap = find_nangaps(zinput)
+            # if maxgap > 50:
+            #     print('max gap size = ' + str(maxgap)+' for tt = '+str(tt))
+        if (sum(~np.isnan(topobathy[:,tt])) > 10) & (~np.isnan(watlev_tt)):
+            ii_submerged = np.where(topobathy[:, tt] <= watlev_tt + wlbuffer)[0]
+            iiclose = np.where(abs(topobathy[:, tt]-(wlbuffer+watlev_tt)) == np.nanmin(abs(topobathy[:,tt]-(wlbuffer+watlev_tt))))[0]
+            doublebuffer_flag = 0
+            if iiclose.size > 1:
+                iiclose = iiclose[0]
+            prof_x_wl[tt] = np.interp((wlbuffer + watlev_tt)[0], topobathy[np.arange(iiclose - 1, iiclose + 1), tt],lidar_xFRF[np.arange(iiclose - 1, iiclose + 1)])
+            if len(ii_submerged) <= 5:
+                ii_submerged = np.where(topobathy[:, tt] <= watlev_tt + 2*wlbuffer)[0]
+                iiclose = np.where(abs(topobathy[:, tt] - (2*wlbuffer + watlev_tt)) == np.nanmin(abs(topobathy[:, tt] - (2*wlbuffer + watlev_tt))))[0]
+                if iiclose.size > 1:
+                    iiclose = iiclose[0]
+                prof_x_wl[tt] = np.interp((wlbuffer + 2*watlev_tt)[0], topobathy[np.arange(iiclose - 1, iiclose + 1), tt],lidar_xFRF[np.arange(iiclose - 1, iiclose + 1)])
+                doublebuffer_flag = 1
+            if len(ii_submerged) > 5:
+                # print('double buffer = ' + str(doublebuffer_flag) + 'for tt = '+str(tt))
+                iitest = ii_submerged
+                if doublebuffer_flag == 1:
+                    htmp = (2*wlbuffer + watlev_tt) - topobathy[iitest, tt]
+                else:
+                    htmp = (wlbuffer + watlev_tt) - topobathy[iitest,tt]
+                xtmp = dx*np.arange(htmp.size)
+                iitest = iitest[~np.isnan(htmp)]
+                xtmp = xtmp[~np.isnan(htmp)]
+                htmp = htmp[~np.isnan(htmp)]
+                if doublebuffer_flag == 1:
+                    zobs_final[tt] = (2*wlbuffer + watlev_tt) - htmp[-1]
+                else:
+                    zobs_final[tt] = (wlbuffer + watlev_tt) - htmp[-1]
+                profile_extend_testdata[iitest,tt] = topobathy[iitest,tt]
+                h_init = htmp[0]
+                htest = htmp - h_init # make initial value 0
+                Acoef_setavg_setjj = Acoef_setavg[jj]
+                Acoef[tt] = Acoef_setavg_setjj
+                # bcoef[tt] = popt[1]
+                hfit = equilibriumprofile_func_1param(xtmp, Acoef_setavg_setjj)
+                fitrmse[tt] = np.sqrt(np.mean((hfit-htest)**2))
+                # x_extend = np.arange(lidar_xFRF_shift[iitest[-1]]+dx,lidar_xFRF_shift[-1],dx)
+                x_extend = np.arange(lidar_xFRF[iitest[0]] + dx, lidar_xFRF[-1], dx)
+                x_extend_norm = x_extend - x_extend[0]
+                h_extend_norm = equilibriumprofile_func_1param(x_extend_norm, Acoef_setavg_setjj)
+                h_extend = h_extend_norm + h_init
+                if doublebuffer_flag == 1:
+                    z_extend = (2*wlbuffer + watlev_tt) - h_extend
+                else:
+                    z_extend = (wlbuffer + watlev_tt) - h_extend
+                profile_extend[np.arange(iitest[0] + 1, nx - 1),tt] = z_extend
+        topobathy_postextend_avgAcoefPerSet[:,:,jj] = profile_extend
+    if sum(~np.isnan(Acoef)) > 0:
+        Acoef_alldatasets_avgAcoefPerSet[:,jj] = Acoef
+        fitrmse_alldatasets_avgAcoefPerSet[:,jj] = fitrmse
+
+
+pairwise_Acoef = np.empty(shape=Acoef_alldatasets.shape)
+pairwise_Acoef[:] = np.nan
+pairwise_dVol = np.empty(shape=Acoef_alldatasets.shape)
+pairwise_dVol[:] = np.nan
+pairwise_minerror = np.empty(shape=Acoef_alldatasets.shape)
+pairwise_minerror[:] = np.nan
+
+for jj in np.arange(num_datasets):
+    setjj = jj
+    post_extend = topobathy_postextend[:,:,setjj]
+    Aplot = Acoef_alldatasets_avgAcoefPerSet[:,setjj]
+    errplot = fitrmse_alldatasets_avgAcoefPerSet[:,setjj]
+    dx = 0.1
+    Vol = np.nansum(post_extend[(lidar_xFRF >= 45) & (lidar_xFRF <= 130),:]*dx,axis=0)
+    dVol = Vol[1:] - Vol[0:-1]
+    # save to vectors
+    pairwise_dVol[1:,setjj] = dVol[:]
+    pairwise_Acoef[1:,setjj] = (Aplot[1:]+Aplot[0:-1])/2
+    pairwise_minerror[1:,setjj] = np.nanmin([errplot[1:],errplot[0:-1]],axis=0)
+
+fig, ax = plt.subplots()
+xplot = np.reshape(pairwise_Acoef,pairwise_Acoef.size)
+yplot = np.reshape(pairwise_dVol,pairwise_dVol.size)
+cplot = np.reshape(pairwise_minerror,pairwise_minerror.size)
+tmpii = ~np.isnan(xplot) & ~np.isnan(yplot) & ~np.isnan(cplot)
+xplot = xplot[tmpii]
+yplot = yplot[tmpii]
+cplot = cplot[tmpii]
+logyplot = np.log10(abs(yplot))
+logyplot[np.isinf(-logyplot)] = 0
+ph = ax.scatter(xplot,logyplot,1,alpha=0.01)
+ax.set_xlabel('Acoef')
+ax.set_ylabel('log(dVol)')
+
+
+sets_to_review = np.where(np.nanmean(abs(fitrmse_alldatasets_avgAcoefPerSet),axis=0) < 0.05)[0]
+# for jj in np.arange(num_datasets):
+for jj in np.floor(np.linspace(0,sets_to_review.size-1,2)):
+    setjj = sets_to_review[int(jj)]
+    # setjj = jj
+    # fig, ax = plt.subplots(3,1)
+    fig, ax = plt.subplots()
+    pre_extend = topobathy_postxshoreinterp[:,:,setjj]
+    post_extend = topobathy_postextend[:,:,setjj]
+    # ax.plot(lidar_xFRF, pre_extend, '.')
+    ax.plot(lidar_xFRF, post_extend)
+    ax.set_xlim(45, 150)
+    fig, ax = plt.subplots()
+    tplot = np.arange(Nlook)
+    xplot = np.arange(nx)
+    XX, TT = np.meshgrid(xplot,tplot)
+    ZZ = pre_extend
+    timescatter = np.reshape(TT, TT.size)
+    xscatter = np.reshape(XX, XX.size)
+    zscatter = np.reshape(ZZ.T, ZZ.size)
+    tt = timescatter[~np.isnan(zscatter)]
+    xx = xscatter[~np.isnan(zscatter)]
+    zz = zscatter[~np.isnan(zscatter)]
+    ph = ax.scatter(xx, tt, s=2, c=zz, cmap='viridis')
+    cbar = fig.colorbar(ph, ax=ax)
+    cbar.set_label('z[m]')
+    # interp_spline = RectBivariateSpline(xplot,tplot, ZZ)
+    # ZZfill = interp_spline(xplot, tplot)
+    fig, ax = plt.subplots()
+    points = np.empty((xx.size,2))
+    points[:,0] = xx[:]
+    points[:,1] = tt[:]
+    values = zz
+    ZZfill = griddata(points, values, (XX, TT), method='linear')
+    # zscatter = np.reshape(ZZ.T, ZZ.size)
+    zscatter = np.reshape(ZZfill, ZZfill.size)
+    tt = timescatter[~np.isnan(zscatter)]
+    xx = xscatter[~np.isnan(zscatter)]
+    zz = zscatter[~np.isnan(zscatter)]
+    ph = ax.scatter(xx, tt, s=2, c=zz, cmap='viridis')
+    cbar = fig.colorbar(ph, ax=ax)
+    cbar.set_label('z[m]')
+    fig, ax = plt.subplots()
+    ax.plot(lidar_xFRF, ZZfill.T)
+    ax.set_xlim(45, 150)
+
+    # ax[0].plot(lidar_xFRF,pre_extend,'.')
+    # ax[0].plot(lidar_xFRF,post_extend)
+    # ax[0].set_xlim(45,130)
+    # Aplot = Acoef_alldatasets_avgAcoefPerSet[:,setjj]
+    # errplot = fitrmse_alldatasets_avgAcoefPerSet[:,setjj]
+    # ph = ax[1].scatter(np.arange(96),Aplot, 20, errplot, vmin=0, vmax=0.05)
+    # cbar = fig.colorbar(ph)
+    # cbar.set_label('fit RMSE')
+    # plt.grid()
+    # dx = 0.1
+    # Vol = np.nansum(post_extend[(lidar_xFRF >= 45) & (lidar_xFRF <= 130),:]*dx,axis=0)
+    # dVol = Vol[1:] - Vol[0:-1]
+    # logyplot = np.log10(abs(dVol))
+    # logyplot[np.isinf(-logyplot)] = 0
+    # ph2 = ax[2].scatter(np.arange(95), logyplot, 20, Aplot[1:], vmin=0.05, vmax=0.15, cmap='rainbow')
+    # cbar2 = fig.colorbar(ph2)
+    # cbar2.set_label('Acoef')
+    # plt.grid()
+
+################# STEP 2.5 - FIND SINGLE LONG PROFILE TO EXTEND TO #################
+
+
+# Initialize the aggregate topobathy for pre- and post- extensions
+dx = 0.1
+nx = lidar_xFRF.size
+Nlook = 4*24
+topobathy_postextend_singleProf = np.empty((lidar_xFRF.size,Nlook,num_datasets))
+topobathy_postextend_singleProf[:] = np.nan
+Acoef_alldatasets_singleProf = np.empty((Nlook,num_datasets))
+Acoef_alldatasets_singleProf[:] = np.nan
+fitrmse_alldatasets_singleProf = np.empty((Nlook,num_datasets))
+fitrmse_alldatasets_singleProf[:] = np.nan
+for jj in np.arange(num_datasets):
+# for jj in np.arange(2214):
+    varname = 'dataset_' + str(int(jj))
+    exec('timeslice = datasets_ML["' + varname + '"]["set_timeslice"]')
+    # exec('topobathy = datasets_ML["' + varname + '"]["set_topobathy"]')
+    topobathy = topobathy_postxshoreinterp[:,:,jj]
+    exec('waterlevel = datasets_ML["' + varname + '"]["set_waterlevel"]')
+    topobathy_postextend_singleProf[:,:,jj] = topobathy[:]
+
+    # find profile with longest extent
+    row,col = np.where(~np.isnan(topobathy))
+    ii_longprof = np.where(proflengths == max(proflengths))
+    fig, ax = plt.subplots()
+    ax.plot(topobathy,'.')
+
+
+
+
+    # initialize fit coefficints
+    Acoef = np.empty(shape=timeslice.shape)
+    Acoef[:] = np.nan
+    fitrmse = np.empty(shape=timeslice.shape)
+    fitrmse[:] = np.nan
+    profile_extend = np.empty(shape=topobathy.shape)
+    profile_extend[:] = topobathy[:]
+    profile_extend_testdata = np.empty(shape=topobathy.shape)
+    profile_extend_testdata[:] = np.nan
+    prof_x_wl = np.empty(shape=timeslice.shape)
+    prof_x_wl[:] = np.nan
+    zobs_final = np.empty(shape=timeslice.shape)
+    zobs_final[:] = np.nan
+    for tt in np.arange(timeslice.size):
+        Lgrab = 5          # try fitting equilibrium profile to last [Lgrab] meters of available data
+        watlev_tt = waterlevel[tt]
+        wlbuffer = 0.25
+        # first find if there are ANY gaps in the profile
+        zinput = topobathy[:, tt]
+        ix_notnan = np.where(~np.isnan(zinput))[0]
+        if len(ix_notnan) > 0:
+            zinput = zinput[np.arange(ix_notnan[0],ix_notnan[-1])]
+            gapstart, gapend, gapsize, maxgap = find_nangaps(zinput)
+            # if maxgap > 50:
+            #     print('max gap size = ' + str(maxgap)+' for tt = '+str(tt))
+        if (sum(~np.isnan(topobathy[:,tt])) > 10) & (~np.isnan(watlev_tt)):
+            ii_submerged = np.where(topobathy[:, tt] <= watlev_tt + wlbuffer)[0]
+            iiclose = np.where(abs(topobathy[:, tt]-(wlbuffer+watlev_tt)) == np.nanmin(abs(topobathy[:,tt]-(wlbuffer+watlev_tt))))[0]
+            doublebuffer_flag = 0
+            if iiclose.size > 1:
+                iiclose = iiclose[0]
+            prof_x_wl[tt] = np.interp((wlbuffer + watlev_tt)[0], topobathy[np.arange(iiclose - 1, iiclose + 1), tt],lidar_xFRF[np.arange(iiclose - 1, iiclose + 1)])
+            if len(ii_submerged) <= 5:
+                ii_submerged = np.where(topobathy[:, tt] <= watlev_tt + 2*wlbuffer)[0]
+                iiclose = np.where(abs(topobathy[:, tt] - (2*wlbuffer + watlev_tt)) == np.nanmin(abs(topobathy[:, tt] - (2*wlbuffer + watlev_tt))))[0]
+                if iiclose.size > 1:
+                    iiclose = iiclose[0]
+                prof_x_wl[tt] = np.interp((wlbuffer + 2*watlev_tt)[0], topobathy[np.arange(iiclose - 1, iiclose + 1), tt],lidar_xFRF[np.arange(iiclose - 1, iiclose + 1)])
+                doublebuffer_flag = 1
+            if len(ii_submerged) > 5:
+                # print('double buffer = ' + str(doublebuffer_flag) + 'for tt = '+str(tt))
+                iitest = ii_submerged
+                if doublebuffer_flag == 1:
+                    htmp = (2*wlbuffer + watlev_tt) - topobathy[iitest, tt]
+                else:
+                    htmp = (wlbuffer + watlev_tt) - topobathy[iitest,tt]
+                xtmp = dx*np.arange(htmp.size)
+                iitest = iitest[~np.isnan(htmp)]
+                xtmp = xtmp[~np.isnan(htmp)]
+                htmp = htmp[~np.isnan(htmp)]
+                if doublebuffer_flag == 1:
+                    zobs_final[tt] = (2*wlbuffer + watlev_tt) - htmp[-1]
+                else:
+                    zobs_final[tt] = (wlbuffer + watlev_tt) - htmp[-1]
+                profile_extend_testdata[iitest,tt] = topobathy[iitest,tt]
+                h_init = htmp[0]
+                htest = htmp - h_init # make initial value 0
+                Acoef_setavg_setjj = Acoef_setavg[jj]
+                Acoef[tt] = Acoef_setavg_setjj
+                # bcoef[tt] = popt[1]
+                hfit = equilibriumprofile_func_1param(xtmp, Acoef_setavg_setjj)
+                fitrmse[tt] = np.sqrt(np.mean((hfit-htest)**2))
+                # x_extend = np.arange(lidar_xFRF_shift[iitest[-1]]+dx,lidar_xFRF_shift[-1],dx)
+                x_extend = np.arange(lidar_xFRF[iitest[0]] + dx, lidar_xFRF[-1], dx)
+                x_extend_norm = x_extend - x_extend[0]
+                h_extend_norm = equilibriumprofile_func_1param(x_extend_norm, Acoef_setavg_setjj)
+                h_extend = h_extend_norm + h_init
+                if doublebuffer_flag == 1:
+                    z_extend = (2*wlbuffer + watlev_tt) - h_extend
+                else:
+                    z_extend = (wlbuffer + watlev_tt) - h_extend
+                profile_extend[np.arange(iitest[0] + 1, nx - 1),tt] = z_extend
+        topobathy_postextend_singleProf[:,:,jj] = profile_extend
+    if sum(~np.isnan(Acoef)) > 0:
+        Acoef_alldatasets_singleProf[:,jj] = Acoef
+        fitrmse_alldatasets_singleProf[:,jj] = fitrmse
+
+
+
+
+
 
 
 
