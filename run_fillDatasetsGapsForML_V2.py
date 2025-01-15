@@ -330,31 +330,104 @@ for jj in np.arange(num_datasets):
 
 ################# STEP 2.2 - REVIEW PROFILES WITH (high vs low) ERROR #################
 
+pairwise_Acoef = np.empty(shape=Acoef_alldatasets.shape)
+pairwise_Acoef[:] = np.nan
+pairwise_dVol = np.empty(shape=Acoef_alldatasets.shape)
+pairwise_dVol[:] = np.nan
+pairwise_minerror = np.empty(shape=Acoef_alldatasets.shape)
+pairwise_minerror[:] = np.nan
 
-
-sets_to_review = np.where(avg_fiterror < 0.01)[0]
-# for jj in np.arange(100,110):
-for jj in np.floor(np.linspace(0,sets_to_review.size,20)):
-    setjj = sets_to_review[int(jj)]
-    fig, ax = plt.subplots(3,1)
+sets_to_review = np.where(avg_fiterror < 0.05)[0]
+for jj in np.arange(num_datasets):
+# for jj in np.floor(np.linspace(0,sets_to_review.size-1,20)):
+#     setjj = sets_to_review[int(jj)]
+    setjj = jj
+    # fig, ax = plt.subplots(3,1)
     pre_extend = topobathy_postxshoreinterp[:,:,setjj]
     post_extend = topobathy_postextend[:,:,setjj]
-    ax[0].plot(lidar_xFRF,pre_extend,'.')
-    ax[0].plot(lidar_xFRF,post_extend)
-    ax[0].set_xlim(45,130)
+    # ax[0].plot(lidar_xFRF,pre_extend,'.')
+    # ax[0].plot(lidar_xFRF,post_extend)
+    # ax[0].set_xlim(45,130)
     Aplot = Acoef_alldatasets[:,setjj]
     errplot = fitrmse_alldatasets[:,setjj]
-    ph = ax[1].scatter(np.arange(96),Aplot, 20, errplot, vmin=0, vmax=0.05)
-    cbar = fig.colorbar(ph)
-    cbar.set_label('fit RMSE')
-    plt.grid()
+    # ph = ax[1].scatter(np.arange(96),Aplot, 20, errplot, vmin=0, vmax=0.05)
+    # cbar = fig.colorbar(ph)
+    # cbar.set_label('fit RMSE')
+    # plt.grid()
     dx = 0.1
     Vol = np.nansum(post_extend[(lidar_xFRF >= 45) & (lidar_xFRF <= 130),:]*dx,axis=0)
     dVol = Vol[1:] - Vol[0:-1]
-    ph2 = ax[2].scatter(np.arange(95), np.log10(abs(dVol)), 20, Aplot[1:], vmin=0.05, vmax=0.15, cmap='rainbow')
-    cbar2 = fig.colorbar(ph2)
-    cbar2.set_label('Acoef')
-    plt.grid()
+    # ph2 = ax[2].scatter(np.arange(95), np.log10(abs(dVol)), 20, Aplot[1:], vmin=0.05, vmax=0.15, cmap='rainbow')
+    # cbar2 = fig.colorbar(ph2)
+    # cbar2.set_label('Acoef')
+    # plt.grid()
+    # save to vectors
+    pairwise_dVol[1:,setjj] = dVol[:]
+    pairwise_Acoef[1:,setjj] = (Aplot[1:]+Aplot[0:-1])/2
+    pairwise_minerror[1:,setjj] = np.nanmin([errplot[1:],errplot[0:-1]],axis=0)
+
+fig, ax = plt.subplots()
+xplot = np.reshape(pairwise_Acoef,pairwise_Acoef.size)
+yplot = np.reshape(pairwise_dVol,pairwise_dVol.size)
+cplot = np.reshape(pairwise_minerror,pairwise_minerror.size)
+tmpii = ~np.isnan(xplot) & ~np.isnan(yplot) & ~np.isnan(cplot)
+xplot = xplot[tmpii]
+yplot = yplot[tmpii]
+cplot = cplot[tmpii]
+logyplot = np.log10(abs(yplot))
+logyplot[np.isinf(-logyplot)] = 0
+ph = ax.scatter(xplot,logyplot,1,cplot,alpha=0.01,vmin=0,vmax=0.05)
+cbar = fig.colorbar(ph)
+ax.set_xlabel('Acoef')
+ax.set_ylabel('log(dVol)')
+fig, ax = plt.subplots()
+ph = plt.hist2d(xplot,logyplot,bins=50)
+ax.set_xlabel('Acoef')
+ax.set_ylabel('log(dVol)')
+fig, ax = plt.subplots()
+plt.hist(xplot)
+fig, ax = plt.subplots()
+ph = plt.hist2d(xplot,cplot,bins=50)
+ax.set_xlabel('Acoef')
+ax.set_ylabel('error')
+fig, ax = plt.subplots()
+plt.hist(xplot,bins=50,density=True,cumulative=True)
+plt.grid()
+ax.set_xlabel('Acoef')
+ax.set_ylabel('npdf')
+fig, ax = plt.subplots()
+plt.hist(xplot,bins=50,density=True)
+plt.grid()
+ax.set_xlabel('Acoef')
+ax.set_ylabel('pdf')
+
+################# STEP 2.3 - DEFINE SET-AVERAGE ACoef #################
+
+Acoef_setavg = np.empty((num_datasets,))
+for jj in np.arange(num_datasets):
+    Aplot = Acoef_alldatasets[:,jj]
+    Aplot[Aplot >= 0.10] = np.nan
+    Acoef_setavg[jj] = np.nanmean(Aplot)
+    if sum(~np.isnan(Aplot)) < 5:
+        Acoef_setavg[jj] = 0.075
+
+xplot = np.reshape(Acoef_setavg,Acoef_setavg.size)
+fig, ax = plt.subplots()
+plt.hist(xplot,bins=50,density=True,cumulative=True)
+plt.grid()
+ax.set_xlabel('Acoef')
+ax.set_ylabel('npdf')
+fig, ax = plt.subplots()
+plt.hist(xplot,bins=50,density=True)
+plt.grid()
+ax.set_xlabel('Acoef')
+ax.set_ylabel('pdf')
+
+
+################# STEP 2.4 - REPEAT EXTENSION WITH AVG ACoef #################
+
+
+
 
 ################# STEP 3 - REPEAT INTERP IN TIME #################
 
