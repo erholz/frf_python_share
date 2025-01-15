@@ -57,30 +57,56 @@ with open(picklefile_dir+'datasets_ML_14Dec2024.pickle', 'rb') as file:
     num_datasets = len(datasets_ML)
 with open(picklefile_dir+'topobathy_finalCheckBeforePCA_Zdunetoe_3p2m.pickle','rb') as file:
     topobathy_check_xshoreFill,dataset_passFinalCheck,iiDS_passFinalCheck,iirow_finalcheck = pickle.load(file)
+with open(picklefile_dir+'topobathy_PCA_Zdunetoe_3p2m_Lmin_75.pickle','rb') as file:
+    dataNorm,dataMean,dataStd,PCs,EOFs,APEV,reconstruct_profileNorm,reconstruct_profile = pickle.load(file)
+with open(picklefile_dir+'topobathy_reshape_indexKeeper.pickle','rb') as file:
+    tt_unique,origin_set,dataset_index_fullspan,dataset_index_plot = pickle.load(file)
 
 iiDS = iiDS_passFinalCheck[:]
 num_features = 8
 num_steps = 24*4
-num_datasets = iiDS.size
+# num_datasets = iiDS.size
+num_datasets = 200
 train_X = np.empty((num_datasets,num_steps,num_features))
 train_X[:] = np.nan
-for jj in np.arange(iiDS.size):
-    # get input hydro
-    varname = 'dataset_' + str(int(jj))
-    exec('waterlevel = datasets_ML["' + varname + '"]["set_waterlevel"]')
-    ds_watlev = waterlevel
-    exec('Hs = datasets_ML["' + varname + '"]["set_Hs8m"]')
-    ds_Hs = Hs
-    exec('Tp = datasets_ML["' + varname + '"]["set_Tp8m"]')
-    ds_Tp = Tp
-    exec('wdir = datasets_ML["' + varname + '"]["set_dir8m"]')
-    ds_wdir = wdir
-    # load into training matrix
-    train_X[jj, :, 0] = ds_watlev
-    train_X[jj, :, 1] = ds_Hs
-    train_X[jj, :, 2] = ds_Tp
-    train_X[jj, :, 3] = ds_wdir
+numinset = np.empty((num_datasets,))
+numinset[:] = np.nan
+avgdt = np.empty((num_datasets,))
+avgdt[:] = np.nan
+for jj in np.arange(1,num_datasets):
+    dsjj = iiDS[jj]
+    # # get input hydro
+    # varname = 'dataset_' + str(int(dsjj))
+    # exec('waterlevel = datasets_ML["' + varname + '"]["set_waterlevel"]')
+    # ds_watlev = waterlevel
+    # exec('Hs = datasets_ML["' + varname + '"]["set_Hs8m"]')
+    # ds_Hs = Hs
+    # exec('Tp = datasets_ML["' + varname + '"]["set_Tp8m"]')
+    # ds_Tp = Tp
+    # exec('wdir = datasets_ML["' + varname + '"]["set_dir8m"]')
+    # ds_wdir = wdir
+    # # load into training matrix
+    # train_X[jj, :, 0] = ds_watlev
+    # train_X[jj, :, 1] = ds_Hs
+    # train_X[jj, :, 2] = ds_Tp
+    # train_X[jj, :, 3] = ds_wdir
+    #
+    #
+    # # test to see if we pull correct PCs for each setjj of 96
+    # tmpii = dataset_index_plot[dsjj,:]
+    # Z_setjj = topobathy_check_xshoreFill[:,tmpii]
+    # fig, ax = plt.subplots()
+    # ax.plot(Z_setjj)
 
+    tmpii = np.where(np.isin(iirow_finalcheck,dataset_index_plot[dsjj,:]))[0]
+
+
+#     numinset[jj] = tmpii.size
+#     avgdt[jj] = np.max(abs(tmpii[1:]-tmpii[0:-1]))
+# fig, ax = plt.subplots()
+# ax.plot(numinset,'o')
+# fig, ax = plt.subplots()
+# ax.plot(avgdt,'o')
 
 
 # # from sample - load data and prep data
