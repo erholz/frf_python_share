@@ -11,7 +11,7 @@ from funcs.align_data_time import align_data_fullspan
 from funcs.create_contours import *
 from funcs.wavefuncs import *
 from scipy.optimize import curve_fit
-from scipy.interpolate import splrep, BSpline, splev, CubicSpline, RectBivariateSpline, griddata
+from scipy.interpolate import splrep, BSpline, splev, CubicSpline, RectBivariateSpline, griddata, interp1d
 from funcs.find_nangaps import *
 
 
@@ -277,7 +277,7 @@ picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_
 # with open(picklefile_dir+'topobathy_extendStats.pickle','rb') as file:
 #     avg_Acoef,avg_fiterror,avg_zobsfinal,numprof_notextended,Acoef_alldatasets,fitrmse_alldatasets = pickle.load(file)
 
-################# STEP 2.1 - REVIEW/SMOOTH ACoeff #################
+################# STEP 2.1 - REVIEW ACoeff #################
 
 
 fig, ax = plt.subplots()
@@ -456,11 +456,168 @@ for jj in np.arange(num_datasets):
     # ax.plot(lidar_xFRF, topobathy_postxshoreinterp[:, :, jj])
     # ax.set_xlim(45, 150)
 
-picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_12Jan2025/'
-with open(picklefile_dir+'topobathy_scatterInterp.pickle','wb') as file:
-    pickle.dump([topobathy_scatterInterp], file)
+# picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_12Jan2025/'
+# with open(picklefile_dir+'topobathy_scatterInterp.pickle','wb') as file:
+#     pickle.dump([topobathy_scatterInterp], file)
+
+################# STEP 2.5 - REPEAT EXTENSION WITH ACoef, but limit area included in extension #################
+
+
+topobathy_postextend_post2Dinterp = np.empty((lidar_xFRF.size,Nlook,num_datasets))
+topobathy_postextend_post2Dinterp[:] = np.nan
+avg_fiterror = np.empty(num_datasets,)
+avg_fiterror[:] = np.nan
+avg_Acoef = np.empty(num_datasets,)
+avg_Acoef[:] = np.nan
+Acoef_alldatasets_post2Dinterp = np.empty((Nlook,num_datasets))
+Acoef_alldatasets_post2Dinterp[:] = np.nan
+fitrmse_alldatasets_post2Dinterp = np.empty((Nlook,num_datasets))
+fitrmse_alldatasets_post2Dinterp[:] = np.nan
+numprof_notextended = np.empty(num_datasets,)
+numprof_notextended[:] = np.nan
+for jj in np.arange(num_datasets):
+# for jj in np.arange(2214):
+    varname = 'dataset_' + str(int(jj))
+    exec('timeslice = datasets_ML["' + varname + '"]["set_timeslice"]')
+    topobathy = topobathy_scatterInterp[:,:,jj]
+    exec('waterlevel = datasets_ML["' + varname + '"]["set_waterlevel"]')
+    topobathy_postextend[:,:,jj] = topobathy[:]
+
+    # initialize fit coefficints
+    Acoef = np.empty(shape=timeslice.shape)
+    Acoef[:] = np.nan
+    # bcoef = np.empty(shape=timeslice.shape)
+    # bcoef[:] = np.nan
+    fitrmse = np.empty(shape=timeslice.shape)
+    fitrmse[:] = np.nan
+    profile_extend = np.empty(shape=topobathy.shape)
+    profile_extend[:] = topobathy[:]
+    profile_extend_testdata = np.empty(shape=topobathy.shape)
+    profile_extend_testdata[:] = np.nan
+    prof_x_wl = np.empty(shape=timeslice.shape)
+    prof_x_wl[:] = np.nan
+    zobs_final = np.empty(shape=timeslice.shape)
+    zobs_final[:] = np.nan
+    for tt in np.arange(timeslice.size):
+        Lgrab = 2.5          # try fitting equilibrium profile to last [Lgrab] meters of available data
+        watlev_tt = waterlevel[tt]
+        wlbuffer = 0.1
+        # first find if there are ANY gaps in the profile
+        zinput = topobathy[:, tt]
+        ix_notnan = np.where(~np.isnan(zinput))[0]
+        if len(ix_notnan) > 0:
+            zinput = zinput[np.arange(ix_notnan[0],ix_notnan[-1])]
+            gapstart, gapend, gapsize, maxgap = find_nangaps(zinput)
+            # if maxgap > 50:
+            #     print('max gap size = ' + str(maxgap)+' for tt = '+str(tt))
+        if (sum(~np.isnan(topobathy[:,tt])) > 10) & (~np.isnan(watlev_tt)):
+            ii_submerged = np.where(topobathy[:, tt] <= watlev_tt + wlbuffer)[0]
+            iiclose = np.where(abs(topobathy[:, tt]-(wlbuffer+watlev_tt)) == np.nanmin(abs(topobathy[:,tt]-(wlbuffer+watlev_tt))))[0]
+            doublebuffer_flag = 0
+            if iiclose.size > 1:
+                iiclose = iiclose[0]
+            prof_x_wl[tt] = np.interp((wlbuffer + watlev_tt)[0], topobathy[np.arange(iiclose - 1, iiclose + 1), tt],lidar_xFRF[np.arange(iiclose - 1, iiclose + 1)])
+            if len(ii_submerged) <= 5:
+                ii_submerged = np.where(topobathy[:, tt] <= watlev_tt + 2*wlbuffer)[0]
+                iiclose = np.where(abs(topobathy[:, tt] - (2*wlbuffer + watlev_tt)) == np.nanmin(abs(topobathy[:, tt] - (2*wlbuffer + watlev_tt))))[0]
+                if iiclose.size > 1:
+                    iiclose = iiclose[0]
+                prof_x_wl[tt] = np.interp((wlbuffer + 2*watlev_tt)[0], topobathy[np.arange(iiclose - 1, iiclose + 1), tt],lidar_xFRF[np.arange(iiclose - 1, iiclose + 1)])
+                doublebuffer_flag = 1
+            if len(ii_submerged) > 5:
+                # print('double buffer = ' + str(doublebuffer_flag) + 'for tt = '+str(tt))
+                iitest = ii_submerged
+                if len(ii_submerged) > Lgrab/dx:
+                    ngrab = int(Lgrab/dx)
+                    iitest = ii_submerged[-ngrab:]
+                if doublebuffer_flag == 1:
+                    htmp = (2*wlbuffer + watlev_tt) - topobathy[iitest, tt]
+                else:
+                    htmp = (wlbuffer + watlev_tt) - topobathy[iitest,tt]
+                xtmp = dx*np.arange(htmp.size)
+                iitest = iitest[~np.isnan(htmp)]
+                xtmp = xtmp[~np.isnan(htmp)]
+                htmp = htmp[~np.isnan(htmp)]
+                if doublebuffer_flag == 1:
+                    zobs_final[tt] = (2*wlbuffer + watlev_tt) - htmp[-1]
+                else:
+                    zobs_final[tt] = (wlbuffer + watlev_tt) - htmp[-1]
+                profile_extend_testdata[iitest,tt] = topobathy[iitest,tt]
+                h_init = htmp[0]
+                htest = htmp - h_init # make initial value 0
+                # popt, pcov = curve_fit(equilibriumprofile_func_2param, xtmp, htmp, bounds=([0, -np.inf], [15, np.inf]))
+                # popt, pcov = curve_fit(equilibriumprofile_func_2param, xtmp, ztmp)
+                popt, pcov = curve_fit(equilibriumprofile_func_1param, xtmp, htest, bounds=([0.05], [0.165]))
+                Acoef[tt] = popt[0]
+                # bcoef[tt] = popt[1]
+                hfit = equilibriumprofile_func_1param(xtmp, *popt)
+                fitrmse[tt] = np.sqrt(np.mean((hfit-htest)**2))
+                # x_extend = np.arange(lidar_xFRF_shift[iitest[-1]]+dx,lidar_xFRF_shift[-1],dx)
+                x_extend = np.arange(lidar_xFRF[iitest[0]] + dx, lidar_xFRF[-1], dx)
+                x_extend_norm = x_extend - x_extend[0]
+                h_extend_norm = equilibriumprofile_func_1param(x_extend_norm, *popt)
+                h_extend = h_extend_norm + h_init
+                if doublebuffer_flag == 1:
+                    z_extend = (2*wlbuffer + watlev_tt) - h_extend
+                else:
+                    z_extend = (wlbuffer + watlev_tt) - h_extend
+                profile_extend[np.arange(iitest[0] + 1, nx - 1),tt] = z_extend
+                # # # # # # #
+                # # PLOT
+                # fig, ax = plt.subplots()
+                # ax.plot(lidar_xFRF[iitest],watlev_tt - htmp,'o')
+                # # ax.plot(lidar_xFRF_shift[iitest],watlev_tt - equilibriumprofile_func_2param(xtmp, *popt), label='fit: a=%5.3f, b=%5.3f' % tuple(popt))
+                # ax.plot(lidar_xFRF[iitest], watlev_tt - equilibriumprofile_func_1param(xtmp, *popt),
+                #         label='fit: a=%5.3f' % tuple(popt))
+                # # ax.plot(x_extend,watlev_tt - z_extend)
+                # ax.plot(lidar_xFRF,profile_extend[:,tt],':k',label='extend profile')
+                # ax.plot(lidar_xFRF,watlev_tt*np.ones(shape=lidar_xFRF.shape),'b',label='waterline')
+                # ax.legend()
+        topobathy_postextend_post2Dinterp[:,:,jj] = profile_extend
+    if sum(~np.isnan(Acoef)) > 0:
+        avg_Acoef[jj] = np.nanmean(Acoef)
+        avg_fiterror[jj] = np.nanmean(fitrmse)
+        numprof_notextended[jj] = sum(np.isnan(Acoef))
+        Acoef_alldatasets_post2Dinterp[:,jj] = Acoef
+        fitrmse_alldatasets_post2Dinterp[:,jj] = fitrmse
+    elif sum(~np.isnan(Acoef)) == 0:
+        numprof_notextended[jj] = sum(np.isnan(Acoef))
+
+
+# Now create the smaller matrices
+topobathy_postextend_post2Dinterp_plot = np.empty((lidar_xFRF.size,tt_unique.size))
+topobathy_postextend_post2Dinterp_plot[:] = np.nan
+dataset_index_plot = np.empty((num_datasets,Nlook))
+dataset_index_plot[:] = np.nan
+tt_alreadyinset = np.zeros(shape=tt_unique.shape)
+
+for jj in np.arange(num_datasets):
+    varname = 'dataset_' + str(int(jj))
+    exec('timeslice = datasets_ML["' + varname + '"]["set_timeslice"]')
+    z_postextend_post2Dinterp = topobathy_postextend_post2Dinterp[:, :, jj]
+
+    # find if any times are in the unique set
+    ii_match_set = np.isin(tt_unique,timeslice)
+    ii_to_be_added = np.where(ii_match_set & (tt_alreadyinset == 0))[0]
+    dataset_index_plot[jj,:] = np.where(np.isin(tt_unique,timeslice))[0]
+
+    # add topobathy profiles that match that time
+    ii_to_add = np.isin(timeslice,tt_unique[ii_to_be_added])
+    if sum(ii_to_add) > 0:
+        topobathy_postextend_post2Dinterp_plot[:,ii_to_be_added] = z_postextend_post2Dinterp[:,ii_to_add]
+        # set matching times to already-in-set array
+        tt_alreadyinset[ii_match_set] = 1
+
+fig, ax = plt.subplots()
+ax.plot(topobathy_postextend_post2Dinterp_plot,color=[0.5,0.5,0.5],alpha=0.01)
+
+# picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_12Jan2025/'
+# with open(picklefile_dir + 'topobathy_postextend_post2Dinterp.pickle', 'wb') as file:
+#     pickle.dump([topobathy_postextend_post2Dinterp,topobathy_postextend_post2Dinterp_plot,Acoef_alldatasets_post2Dinterp,fitrmse_alldatasets_post2Dinterp], file)
+
 
 ################# STEP X - REPEAT EXTENSION WITH AVG ACoef #################
+
 
 # Initialize the aggregate topobathy for pre- and post- extensions
 dx = 0.1
@@ -659,7 +816,7 @@ for jj in np.floor(np.linspace(0,sets_to_review.size-1,2)):
     # cbar2.set_label('Acoef')
     # plt.grid()
 
-################# STEP 2.5 - FIND SINGLE LONG PROFILE TO EXTEND TO #################
+################# STEP 2.X - FIND SINGLE LONG PROFILE TO EXTEND TO #################
 
 
 # Initialize the aggregate topobathy for pre- and post- extensions
@@ -1089,10 +1246,111 @@ picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_
 
 
 
+################# STEP 6 - FINAL CHECK HYDRO INPUTS #################
 
 
+with open(picklefile_dir+'topobathy_finalCheckBeforePCA_Zdunetoe_3p2m.pickle','rb') as file:
+    topobathy_check_xshoreFill,dataset_passFinalCheck,iiDS_passFinalCheck,iirow_finalcheck = pickle.load(file)
 
+Nlook = 4*24
+iiDS = iiDS_passFinalCheck[:]
+# num_datasets = iiDS.size
+num_datasets = len(datasets_ML)
+nanflag_hydro = np.zeros((num_datasets,4))
+hydro_datasetsForML = np.empty((num_datasets,Nlook,4))
+for jj in np.arange(num_datasets-1):
+    # dsjj = iiDS[jj]
+    dsjj = jj
+    # get input hydro
+    varname = 'dataset_' + str(int(dsjj))
+    exec('waterlevel = datasets_ML["' + varname + '"]["set_waterlevel"]')
+    ds_watlev = np.squeeze(waterlevel)
+    hydro_datasetsForML[jj,:,0] = ds_watlev
+    nanflag_hydro[jj,0] = sum(np.isnan(ds_watlev))
+    exec('Hs = datasets_ML["' + varname + '"]["set_Hs8m"]')
+    ds_Hs = np.squeeze(Hs)
+    hydro_datasetsForML[jj, :, 1] = ds_Hs
+    nanflag_hydro[jj, 1] = sum(np.isnan(ds_Hs))
+    exec('Tp = datasets_ML["' + varname + '"]["set_Tp8m"]')
+    ds_Tp = np.squeeze(Tp)
+    hydro_datasetsForML[jj, :, 2] = ds_Tp
+    nanflag_hydro[jj, 2] = sum(np.isnan(ds_Tp))
+    exec('wdir = datasets_ML["' + varname + '"]["set_dir8m"]')
+    ds_wdir = np.squeeze(wdir)
+    hydro_datasetsForML[jj, :, 3] = ds_wdir
+    nanflag_hydro[jj, 3] = sum(np.isnan(ds_wdir))
 
+fig, ax = plt.subplots()
+ax.plot(nanflag_hydro,'.')
+
+# look at cases where WL gaps in availability is less than a tidal cycle...
+# iigappy = np.where((nanflag_hydro[:,0] > 13) & (nanflag_hydro[:,0] <= 20))[0]
+iigappy = np.where((nanflag_hydro[:,0] <= 15))[0]
+for jj in iigappy:
+    # dsjj = iiDS[jj]
+    dsjj = jj
+    # get input hydro
+    varname = 'dataset_' + str(int(dsjj))
+    exec('waterlevel = datasets_ML["' + varname + '"]["set_waterlevel"]')
+    ds_watlev = np.squeeze(waterlevel)
+    if (~np.isnan(ds_watlev[-1])) & (~np.isnan(ds_watlev[0])):
+        xtmp = np.arange(ds_watlev.size)
+        ytmp = ds_watlev
+        xin = xtmp[~np.isnan(ytmp)]
+        yin = ytmp[~np.isnan(ytmp)]
+        cs = CubicSpline(xin, yin, bc_type='natural')
+        ynew = cs(xtmp)
+        # fig, ax = plt.subplots()
+        # ax.plot(ds_watlev,'o-')
+        # plt.grid()
+        # ax.plot(ynew, '*')
+        hydro_datasetsForML[jj, :, 0] = ynew
+        nanflag_hydro[jj, 0] = sum(np.isnan(ynew))
+
+# do linear interp for wave stats in data gap < 6
+for jj in np.arange(num_datasets):
+    # dsjj = iiDS[jj]
+    dsjj = jj
+    if (nanflag_hydro[jj, 1] > 0) & (nanflag_hydro[jj, 1] <= 5):
+        exec('Hs = datasets_ML["' + varname + '"]["set_Hs8m"]')
+        ds_Hs = np.squeeze(Hs)
+        if (~np.isnan(ds_Hs[-1])) & (~np.isnan(ds_Hs[0])):
+            xtmp = np.arange(ds_Hs.size)
+            ytmp = ds_Hs
+            xin = xtmp[~np.isnan(ytmp)]
+            yin = ytmp[~np.isnan(ytmp)]
+            f = interp1d(xin, yin)
+            ynew = f(xtmp)
+            hydro_datasetsForML[jj, :, 1] = ynew
+            nanflag_hydro[jj, 1] = sum(np.isnan(ynew))
+    if (nanflag_hydro[jj, 2] > 0) & (nanflag_hydro[jj, 2] <= 5):
+        exec('Tp = datasets_ML["' + varname + '"]["set_Tp8m"]')
+        ds_Tp = np.squeeze(Tp)
+        if (~np.isnan(ds_Tp[-1])) & (~np.isnan(ds_Tp[0])):
+            xtmp = np.arange(ds_Tp.size)
+            ytmp = ds_Tp
+            xin = xtmp[~np.isnan(ytmp)]
+            yin = ytmp[~np.isnan(ytmp)]
+            f = interp1d(xin, yin)
+            ynew = f(xtmp)
+            hydro_datasetsForML[jj, :, 2] = ynew
+            nanflag_hydro[jj, 2] = sum(np.isnan(ynew))
+    if (nanflag_hydro[jj, 3] > 0) & (nanflag_hydro[jj, 3] <= 5):
+        exec('wdir = datasets_ML["' + varname + '"]["set_dir8m"]')
+        ds_wdir = np.squeeze(wdir)
+        if (~np.isnan(ds_wdir[-1])) & (~np.isnan(ds_wdir[0])):
+            xtmp = np.arange(ds_wdir.size)
+            ytmp = ds_wdir
+            xin = xtmp[~np.isnan(ytmp)]
+            yin = ytmp[~np.isnan(ytmp)]
+            f = interp1d(xin, yin)
+            ynew = f(xtmp)
+            hydro_datasetsForML[jj, :, 3] = ynew
+            nanflag_hydro[jj, 3] = sum(np.isnan(ynew))
+
+# picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_12Jan2025/'
+# with open(picklefile_dir + 'hydro_datasetsForML.pickle', 'wb') as file:
+#     pickle.dump([hydro_datasetsForML,nanflag_hydro], file)
 
 
 ############## OLD #################

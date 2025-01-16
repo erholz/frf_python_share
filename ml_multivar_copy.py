@@ -22,6 +22,7 @@ from keras.utils import plot_model
 import datetime as dt
 import pydot
 import visualkeras
+import random
 
 
 # FUNC from sample - convert series to supervised learning
@@ -61,55 +62,73 @@ with open(picklefile_dir+'topobathy_PCA_Zdunetoe_3p2m_Lmin_75.pickle','rb') as f
     dataNorm,dataMean,dataStd,PCs,EOFs,APEV,reconstruct_profileNorm,reconstruct_profile = pickle.load(file)
 with open(picklefile_dir+'topobathy_reshape_indexKeeper.pickle','rb') as file:
     tt_unique,origin_set,dataset_index_fullspan,dataset_index_plot = pickle.load(file)
+picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_12Jan2025/'
+with open(picklefile_dir + 'hydro_datasetsForML.pickle', 'rb') as file:
+    hydro_datasetsForML,nanflag_hydro = pickle.load(file)
 
 iiDS = iiDS_passFinalCheck[:]
 num_features = 8
-num_steps = 24*4
-# num_datasets = iiDS.size
-num_datasets = 200
-train_X = np.empty((num_datasets,num_steps,num_features))
-train_X[:] = np.nan
+num_steps = 24*4 - 1
+num_datasets = iiDS.size
+# num_datasets = 200
+inputData = np.empty((num_datasets,num_steps,num_features))
+inputData[:] = np.nan
+outputData = np.empty((num_datasets,))
+outputData[:] = np.nan
 numinset = np.empty((num_datasets,))
 numinset[:] = np.nan
 avgdt = np.empty((num_datasets,))
 avgdt[:] = np.nan
+nanhydro_data = np.zeros((num_datasets,))
+nanPCs_data = np.zeros((num_datasets,))
 for jj in np.arange(1,num_datasets):
     dsjj = iiDS[jj]
-    # # get input hydro
-    # varname = 'dataset_' + str(int(dsjj))
-    # exec('waterlevel = datasets_ML["' + varname + '"]["set_waterlevel"]')
-    # ds_watlev = waterlevel
-    # exec('Hs = datasets_ML["' + varname + '"]["set_Hs8m"]')
-    # ds_Hs = Hs
-    # exec('Tp = datasets_ML["' + varname + '"]["set_Tp8m"]')
-    # ds_Tp = Tp
-    # exec('wdir = datasets_ML["' + varname + '"]["set_dir8m"]')
-    # ds_wdir = wdir
-    # # load into training matrix
-    # train_X[jj, :, 0] = ds_watlev
-    # train_X[jj, :, 1] = ds_Hs
-    # train_X[jj, :, 2] = ds_Tp
-    # train_X[jj, :, 3] = ds_wdir
-    #
-    #
+    # get input hydro
+    ds_watlev = hydro_datasetsForML[dsjj,:,0]
+    ds_Hs = hydro_datasetsForML[dsjj,:,1]
+    ds_Tp = hydro_datasetsForML[dsjj,:,2]
+    ds_wdir = hydro_datasetsForML[dsjj,:,3]
+    if sum(nanflag_hydro[dsjj,:]) > 0:
+        nanhydro_data[jj] = 1
+    # get input PC amplitudes
+    tmpii = np.where(np.isin(iirow_finalcheck, dataset_index_plot[dsjj, :]))[0].astype(int)
+    PCs_setjj = PCs[tmpii, :]
+    # load into training matrices
+    inputData[jj, :, 0] = ds_watlev[0:-1]
+    inputData[jj, :, 1] = ds_Hs[0:-1]
+    inputData[jj, :, 2] = ds_Tp[0:-1]
+    inputData[jj, :, 3] = ds_wdir[0:-1]
+    inputData[jj, :, 4] = PCs_setjj[0:-1,0]
+    inputData[jj, :, 5] = PCs_setjj[0:-1,1]
+    inputData[jj, :, 6] = PCs_setjj[0:-1,2]
+    inputData[jj, :, 7] = PCs_setjj[0:-1,3]
+    outputData[jj] = PCs_setjj[-1,0]
+    if np.nansum(np.isnan(PCs_setjj)) > 0:
+        nanPCs_data[jj] = 1
     # # test to see if we pull correct PCs for each setjj of 96
-    # tmpii = dataset_index_plot[dsjj,:]
+    # tmpii = dataset_index_plot[dsjj,:].astype(int)
     # Z_setjj = topobathy_check_xshoreFill[:,tmpii]
     # fig, ax = plt.subplots()
     # ax.plot(Z_setjj)
-
-    tmpii = np.where(np.isin(iirow_finalcheck,dataset_index_plot[dsjj,:]))[0]
-
-
-#     numinset[jj] = tmpii.size
-#     avgdt[jj] = np.max(abs(tmpii[1:]-tmpii[0:-1]))
+    # tmpii = np.where(np.isin(iirow_finalcheck,dataset_index_plot[dsjj,:]))[0].astype(int)
+    # PCs_setjj = PCs[tmpii,:]
+    # mode1 = np.tile(EOFs[0,:],(tmpii.size,1)).T * PCs_setjj[:,0]
+    # mode2 = np.tile(EOFs[1,:],(tmpii.size,1)).T * PCs_setjj[:,1]
+    # mode3 = np.tile(EOFs[2,:],(tmpii.size,1)).T * PCs_setjj[:,2]
+    # mode4 = np.tile(EOFs[3,:],(tmpii.size,1)).T * PCs_setjj[:,3]
+    # mode5 = np.tile(EOFs[4,:],(tmpii.size,1)).T * PCs_setjj[:, 4]
+    # mode6 = np.tile(EOFs[5,:],(tmpii.size,1)).T * PCs_setjj[:, 5]
+    # profs_norm = mode1 + mode2 + mode3 + mode4 + mode5 + mode6
+    # profs_setjjT = profs_norm.T * dataStd.T + dataMean.T
+    # profs_setjj = profs_setjjT.T
 # fig, ax = plt.subplots()
 # ax.plot(numinset,'o')
 # fig, ax = plt.subplots()
 # ax.plot(avgdt,'o')
 
 
-# # from sample - load data and prep data
+
+# # FROM SAMPLE -- load data and prep data
 # fname = "C:/Users/rdchlerh/Downloads/raw.csv"
 # def parse(x):
 # 	return dt.strptime(x, '%Y %m %d %H')
@@ -147,23 +166,60 @@ for jj in np.arange(1,num_datasets):
 
 
 
-
-
-
 ############### Step 2 - Split into test/train ###############
 
-# split into train and test sets
-values = reframed.values
-n_train_hours = 365 * 24
-train = values[:n_train_hours, :]
-test = values[n_train_hours:, :]
-# split into input (all but last column) and output (1 column)
-train_X, train_y = train[:, :-1], train[:, -1]
-test_X, test_y = test[:, :-1], test[:, -1]
-# reshape input to be 3D [samples, timesteps, features]
-train_X = train_X.reshape((train_X.shape[0], 1, train_X.shape[1]))
-test_X = test_X.reshape((test_X.shape[0], 1, test_X.shape[1]))
-print(train_X.shape, train_y.shape, test_X.shape, test_y.shape)
+# remove few odd sets with nans in hydro data
+iiremove = (nanhydro_data > 0) + (nanPCs_data > 0)
+iiremove[0] = True
+iikeep = ~iiremove
+inputData_keep = inputData[iikeep,:,:]
+outputData_keep = outputData[iikeep]
+
+# separate test and train IDs
+frac = 1/4
+num_datasets = sum(iikeep)
+Ntrain = int(np.floor(num_datasets*frac))
+Ntest = num_datasets - Ntrain
+tmpii = random.sample(range(num_datasets), Ntrain)
+iitrain = np.isin(np.arange(num_datasets),tmpii)
+iitest = ~iitrain
+# load training
+train_X = np.empty((Ntrain,num_steps,num_features))
+train_y = np.empty((Ntrain,))
+train_X[:,:,:] = inputData_keep[iitrain,:,:]
+train_y[:] = outputData_keep[iitrain]
+# load testing
+test_X = np.empty((Ntest,num_steps,num_features))
+test_y = np.empty((Ntest,))
+test_X[:,:,:] = inputData_keep[iitest,:,:]
+test_y[:] = outputData_keep[iitest]
+
+
+# # FROM SAMPLE -- split into train and test sets
+# values = reframed.values
+# n_train_hours = 365 * 24
+# train = values[:n_train_hours, :]
+# test = values[n_train_hours:, :]
+# # split into input (all but last column) and output (1 column)
+# train_X, train_y = train[:, :-1], train[:, -1]
+# test_X, test_y = test[:, :-1], test[:, -1]
+# # reshape input to be 3D [samples, timesteps, features]
+# train_X = train_X.reshape((train_X.shape[0], 1, train_X.shape[1]))
+# test_X = test_X.reshape((test_X.shape[0], 1, test_X.shape[1]))
+# print(train_X.shape, train_y.shape, test_X.shape, test_y.shape)
+#
+# # design network
+# model = Sequential()
+# model.add(LSTM(25, input_shape=(train_X.shape[1], train_X.shape[2])))
+# model.add(Dense(1))
+# model.compile(loss='mae', optimizer='adam')
+#
+# # # Define the Keras TensorBoard callback.
+# # logdir = "logs/fit/" + dt.datetime.now().strftime("%Y%m%d-%H%M%S")
+# # tensorboard_callback = keras.callbacks.TensorBoard(log_dir=logdir)
+# # callbacks=[tensorboard_callback]
+
+############### Step 3 - Design/Fit network ###############
 
 # design network
 model = Sequential()
@@ -171,19 +227,17 @@ model.add(LSTM(25, input_shape=(train_X.shape[1], train_X.shape[2])))
 model.add(Dense(1))
 model.compile(loss='mae', optimizer='adam')
 
-# # Define the Keras TensorBoard callback.
-# logdir = "logs/fit/" + dt.datetime.now().strftime("%Y%m%d-%H%M%S")
-# tensorboard_callback = keras.callbacks.TensorBoard(log_dir=logdir)
-# callbacks=[tensorboard_callback]
-
 # fit network
-history = model.fit(train_X, train_y, epochs=40, batch_size=32, validation_data=(test_X, test_y), verbose=2,
+history = model.fit(train_X, train_y, epochs=50, batch_size=32, validation_data=(test_X, test_y), verbose=2,
                     shuffle=False)
 # plot history
+fig, ax = plt.subplots()
 plt.plot(history.history['loss'], label='train')
 plt.plot(history.history['val_loss'], label='test')
 plt.legend()
 plt.show()
+ax.set_xlabel('epoch (test/train cycle)')
+ax.set_ylabel('error')
 
 # make a prediction
 yhat = model.predict(test_X)
