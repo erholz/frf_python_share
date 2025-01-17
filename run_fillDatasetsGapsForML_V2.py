@@ -457,8 +457,12 @@ for jj in np.arange(num_datasets):
     # ax.set_xlim(45, 150)
 
 # picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_12Jan2025/'
+# picklefile_dir = 'D:/Projects/FY24/FY24_SMARTSEED/FRF_data/processed_12Jan2025/'
 # with open(picklefile_dir+'topobathy_scatterInterp.pickle','wb') as file:
 #     pickle.dump([topobathy_scatterInterp], file)
+with open(picklefile_dir+'topobathy_scatterInterp.pickle','rb') as file:
+    topobathy_scatterInterp = pickle.load(file)
+    topobathy_scatterInterp = topobathy_scatterInterp[0]
 
 ################# STEP 2.5 - REPEAT EXTENSION WITH ACoef, but limit area included in extension #################
 
@@ -614,8 +618,78 @@ ax.plot(topobathy_postextend_post2Dinterp_plot,color=[0.5,0.5,0.5],alpha=0.05)
 # picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_12Jan2025/'
 # with open(picklefile_dir + 'topobathy_postextend_post2Dinterp.pickle', 'wb') as file:
 #     pickle.dump([topobathy_postextend_post2Dinterp,topobathy_postextend_post2Dinterp_plot,Acoef_alldatasets_post2Dinterp,fitrmse_alldatasets_post2Dinterp], file)
+with open(picklefile_dir + 'topobathy_postextend_post2Dinterp.pickle', 'rb') as file:
+    topobathy_postextend_post2Dinterp,topobathy_postextend_post2Dinterp_plot,Acoef_alldatasets_post2Dinterp,fitrmse_alldatasets_post2Dinterp = pickle.load(file)
+
 
 # ################# STEP 2.6 - Blend between longest real data and profile extensions ################
+
+Nlook = 24*4
+for jj in np.arange(num_datasets):
+
+    topotbathy_preScatterInterp_setjj = topobathy_postxshoreinterp[:,:,jj]
+    topobathy_scatterInterp_setjj = topobathy_scatterInterp[:,:,jj]
+    topobathy_postextend_post2Dinterp_setjj = topobathy_postextend_post2Dinterp[:,:,jj]
+
+    # Plot pre-scatterInterp
+    tplot = np.arange(Nlook)
+    xplot = np.arange(nx)
+    XX, TT = np.meshgrid(xplot, tplot)
+    timescatter = np.reshape(TT, TT.size)
+    xscatter = np.reshape(XX, XX.size)
+    ZZ = topotbathy_preScatterInterp_setjj
+    zscatter = np.reshape(ZZ.T, ZZ.size)
+    tt = timescatter[~np.isnan(zscatter)]
+    xx = xscatter[~np.isnan(zscatter)]
+    zz = zscatter[~np.isnan(zscatter)]
+    fig, ax = plt.subplots()
+    ph = ax.scatter(xx, tt, s=5, c=zz, cmap='viridis')
+    cbar = fig.colorbar(ph, ax=ax)
+    cbar.set_label('z[m]')
+    ax.set_title('pre 2D Interp')
+    fig, ax = plt.subplots()
+    ax.plot(lidar_xFRF, ZZ)
+    ax.set_title('pre 2D Interp')
+
+    # Plot post-scatterInterp/pre-extend
+    ZZ = topobathy_scatterInterp_setjj
+    zscatter = np.reshape(ZZ.T, ZZ.size)
+    tt = timescatter[~np.isnan(zscatter)]
+    xx = xscatter[~np.isnan(zscatter)]
+    zz = zscatter[~np.isnan(zscatter)]
+    fig, ax = plt.subplots()
+    ph = ax.scatter(xx, tt, s=5, c=zz, cmap='viridis')
+    cbar = fig.colorbar(ph, ax=ax)
+    cbar.set_label('z[m]')
+    ax.set_title('post 2D Interp / pre Extend')
+    fig, ax = plt.subplots()
+    ax.plot(lidar_xFRF,ZZ)
+    ax.set_title('post 2D Interp / pre Extend')
+
+    # Plot post-extend
+    ZZ = topobathy_postextend_post2Dinterp_setjj
+    ZZ = profile_extend
+    zscatter = np.reshape(ZZ.T, ZZ.size)
+    tt = timescatter[~np.isnan(zscatter)]
+    xx = xscatter[~np.isnan(zscatter)]
+    zz = zscatter[~np.isnan(zscatter)]
+    fig, ax = plt.subplots()
+    ph = ax.scatter(xx, tt, s=5, c=zz, cmap='viridis')
+    cbar = fig.colorbar(ph, ax=ax)
+    cbar.set_label('z[m]')
+    ax.set_title('post Extend')
+    fig, ax = plt.subplots()
+    ax.plot(lidar_xFRF, ZZ)
+    ax.set_title('post Extend')
+
+    # Plot number non-nans
+    yplot1 = np.nansum(~np.isnan(topotbathy_preScatterInterp_setjj),axis=1)
+    yplot2 = np.nansum(~np.isnan(topobathy_scatterInterp_setjj), axis=1)
+    yplot3 = np.nansum(~np.isnan(topobathy_postextend_post2Dinterp_setjj), axis=1)
+    fig, ax = plt.subplots()
+    ax.plot(lidar_xFRF,yplot1,'.')
+    ax.plot(lidar_xFRF, yplot2, '.')
+    ax.plot(lidar_xFRF, yplot3, '.')
 
 
 # ################# STEP X - REPEAT EXTENSION WITH AVG ACoef #################
