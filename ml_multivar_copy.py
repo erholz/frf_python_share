@@ -51,8 +51,9 @@ def series_to_supervised(data, n_in=1, n_out=1, dropnan=True):
 
 ############### Step 1 - Load and prep data ###############
 
-picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_10Dec2024/'
+# picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_10Dec2024/'
 # picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_10Dec2024/'
+picklefile_dir = 'D:/Projects/FY24/FY24_SMARTSEED/FRF_data/processed_10Dec2024/'
 with open(picklefile_dir+'datasets_ML_14Dec2024.pickle', 'rb') as file:
     datasets_ML = pickle.load(file)
     num_datasets = len(datasets_ML)
@@ -66,6 +67,40 @@ picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_
 with open(picklefile_dir + 'hydro_datasetsForML.pickle', 'rb') as file:
     hydro_datasetsForML,nanflag_hydro = pickle.load(file)
 
+# Re-scale data
+Nlook = 24*4
+num_datasets = len(datasets_ML)
+hydro_datasetsForML_scaled = np.empty(shape=hydro_datasetsForML.shape)
+PCs_scaled = np.empty(shape=PCs.shape)
+hydro_min = np.empty((4,))
+hydro_max = np.empty((4,))
+hydro_avg = np.empty((4,))
+hydro_std = np.empty((4,))
+PCs_min = np.empty((PCs.shape[1],))
+PCs_max = np.empty((PCs.shape[1],))
+PCs_avg = np.empty((PCs.shape[1],))
+PCs_std = np.empty((PCs.shape[1],))
+for nn in np.arange(4):
+    unscaled = hydro_datasetsForML[:,:,nn].reshape((Nlook*num_datasets,1))
+    hydro_min[nn] = np.nanmin(unscaled)
+    hydro_max[nn] = np.nanmax(unscaled)
+    hydro_avg[nn] = np.nanmean(unscaled)
+    hydro_std[nn] = np.nanstd(unscaled)
+    unscaled_reshape = unscaled.reshape((num_datasets,Nlook))
+    scaler = MinMaxScaler()
+    scaled = scaler.fit_transform(unscaled)
+    scaled_reshape = scaled.reshape((num_datasets,Nlook))
+    hydro_datasetsForML_scaled[:,:,nn] = scaled_reshape
+for nn in np.arange(PCs.shape[1]):
+    unscaled = PCs[:,nn].reshape((PCs.shape[0],1))
+    PCs_min[nn] = np.nanmin(unscaled)
+    PCs_max[nn] = np.nanmax(unscaled)
+    PCs_avg[nn] = np.nanmean(unscaled)
+    PCs_std[nn] = np.nanstd(unscaled)
+    scaler = MinMaxScaler()
+    scaled = scaler.fit_transform(unscaled)
+    PCs_scaled[:, nn] = np.squeeze(scaled)
+
 iiDS = iiDS_passFinalCheck[:]
 num_features = 8
 num_steps = 24*4 - 1
@@ -73,7 +108,8 @@ num_datasets = iiDS.size
 # num_datasets = 200
 inputData = np.empty((num_datasets,num_steps,num_features))
 inputData[:] = np.nan
-outputData = np.empty((num_datasets,))
+# outputData = np.empty((num_datasets,))
+outputData = np.empty((num_datasets,4))
 outputData[:] = np.nan
 numinset = np.empty((num_datasets,))
 numinset[:] = np.nan
@@ -84,15 +120,16 @@ nanPCs_data = np.zeros((num_datasets,))
 for jj in np.arange(1,num_datasets):
     dsjj = iiDS[jj]
     # get input hydro
-    ds_watlev = hydro_datasetsForML[dsjj,:,0]
-    ds_Hs = hydro_datasetsForML[dsjj,:,1]
-    ds_Tp = hydro_datasetsForML[dsjj,:,2]
-    ds_wdir = hydro_datasetsForML[dsjj,:,3]
+    ds_watlev = hydro_datasetsForML_scaled[dsjj,:,0]
+    ds_Hs = hydro_datasetsForML_scaled[dsjj,:,1]
+    ds_Tp = hydro_datasetsForML_scaled[dsjj,:,2]
+    ds_wdir = hydro_datasetsForML_scaled[dsjj,:,3]
     if sum(nanflag_hydro[dsjj,:]) > 0:
         nanhydro_data[jj] = 1
     # get input PC amplitudes
     tmpii = np.where(np.isin(iirow_finalcheck, dataset_index_plot[dsjj, :]))[0].astype(int)
-    PCs_setjj = PCs[tmpii, :]
+    PCs_setjj = PCs_scaled[tmpii, :]
+    numinset[jj] = sum(tmpii)
     # load into training matrices
     inputData[jj, :, 0] = ds_watlev[0:-1]
     inputData[jj, :, 1] = ds_Hs[0:-1]
@@ -102,9 +139,16 @@ for jj in np.arange(1,num_datasets):
     inputData[jj, :, 5] = PCs_setjj[0:-1,1]
     inputData[jj, :, 6] = PCs_setjj[0:-1,2]
     inputData[jj, :, 7] = PCs_setjj[0:-1,3]
-    outputData[jj] = PCs_setjj[-1,0]
+    # outputData[jj] = PCs_setjj[-1,0]
+    outputData[jj,0] = PCs_setjj[-1,0]
+    outputData[jj,1] = PCs_setjj[-1,1]
+    outputData[jj,2] = PCs_setjj[-1,3]
+    outputData[jj,3] = PCs_setjj[-1,4]
     if np.nansum(np.isnan(PCs_setjj)) > 0:
         nanPCs_data[jj] = 1
+
+
+
     # # test to see if we pull correct PCs for each setjj of 96
     # tmpii = dataset_index_plot[dsjj,:].astype(int)
     # Z_setjj = topobathy_check_xshoreFill[:,tmpii]
@@ -121,8 +165,8 @@ for jj in np.arange(1,num_datasets):
     # profs_norm = mode1 + mode2 + mode3 + mode4 + mode5 + mode6
     # profs_setjjT = profs_norm.T * dataStd.T + dataMean.T
     # profs_setjj = profs_setjjT.T
-# fig, ax = plt.subplots()
-# ax.plot(numinset,'o')
+fig, ax = plt.subplots()
+ax.plot(numinset,'o')
 # fig, ax = plt.subplots()
 # ax.plot(avgdt,'o')
 
@@ -173,10 +217,10 @@ iiremove = (nanhydro_data > 0) + (nanPCs_data > 0)
 iiremove[0] = True
 iikeep = ~iiremove
 inputData_keep = inputData[iikeep,:,:]
-outputData_keep = outputData[iikeep]
+outputData_keep = outputData[iikeep,:]
 
 # separate test and train IDs
-frac = 1/4
+frac = 1/3
 num_datasets = sum(iikeep)
 Ntrain = int(np.floor(num_datasets*frac))
 Ntest = num_datasets - Ntrain
@@ -185,14 +229,18 @@ iitrain = np.isin(np.arange(num_datasets),tmpii)
 iitest = ~iitrain
 # load training
 train_X = np.empty((Ntrain,num_steps,num_features))
-train_y = np.empty((Ntrain,))
 train_X[:,:,:] = inputData_keep[iitrain,:,:]
-train_y[:] = outputData_keep[iitrain]
+# train_y = np.empty((Ntrain,))
+# train_y[:] = outputData_keep[iitrain]
+train_y = np.empty((Ntrain,4))
+train_y[:] = outputData_keep[iitrain,:]
 # load testing
 test_X = np.empty((Ntest,num_steps,num_features))
-test_y = np.empty((Ntest,))
 test_X[:,:,:] = inputData_keep[iitest,:,:]
-test_y[:] = outputData_keep[iitest]
+# test_y = np.empty((Ntest,))
+# test_y[:] = outputData_keep[iitest]
+test_y = np.empty((Ntest,4))
+test_y[:] = outputData_keep[iitest,:]
 
 
 # # FROM SAMPLE -- split into train and test sets
@@ -224,11 +272,11 @@ test_y[:] = outputData_keep[iitest]
 # design network
 model = Sequential()
 model.add(LSTM(25, input_shape=(train_X.shape[1], train_X.shape[2])))
-model.add(Dense(1))
+model.add(Dense(4))
 model.compile(loss='mae', optimizer='adam')
 
 # fit network
-history = model.fit(train_X, train_y, epochs=50, batch_size=32, validation_data=(test_X, test_y), verbose=2,
+history = model.fit(train_X, train_y, epochs=40, batch_size=20, validation_data=(test_X, test_y), verbose=2,
                     shuffle=False)
 # plot history
 fig, ax = plt.subplots()
@@ -239,35 +287,107 @@ plt.show()
 ax.set_xlabel('epoch (test/train cycle)')
 ax.set_ylabel('error')
 
-# make a prediction
+############### Step 4 - Make prediction ###############
+
+# X = X_scaled * (X_max - X_min) + X_min
+
 yhat = model.predict(test_X)
-test_X = test_X.reshape((test_X.shape[0], test_X.shape[2]))
-# invert scaling for forecast
-inv_yhat = concatenate((yhat, test_X[:, 1:]), axis=1)
-inv_yhat = scaler.inverse_transform(inv_yhat)
-inv_yhat = inv_yhat[:, 0]
-# invert scaling for actual
-test_y = test_y.reshape((len(test_y), 1))
-inv_y = concatenate((test_y, test_X[:, 1:]), axis=1)
-inv_y = scaler.inverse_transform(inv_y)
-inv_y = inv_y[:, 0]
-# calculate RMSE
-rmse = sqrt(mean_squared_error(inv_y, inv_yhat))
-print('Test RMSE: %.3f' % rmse)
+# inv_yhat = yhat * (PCs_max[0] - PCs_min[0]) + PCs_min[0]
+# inv_test_y = test_y * (PCs_max[0] - PCs_min[0]) + PCs_min[0]
+# fig, ax = plt.subplots()
+# ax.plot(inv_test_y,inv_yhat,'.',alpha=0.1)
+# plt.grid()
+inv_yhat = yhat * (PCs_max[0:4] - PCs_min[0:4]) + PCs_min[0:4]
+inv_test_y = test_y * (PCs_max[0:4] - PCs_min[0:4]) + PCs_min[0:4]
+fig, ax = plt.subplots(2,2)
+ax[0,0].plot(inv_test_y[:,0],inv_yhat[:,0],'.',alpha=0.1)
+plt.grid()
+ax[0,1].plot(inv_test_y[:,1],inv_yhat[:,1],'.',alpha=0.1)
+plt.grid()
+ax[1,0].plot(inv_test_y[:,2],inv_yhat[:,2],'.',alpha=0.1)
+plt.grid()
+ax[1,1].plot(inv_test_y[:,3],inv_yhat[:,3],'.',alpha=0.1)
+plt.grid()
 
-
+# compare observed at predicted output profiles...
+mode1_pred = np.tile(EOFs[0,:],(inv_test_y.shape[0],1)).T * inv_test_y[:,0]
+mode2_pred = np.tile(EOFs[1,:],(inv_test_y.shape[0],1)).T * inv_test_y[:,1]
+mode3_pred = np.tile(EOFs[2,:],(inv_test_y.shape[0],1)).T * inv_test_y[:,2]
+mode4_pred = np.tile(EOFs[3,:],(inv_test_y.shape[0],1)).T * inv_test_y[:,3]
+profspred_norm = mode1_pred + mode2_pred + mode3_pred + mode4_pred
+profspred_T = profspred_norm.T * dataStd.T + dataMean.T
+profpred = profspred_T.T
 fig, ax = plt.subplots()
-yplot = values[:,-1]
-tplot = np.arange(yplot.size)/(24*365)
-plt.plot(tplot,yplot)
-fig, ax = plt.subplots(2,1)
-ax[0].plot(inv_y,label='true')
-ax[0].set_title('obs')
-ax[0].set_ylabel('PPM')
-# ax[0].plot(inv_yhat,label='pred')
-ax[1].plot(inv_y - inv_yhat)
-ax[1].set_title('obs-pred')
-ax[1].set_ylabel('PPM')
+ax.plot(profpred)
+mode1_obs = np.tile(EOFs[0,:],(inv_yhat.shape[0],1)).T * inv_yhat[:,0]
+mode2_obs = np.tile(EOFs[1,:],(inv_yhat.shape[0],1)).T * inv_yhat[:,1]
+mode3_obs = np.tile(EOFs[2,:],(inv_yhat.shape[0],1)).T * inv_yhat[:,2]
+mode4_obs = np.tile(EOFs[3,:],(inv_yhat.shape[0],1)).T * inv_yhat[:,3]
+profsobs_norm = mode1_obs + mode2_obs + mode3_obs + mode4_obs
+profsobs_T = profsobs_norm.T * dataStd.T + dataMean.T
+fig, ax = plt.subplots()
+profobs = profsobs_T.T
+ax.plot(profobs)
+jj = 3500
+pred_prof = profpred[:,jj]
+obs_prof = profobs[:,jj]
+inv_testX = test_X[jj,:,4:] * (PCs_max[0:4] - PCs_min[0:4]) + PCs_min[0:4]
+mode1_obsjj = np.tile(EOFs[0,:],(inv_testX[:,0].size,1)).T * inv_testX[:,0]
+mode2_obsjj = np.tile(EOFs[1,:],(inv_testX[:,1].size,1)).T * inv_testX[:,1]
+mode3_obsjj = np.tile(EOFs[2,:],(inv_testX[:,2].size,1)).T * inv_testX[:,2]
+mode4_obsjj = np.tile(EOFs[3,:],(inv_testX[:,3].size,1)).T * inv_testX[:,3]
+profsobsjj_norm = mode1_obsjj + mode2_obsjj + mode3_obsjj + mode4_obsjj
+profsobsjj_T = profsobsjj_norm.T * dataStd.T + dataMean.T
+profobsjj = profsobsjj_T.T
+fig, ax = plt.subplots()
+ax.plot(profobsjj,linewidth=0.5)
+ax.plot(obs_prof,'--',color=[0.5,0.5,0.5],linewidth=2)
+ax.plot(pred_prof,'k:')
+
+
+
+
+jj=1
+mode1_obsjj = np.tile(EOFs[0,:],(inputData[jj,:,4].size,1)).T * inputData[jj,:,4]
+mode2_obsjj = np.tile(EOFs[1,:],(inputData[jj,:,5].size,1)).T * inputData[jj,:,5]
+mode3_obsjj = np.tile(EOFs[2,:],(inputData[jj,:,6].size,1)).T * inputData[jj,:,6]
+mode4_obsjj = np.tile(EOFs[3,:],(inputData[jj,:,7].size,1)).T * inputData[jj,:,7]
+profsobsjj_norm = mode1_obsjj + mode2_obsjj + mode3_obsjj + mode4_obsjj
+profsobsjj_T = profsobsjj_norm.T * dataStd.T + dataMean.T
+profobsjj = profsobsjj_T.T
+fig, ax = plt.subplots()
+ax.plot(profobsjj)
+
+
+
+# # FROM SAMPlE - make a prediction
+# yhat = model.predict(test_X)
+# test_X = test_X.reshape((test_X.shape[0], test_X.shape[2]))
+# # invert scaling for forecast
+# inv_yhat = concatenate((yhat, test_X[:, 1:]), axis=1)
+# inv_yhat = scaler.inverse_transform(inv_yhat)
+# inv_yhat = inv_yhat[:, 0]
+# # invert scaling for actual
+# test_y = test_y.reshape((len(test_y), 1))
+# inv_y = concatenate((test_y, test_X[:, 1:]), axis=1)
+# inv_y = scaler.inverse_transform(inv_y)
+# inv_y = inv_y[:, 0]
+# # calculate RMSE
+# rmse = sqrt(mean_squared_error(inv_y, inv_yhat))
+# print('Test RMSE: %.3f' % rmse)
+#
+# fig, ax = plt.subplots()
+# yplot = values[:,-1]
+# tplot = np.arange(yplot.size)/(24*365)
+# plt.plot(tplot,yplot)
+# fig, ax = plt.subplots(2,1)
+# ax[0].plot(inv_y,label='true')
+# ax[0].set_title('obs')
+# ax[0].set_ylabel('PPM')
+# # ax[0].plot(inv_yhat,label='pred')
+# ax[1].plot(inv_y - inv_yhat)
+# ax[1].set_title('obs-pred')
+# ax[1].set_ylabel('PPM')
 
 fname ='C:/Users/rdchlerh/Downloads/model_plot.png'
 plot_model(model,to_file=fname, show_shapes=True, show_layer_names=True, show_layer_activations=True, expand_nested=True, show_trainable=True)
