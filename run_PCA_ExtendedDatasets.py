@@ -172,6 +172,9 @@ ZZ = topobathy_check_xshoreFill[:,iirow_finalcheck]
 #     topobathy_check_xshoreFill,dataset_passFinalCheck,iiDS_passFinalCheck,iirow_finalcheck = pickle.load(file)
 # with open(picklefile_dir+'topobathy_finalCheckBeforePCA_ZMHW_0p36m.pickle','wb') as file:
 #     pickle.dump([topobathy_check_xshoreFill,dataset_passFinalCheck,iiDS_passFinalCheck,iirow_finalcheck], file)
+picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_12Jan2025/'
+# with open(picklefile_dir+'topobathy_finalCheckBeforePCA_Zdunetoe_3p2m.pickle','wb') as file:
+#     pickle.dump([topobathy_check_xshoreFill,dataset_passFinalCheck,iiDS_passFinalCheck,iirow_finalcheck],file)
 
 ############################# MAKE NICE PLOTS OF DATA BEFORE PCA #############################
 
@@ -226,6 +229,9 @@ ax.legend()
 #     topobathy_check_xshoreFill,dataset_passFinalCheck,iiDS_passFinalCheck,iirow_finalcheck = pickle.load(file)
 # with open(picklefile_dir+'topobathy_finalCheckBeforePCA_ZMHW_0p36m.pickle','rb') as file:
 #     topobathy_check_xshoreFill,dataset_passFinalCheck,iiDS_passFinalCheck,iirow_finalcheck = pickle.load(file)
+picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_12Jan2025/'
+# with open(picklefile_dir+'topobathy_finalCheckBeforePCA_Zdunetoe_3p2m.pickle','rb') as file:
+#     topobathy_check_xshoreFill,dataset_passFinalCheck,iiDS_passFinalCheck,iirow_finalcheck = pickle.load(file)
 
 profiles_to_process = np.empty(shape=topobathy_check_xshoreFill.shape)
 profiles_to_process[:] = topobathy_check_xshoreFill
@@ -272,13 +278,16 @@ APEV = np.cumsum(variance) / np.sum(variance) * 100.0   # this is the cumulative
 nterm = np.where(APEV <= 0.95 * 100)[0][-1]
 
 fig, ax = plt.subplots()
-xplot = np.arange(1,21)
-ax.plot(xplot,APEV[0:20],'o')
-plt.grid()
+xplot = np.arange(1,21).astype(int)
+ax.plot(xplot,APEV[0:20])
+ax.bar(xplot,APEV[0:20])
+# plt.grid()
 ax.plot([0,25],[95,95],'k')
-ax.set_ylabel('cum. variance explained')
-ax.set_xlabel('EOF')
-ax.set_xlim(0,20)
+ax.set_ylabel('cumulative variance')
+ax.set_xlabel('EOF Mode')
+ax.set_xticks(np.arange(21).astype(int))
+ax.set_xlim(0.5,10.5)
+ax.set_ylim(0,100)
 
 fig, ax = plt.subplots(2,4)
 time_PCA = tt_unique[iirow_finalcheck]
@@ -307,6 +316,25 @@ ax[0,3].set_ylim(-75,130)
 ax[0,3].set_title('Mode 4'+'\n Total Var. = '+str(round(APEV[3],1))+'%')
 ax[1,3].plot(xplot,EOFs[3,:])
 ax[1,3].set_ylim(-0.12,0.12)
+
+fig, ax = plt.subplots(2,1)
+ax[0].scatter(tplot,PCs[:,0],ccsize,marker='o',label='Mode 1')
+ax[0].scatter(tplot,PCs[:,1],ccsize,marker='o',label='Mode 2')
+ax[0].scatter(tplot,PCs[:,2],ccsize,marker='o',label='Mode 3')
+ax[0].scatter(tplot,PCs[:,3],ccsize,marker='o',label='Mode 4')
+# ax[0].set_xlabel('time')
+ax[0].set_ylabel('amplitude')
+ax[0].grid(axis="both")
+ax[0].legend()
+ax[1].plot(xplot,EOFs[0,:],label='Mode 1')
+ax[1].plot(xplot,EOFs[1,:],label='Mode 2')
+ax[1].plot(xplot,EOFs[2,:],label='Mode 3')
+ax[1].plot(xplot,EOFs[3,:],label='Mode 4')
+ax[1].set_xlabel('x* [m]')
+ax[1].set_ylabel('EOF')
+ax[1].grid(axis="both")
+ax[1].set_xlim(min(xplot),max(xplot))
+ax[1].legend()
 
 # Find contour position of input profiles to add to plot...
 mwl = -0.13
@@ -375,10 +403,10 @@ ax.set_title('Profiles reconstructed from PCA')
 # Load dataset we are going to compare with...
 # with open(picklefile_dir+'topobathy_finalCheckBeforePCA_Zdunetoe_3p2m.pickle','rb') as file:
 #    topobathy_check_xshoreFill,dataset_passFinalCheck,iiDS_passFinalCheck,iirow_finalcheck = pickle.load(file)
-with open(picklefile_dir+'topobathy_finalCheckBeforePCA_ZMHW_0p36m.pickle','rb') as file:
-    topobathy_check_xshoreFill,dataset_passFinalCheck,iiDS_passFinalCheck,iirow_finalcheck = pickle.load(file)
-with open(picklefile_dir+'topobathy_reshapeToNXbyNumUmiqueT.pickle','rb') as file:
-    tt_unique,_,_,topobathy_xshoreInterp_plot,topobathy_extension_plot,topobathy_xshoreInterpX2_plot = pickle.load(file)
+# with open(picklefile_dir+'topobathy_finalCheckBeforePCA_ZMHW_0p36m.pickle','rb') as file:
+#     topobathy_check_xshoreFill,dataset_passFinalCheck,iiDS_passFinalCheck,iirow_finalcheck = pickle.load(file)
+# with open(picklefile_dir+'topobathy_reshapeToNXbyNumUmiqueT.pickle','rb') as file:
+#     tt_unique,_,_,topobathy_xshoreInterp_plot,topobathy_extension_plot,topobathy_xshoreInterpX2_plot = pickle.load(file)
 
 # First, isolate the data that ultimately goes into the PCA
 num_datasets = iiDS_passFinalCheck.size
@@ -395,6 +423,7 @@ dx = 0.1
 num_profs_inset = dataset_profileIndeces.shape[1]
 Vol_obsdata = np.empty((num_profs_inset,num_datasets))
 dVol_obsdata = np.empty((num_profs_inset-1,num_datasets))
+numinset_dVolGTthresh = np.empty((num_datasets,))
 for nn in np.arange(num_datasets):
     iiprof_in_dataset = dataset_profileIndeces[nn,:].astype(int)
     prof_in_dataset = data[:,iiprof_in_dataset]
@@ -406,22 +435,24 @@ for nn in np.arange(num_datasets):
     dVol_obsdata[:,nn] = dVol_setnn
     # find where dVol is very high
     dVol_thresh = 5
-    if sum(dVol_setnn > dVol_thresh) > 0:
-        flag_prof_dVol_setnn = iiprof_in_dataset[np.where(dVol_setnn > dVol_thresh)]
-        for jj in np.arange(flag_prof_dVol_setnn.size):
-            fig, ax = plt.subplots()
-            ax.plot(data[:,flag_prof_dVol_setnn[jj]])
-            ax.plot(data[:, flag_prof_dVol_setnn[jj]+1])
-            ax.plot(topobathy_xshoreInterp_plot[:,flag_prof_dVol_setnn[jj]])
-            ax.plot(topobathy_xshoreInterp_plot[:, flag_prof_dVol_setnn[jj]+1])
-
-
+    numinset_dVolGTthresh[nn] = np.sum(abs(dVol_setnn) > dVol_thresh)
+    # if sum(dVol_setnn > dVol_thresh) > 0:
+    #     flag_prof_dVol_setnn = iiprof_in_dataset[np.where(dVol_setnn > dVol_thresh)]
+    #     for jj in np.arange(flag_prof_dVol_setnn.size):
+    #         fig, ax = plt.subplots()
+    #         ax.plot(data[:,flag_prof_dVol_setnn[jj]])
+    #         ax.plot(data[:, flag_prof_dVol_setnn[jj]+1])
+    #         ax.plot(topobathy_xshoreInterpX2_plot[:,flag_prof_dVol_setnn[jj]])
+    #         ax.plot(topobathy_xshoreInterpX2_plot[:, flag_prof_dVol_setnn[jj]+1])
+fig, ax = plt.subplots()
+plt.hist(numinset_dVolGTthresh,bins=25)
+ii_dVolThreshMet = (numinset_dVolGTthresh <= 12)
 
 
 
 fig, ax = plt.subplots()
 # ax.plot(dVol_obsdata,'.')
-plt.hist(np.resize(dVol_obsdata,(dVol_obsdata.size,)),bins=np.arange(-60,60,5))
+plt.hist(np.resize(dVol_obsdata,(dVol_obsdata.size,)),bins=np.arange(-20,20,1))
 
 # do the same for the pca_reconstructed profiles...
 dx = 0.1
@@ -476,4 +507,168 @@ ax.set_ylabel('Error = dVol_obs - dVol_PCA [m^3/m]')
 ax.set_xlabel('dVol_obs [m^3/m]')
 ax.set_ylim(-0.5,0.5)
 
+
+
+################ RERUN PCA WITH DATASETS WHERE DVOL THRESHOLD MET... ################
+
+
+# verify that all the profiles in topobathy_check_xshoreFill for corresponding datasets are NOTNAN
+iiDS_passFinalCheck = np.where(dataset_passFinalCheck == 1)[0]
+iiDS_passDVolCheck = iiDS_passFinalCheck[ii_dVolThreshMet]
+irow_dVolCheck = np.empty(0)
+for jj in np.arange(iiDS_passDVolCheck.size):
+    irow_dVolCheck= np.append(irow_dVolCheck,dataset_index_plot[iiDS_passDVolCheck[jj],:])
+iirow_dVolCheck = np.unique(irow_dVolCheck[1:]).astype(int)
+
+ZZ = topobathy_check_xshoreFill[:,iirow_dVolCheck]
+ZprePCA = topobathy_check_xshoreFill[:,iirow_dVolCheck]
+cmap = plt.cm.rainbow(np.linspace(0, 1, cont_elev.size ))
+fig, ax = plt.subplots()
+xplot = dx*np.arange(yplot2.size)
+ax.plot(xplot,ZprePCA,color='0.5',linewidth=0.5,alpha=0.1)
+profmean = np.nanmean(ZprePCA,axis=1)
+profstd = np.nanstd(ZprePCA,axis=1)
+ax.plot(xplot,profmean,'k')
+ax.plot(xplot,profmean+profstd,'k:')
+ax.plot(xplot,profmean-profstd,'k:')
+plt.grid()
+ax.set_xlim(0,75)
+ax.set_ylabel('z [m]')
+ax.set_xlabel('x* [m]')
+ax.plot(xplot,cont_elev[0]+np.zeros(shape=xplot.shape),color=cmap[0, :],label='MLW')
+ax.plot(xplot,cont_elev[1]+np.zeros(shape=xplot.shape),color=cmap[1, :],label='MWL')
+ax.plot(xplot,cont_elev[2]+np.zeros(shape=xplot.shape),color=cmap[2, :],label='MHW')
+ax.plot(xplot,cont_elev[3]+np.zeros(shape=xplot.shape),color=cmap[3, :],label='Dune toe')
+ax.legend()
+
+
+# NORMALIZE PRE-PCA
+profiles_to_process = np.empty(shape=topobathy_check_xshoreFill.shape)
+profiles_to_process[:] = topobathy_check_xshoreFill
+rows_nonans = np.where(np.nansum(~np.isnan(profiles_to_process),axis=0 ) == profiles_to_process.shape[0])[0]
+iikeep = iirow_dVolCheck
+data = profiles_to_process[:,iikeep]
+dataMean = np.mean(data,axis=1) # this will give you an average for each cross-shore transect
+dataStd = np.std(data,axis=1)
+dataNormT = (data.T - dataMean.T) / dataStd.T
+dataNorm = dataNormT.T
+nx = data.shape[0]
+dx = 0.1
+fig, ax = plt.subplots()
+xplot = dx*np.arange(nx)
+ax.plot(xplot,data,linewidth=0.5,alpha=0.5)
+ax.plot(xplot,dataMean,'k')
+ax.plot(xplot,dataMean+dataStd,'k--')
+ax.plot(xplot,dataMean-dataStd,'k--')
+ax.set_xlabel('x* [m]')
+ax.set_ylabel('z [m]')
+ax.set_title('Profiles input to PCA')
+fig, ax = plt.subplots()
+ax.plot(xplot,dataNorm,linewidth=0.5,alpha=0.5)
+ax.set_xlabel('x* [m]')
+ax.set_ylabel('z* [-]')
+ax.set_title('Normalized profiles input to PCA')
+
+
+# RUN PCA
+ipca = PCA(n_components=min(dataNorm.shape[0], dataNorm.shape[1]))
+PCs = ipca.fit_transform(dataNorm.T)  # these are the temporal magnitudes of the spatial modes where PCs[:,0] are the varying amplitude of mode 1 with respect to time
+EOFs = ipca.components_  # these are the spatial modes where EOFs[0,:] is mode 1, EOFs[1,:] is mode 2, and so on...
+variance = ipca.explained_variance_ # this is the variance explained by each mode
+nPercent = variance / np.sum(variance)  # this is the percent explained (the first mode will explain the greatest percentage of your data)
+APEV = np.cumsum(variance) / np.sum(variance) * 100.0   # this is the cumulative variance
+nterm = np.where(APEV <= 0.95 * 100)[0][-1]
+
+fig, ax = plt.subplots()
+xplot = np.arange(1,21).astype(int)
+ax.plot(xplot,APEV[0:20])
+ax.bar(xplot,APEV[0:20])
+# plt.grid()
+ax.plot([0,25],[95,95],'k')
+ax.set_ylabel('cumulative variance')
+ax.set_xlabel('EOF Mode')
+ax.set_xticks(np.arange(21).astype(int))
+ax.set_xlim(0.5,10.5)
+ax.set_ylim(0,100)
+
+fig, ax = plt.subplots(2,4)
+time_PCA = tt_unique[iirow_dVolCheck]
+tplot = pd.to_datetime(time_PCA, unit='s', origin='unix')
+nx = dataNorm.shape[0]
+dx = 0.1
+ccsize = 1
+xplot = dx*np.arange(nx)
+ax[0,0].scatter(tplot,PCs[:,0],ccsize)
+ax[0,0].set_ylim(-75,130)
+ax[0,0].set_title('Mode 1'+'\n Total Var. = '+str(round(APEV[0],1))+'%')
+ax[1,0].plot(xplot,EOFs[0,:])
+ax[1,0].set_ylim(-0.12,0.12)
+ax[0,1].scatter(tplot,PCs[:,1],ccsize)
+ax[0,1].set_ylim(-75,130)
+ax[0,1].set_title('Mode 2'+'\n Total Var. = '+str(round(APEV[1],1))+'%')
+ax[1,1].plot(xplot,EOFs[1,:])
+ax[1,1].set_ylim(-0.12,0.12)
+ax[0,2].scatter(tplot,PCs[:,2],ccsize)
+ax[0,2].set_ylim(-75,130)
+ax[0,2].set_title('Mode 3'+'\n Total Var. = '+str(round(APEV[2],1))+'%')
+ax[1,2].plot(xplot,EOFs[2,:])
+ax[1,2].set_ylim(-0.12,0.12)
+ax[0,3].scatter(tplot,PCs[:,3],ccsize)
+ax[0,3].set_ylim(-75,130)
+ax[0,3].set_title('Mode 4'+'\n Total Var. = '+str(round(APEV[3],1))+'%')
+ax[1,3].plot(xplot,EOFs[3,:])
+ax[1,3].set_ylim(-0.12,0.12)
+
+fig, ax = plt.subplots(2,1)
+ax[0].scatter(tplot,PCs[:,0],ccsize,marker='o',label='Mode 1')
+ax[0].scatter(tplot,PCs[:,1],ccsize,marker='o',label='Mode 2')
+ax[0].scatter(tplot,PCs[:,2],ccsize,marker='o',label='Mode 3')
+ax[0].scatter(tplot,PCs[:,3],ccsize,marker='o',label='Mode 4')
+ax[0].scatter(tplot,PCs[:,4],ccsize,marker='o',label='Mode 5')
+# ax[0].set_xlabel('time')
+ax[0].set_ylabel('amplitude')
+ax[0].grid(axis="both")
+ax[0].legend()
+ax[1].plot(xplot,EOFs[0,:],label='Mode 1')
+ax[1].plot(xplot,EOFs[1,:],label='Mode 2')
+ax[1].plot(xplot,EOFs[2,:],label='Mode 3')
+ax[1].plot(xplot,EOFs[3,:],label='Mode 4')
+ax[1].plot(xplot,EOFs[4,:],label='Mode 5')
+ax[1].set_xlabel('x* [m]')
+ax[1].set_ylabel('EOF')
+ax[1].grid(axis="both")
+ax[1].set_xlim(min(xplot),max(xplot))
+ax[1].legend()
+
+fig, ax = plt.subplots()
+ax.plot(xplot,EOFs[0,:],label='Mode 1')
+ax.plot(xplot,EOFs[1,:],label='Mode 2')
+ax.plot(xplot,EOFs[2,:],label='Mode 3')
+ax.plot(xplot,EOFs[3,:],label='Mode 4')
+ax.plot(xplot,EOFs[4,:],label='Mode 5')
+ax.set_xlabel('x* [m]')
+ax.set_ylabel('EOF')
+ax.grid(axis="both")
+ax.set_xlim(min(xplot),max(xplot))
+ax.legend()
+fig, ax = plt.subplots(1,5)
+ax[0].hist(PCs[:,0],bins=30,color='C0')
+ax[1].hist(PCs[:,1],bins=30,color='C1')
+ax[2].hist(PCs[:,2],bins=30,color='C2')
+ax[3].hist(PCs[:,3],bins=30,color='C3')
+ax[4].hist(PCs[:,4],bins=30,color='C4')
+ax[0].set_ylim(0,650)
+ax[1].set_ylim(0,650)
+ax[2].set_ylim(0,650)
+ax[3].set_ylim(0,650)
+ax[4].set_ylim(0,650)
+ax[0].set_xlim(-65,65)
+ax[1].set_xlim(-65,65)
+ax[2].set_xlim(-30,30)
+ax[3].set_xlim(-30,30)
+ax[4].set_xlim(-30,30)
+ax[1].set_yticklabels([])
+ax[2].set_yticklabels([])
+ax[3].set_yticklabels([])
+ax[4].set_yticklabels([])
 
