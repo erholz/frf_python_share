@@ -1003,6 +1003,11 @@ for jj in np.arange(num_datasets):
 
 ################# STEP 3 - REPEAT INTERP IN TIME #################
 
+picklefile_dir = 'C:/Users/rdchlerh/Desktop/frf_data_backup/processed/processed_12Jan2025/'
+with open(picklefile_dir + 'topobathy_postextend_post2Dinterp.pickle', 'rb') as file:
+    topobathy_postextend_post2Dinterp,topobathy_postextend_post2Dinterp_plot,Acoef_alldatasets_post2Dinterp,fitrmse_alldatasets_post2Dinterp = pickle.load(file)
+
+
 # REPEAT X-SHORE INTERP
 Nlook = 4*24
 topobathy_xshoreinterpX2 = np.empty((lidar_xFRF.size,Nlook,num_datasets))

@@ -9,10 +9,12 @@ import pickle
 from scipy.optimize import curve_fit
 from funcs.create_contours import *
 from scipy.interpolate import splrep, BSpline, splev, CubicSpline
+from funcs.interpgap import interpolate_with_max_gap
 
 
 
-picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_26Nov2024/'
+# picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_26Nov2024/'
+picklefile_dir = 'D:/Projects/FY24/FY24_SMARTSEED/FRF_data/processed_26Nov2024/'
 with open(picklefile_dir+'IO_alignedintime.pickle', 'rb') as file:
     time_fullspan,data_wave8m,data_wave17m,data_tidegauge,data_lidar_elev2p,data_lidarwg080,data_lidarwg090,data_lidarwg100,data_lidarwg110,data_lidarwg140,_,_,lidarelev_fullspan = pickle.load(file)
 with open(picklefile_dir+'lidar_xFRF.pickle', 'rb') as file:
@@ -20,9 +22,9 @@ with open(picklefile_dir+'lidar_xFRF.pickle', 'rb') as file:
     lidar_xFRF = lidar_xFRF[0][:]
 
 
-
 ## FIRST, load the processed data from Dylan
-picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_26Nov2024/'
+# picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_26Nov2024/'
+picklefile_dir = 'D:/Projects/FY24/FY24_SMARTSEED/FRF_data/processed_26Nov2024/'
 with open(picklefile_dir + 'tidalAveragedMetrics.pickle', 'rb') as file:
     datload = pickle.load(file)
 list(datload)
@@ -120,3 +122,74 @@ ax.set_ylabel('z [m]')
 # ax.set_xlabel('xFRF [m]')
 # ax.set_ylabel('z [m]')
 # ax.set_title('Bathy-Lidar combined')
+
+
+bathy_times = time_fullspan
+bathy_elevation = bathy_nolidar_clean
+bathy_x = lidar_xFRF
+bathy_dates_unique = np.unique(bathy_times)
+offshore_x = 200
+xinterp = np.arange(45, offshore_x+1, 0.1)
+zInterpSurvey = np.zeros([len(bathy_dates_unique), len(xinterp)])*np.nan
+
+for ii in range(len(bathy_dates_unique)):
+    # iifind_data = np.where((bathy_times == bathy_dates_unique[ii]))
+    iifind_data = ii
+    if np.size(iifind_data) == 1:
+        z_data_tmp = bathy_elevation[:,iifind_data]
+        if sum(~np.isnan(z_data_tmp)) > 5:
+            x_data_tmp = bathy_x[~np.isnan(z_data_tmp)]
+            z_data_tmp = z_data_tmp[~np.isnan(z_data_tmp)]
+            zInterp = interpolate_with_max_gap(x_data_tmp, z_data_tmp, xinterp, max_gap=5, orig_x_is_sorted=False,
+                                               target_x_is_sorted=False)
+            zInterpSurvey[ii, :] = zInterp
+    else:
+        # zInterpSurvey[ii, :] = zInterp
+        print('error for ii = '+str(ii))
+
+zInterpAll = np.zeros([len(time_fullspan), len(xinterp)]) * np.nan
+for ix in np.arange(len(xinterp)):
+    tempz = zInterpSurvey[:, ix]
+    iinotnan = np.where(np.isnan(tempz) == False)
+    if sum(~np.isnan(tempz)) > 5:
+        zInterpAll[:,ix]  = np.interp(time_fullspan, bathy_dates_unique[iinotnan], tempz[iinotnan])
+
+## Ok, now plot interps
+fig, ax = plt.subplots()
+ax.plot(xinterp,zInterpSurvey.T)
+ax.set_xlabel('xFRF [m]')
+ax.set_ylabel('z [m]')
+ax.set_title('Interp in space')
+zmean = np.nanmean(zInterpSurvey,axis=0)
+zstd = np.nanstd(zInterpSurvey,axis=0)
+ax.plot(xinterp,zmean,'k')
+ax.plot(xinterp,zmean+2.*zstd,'k:')
+ax.plot(xinterp,zmean-2.*zstd,'k:')
+
+fig, ax = plt.subplots()
+ax.plot(xinterp,zInterpAll.T)
+ax.set_xlabel('xFRF [m]')
+ax.set_ylabel('z [m]')
+ax.set_title('Interp in time')
+zmean = np.nanmean(zInterpAll,axis=0)
+zstd = np.nanstd(zInterpAll,axis=0)
+ax.plot(xinterp,zmean,'k')
+ax.plot(xinterp,zmean+2.*zstd,'k:')
+ax.plot(xinterp,zmean-2.*zstd,'k:')
+
+
+
+
+XX, TT = np.meshgrid(xinterp, time_fullspan)
+timescatter = np.reshape(TT, TT.size)
+xscatter = np.reshape(XX, XX.size)
+zscatter = np.reshape(zInterpAll.T, zInterpAll.size)
+tt = timescatter[~np.isnan(zscatter)]
+xx = xscatter[~np.isnan(zscatter)]
+zz = zscatter[~np.isnan(zscatter)]
+fig, ax = plt.subplots()
+ph = ax.scatter(xx, tt, s=3, c=zz, cmap='viridis')
+cbar = fig.colorbar(ph, ax=ax)
+cbar.set_label('z [m]')
+ax.set_xlabel('x [m, FRF]')
+ax.set_ylabel('time')
