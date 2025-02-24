@@ -30,18 +30,18 @@ def find_nangaps(y_input):
             # If there is only ONE entry of a cumnan value, then we know it's a new nan value OR it's the end of the vector
             if sum((numcumnan == uniq_numcumnan[ij])) == 1:
                 tmp = np.where(numcumnan == uniq_numcumnan[ij])[0]
-                tmpgapstart = np.append(tmpgapstart,tmp[0])
+                tmpgapstart = np.append(tmpgapstart, tmp[0])
                 # if tmp is the END of the vector, also designate as tmpgapend
-                if tmp == len(y_input)-1:
-                    tmpgapend = np.append(tmpgapend,tmp[0])
+                if tmp == len(y_input) - 1:
+                    tmpgapend = np.append(tmpgapend, tmp[0])
             # If there are multiple entries of a cumnan value, then we know it switches from nan to not-nan
             elif sum((numcumnan == uniq_numcumnan[ij])) > 1:
                 tmp = np.where(numcumnan == uniq_numcumnan[ij])[0]
                 # the first value of tmp is where it switches from nan to not-nan, the last would be the first before the next nan (if it exists)
-                tmpgapend = np.append(tmpgapend,tmp[0])
+                tmpgapend = np.append(tmpgapend, tmp[0])
                 # if there is more than 1 instance of cumnan but no preceding nan, then it is ALSO a starting nan
-                if ~np.isnan(y_input[tmp[0]-1]):
-                    tmpgapstart = np.append(tmpgapstart,tmp[0])
+                if ~np.isnan(y_input[tmp[0] - 1]):
+                    tmpgapstart = np.append(tmpgapstart, tmp[0])
                 # if it is the FIRST value, then it is ALSO a tmpgapstart
                 if tmp[0] == 0:
                     tmpgapstart = np.append(tmpgapstart, tmp[0])
@@ -56,8 +56,8 @@ def find_nangaps(y_input):
             gapstart = [tmpgapstart[0]]
             if len(tmpgapstart) > 0:
                 # now, we need to figure out if this is in the beginning of the gap or the middle
-                tmp1 = np.diff(tmpgapstart)     # tmp1 is GRADIENT in tmpgapstart (diff of 1 indicates middle of gap)
-                tmp2 = tmpgapstart[1:]          # tmp2 is all the tmpgapstarts OTHER than the first
+                tmp1 = np.diff(tmpgapstart)  # tmp1 is GRADIENT in tmpgapstart (diff of 1 indicates middle of gap)
+                tmp2 = tmpgapstart[1:]  # tmp2 is all the tmpgapstarts OTHER than the first
                 # if there is only ONE gap of 3 nans, there will be no tmp1 not equal to 1...
                 if sum(tmp1 != 1) > 0:
                     # tmpid = where numcumnan is equal to a gap that is not in the middle (tmp1 != 1)
@@ -66,12 +66,12 @@ def find_nangaps(y_input):
             if len(gapend) > len(gapstart):
                 for ij in np.arange(gapend.size):
                     # if there is a gapend that is surrounded by non-nans, then it is a single-nan gap
-                    if gapend[ij] == len(y_input)-1:
+                    if gapend[ij] == len(y_input) - 1:
                         if ~np.isnan(y_input[int(gapend[ij]) - 1]):
                             missinggapstart = gapend[ij]
                             gapstart = np.append(missinggapstart, gapstart)
                     else:
-                        if ~np.isnan(y_input[int(gapend[ij])-1]) & ~np.isnan(y_input[int(gapend[ij])+1]):
+                        if ~np.isnan(y_input[int(gapend[ij]) - 1]) & ~np.isnan(y_input[int(gapend[ij]) + 1]):
                             missinggapstart = gapend[ij]
                             gapstart = np.append(missinggapstart, gapstart)
             if np.max(gapstart) > np.max(gapend):
