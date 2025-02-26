@@ -174,7 +174,7 @@ data_fullspan["fullspan_bathylidar_10Dec24"] = bathylidar_fill
 
 #
 ## SAVE DICTS
-# picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_10Dec2024/'
+picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_10Dec2024/'
 # with open(picklefile_dir+'data_poststorm_sliced.pickle','wb') as file:
 #     pickle.dump(data_poststorm_all, file)
 # with open(picklefile_dir+'data_fullspan.pickle','wb') as file:
@@ -514,6 +514,9 @@ for jj in np.arange(len(data_poststorm_all)):
         figpath = 'C:/Users/rdchlerh/PycharmProjects/frf_python_share/figs/data/poststorm_timeslices_Nlook='+str(Nlook)+'/'
         fig.savefig(figpath + 'poststorm_' + str(jj) + '.png', dpi=300)  # save the figure to file
         plt.close(fig)
+
+
+
 
 
 ## ____________BELOW HERE IS OLD AND PROB WORTHLESS__________________________
