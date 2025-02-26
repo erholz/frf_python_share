@@ -432,7 +432,7 @@ hydro_MLinput_final = hydro_datasetsForML[set_grab_final,:,:]
 profileIDs_ML_final = np.empty((sum(set_grab_final),Nlook))*np.nan
 profileTimes_ML_final = np.empty((sum(set_grab_final),Nlook))*np.nan
 for jj in np.arange(sum(set_grab_final)):
-    profID1 = set_ii_prelimbathyhydrothreshmet[set_grab_final][jj].astype(int)
+    profID1 = set_ii_final_bathyhydrothreshment[jj].astype(int)
     profIDs = np.arange(profID1,profID1+Nlook)
     profileIDs_ML_final[jj,:] = profIDs
     profileTimes_ML_final[jj,:] = time_fullspan[profIDs]
@@ -440,5 +440,5 @@ topobathy_ML_final = topobathy_fillSmallGaps[:]
 
 
 picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_20Feb2025/'
-with open(picklefile_dir + 'topobathyhydro_ML_final_20Feb2025_Nlook'+str(Nlook)+'.pickle', 'wb') as file:
-    pickle.dump([time_fullspan,lidar_xFRF,profileIDs_ML_final,profileTimes_ML_final,hydro_MLinput_final,topobathy_ML_final], file)
+# with open(picklefile_dir + 'topobathyhydro_ML_final_20Feb2025_Nlook'+str(Nlook)+'.pickle', 'wb') as file:
+#     pickle.dump([time_fullspan,lidar_xFRF,profileIDs_ML_final,profileTimes_ML_final,hydro_MLinput_final,topobathy_ML_final], file)
