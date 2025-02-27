@@ -47,10 +47,21 @@ for jj in np.arange(badprof.size):
 setid = np.arange(profileIDs_ML_final.shape[0])
 goodset = setid[~np.isin(setid,badset)]
 goodprofs = np.unique(profileIDs_ML_final[goodset,:]).astype(int)
+goodtimes = np.unique(profileTimes_ML_final[goodset,:]).astype(int)
+ZprePCA = Ztrimlength[:,goodprofs]
+
+# picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_20Feb2025/'
+# with open(picklefile_dir + 'topobathyhydro_ML_final_20Feb2025_Nlook96_PrePCA.pickle', 'wb') as file:
+#     pickle.dump([xplot,ZprePCA,goodset,goodprofs,goodtimes],file)
 
 ############################# MAKE NICE PLOTS OF DATA BEFORE PCA #############################
 
-ZprePCA = Ztrimlength[:,goodprofs]
+picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_20Feb2025/'
+# with open(picklefile_dir + 'topobathyhydro_ML_final_20Feb2025_Nlook96.pickle', 'rb') as file:
+#     time_fullspan,lidar_xFRF,profileIDs_ML_final,profileTimes_ML_final,hydro_MLinput_final,topobathy_ML_final = pickle.load(file)
+# with open(picklefile_dir + 'topobathyhydro_ML_final_20Feb2025_Nlook96_PrePCA.pickle', 'rb') as file:
+#     xplot,ZprePCA,goodset,goodprofs,goodtimes = pickle.load(file)
+
 yplot2 = np.sum(~np.isnan(ZprePCA),axis=1)
 dx = 0.1
 # xplot = dx*np.arange(yplot2.size)
@@ -94,21 +105,16 @@ ax.legend()
 
 ############################# NORMALIZE PROFILES FOR PCA #############################
 
-# with open(picklefile_dir+'topobathy_finalCheckBeforePCA_Zdunetoe_3p2m.pickle','rb') as file:
-#     topobathy_check_xshoreFill,dataset_passFinalCheck,iiDS_passFinalCheck,iirow_finalcheck = pickle.load(file)
-# with open(picklefile_dir+'topobathy_finalCheckBeforePCA_ZMHW_0p36m.pickle','rb') as file:
-#     topobathy_check_xshoreFill,dataset_passFinalCheck,iiDS_passFinalCheck,iirow_finalcheck = pickle.load(file)
-picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_12Jan2025/'
-# with open(picklefile_dir+'topobathy_finalCheckBeforePCA_Zdunetoe_3p2m.pickle','rb') as file:
-#     topobathy_check_xshoreFill,dataset_passFinalCheck,iiDS_passFinalCheck,iirow_finalcheck = pickle.load(file)
+# with open(picklefile_dir + 'topobathyhydro_ML_final_20Feb2025_Nlook96_PrePCA.pickle', 'rb') as file:
+#     xplot,ZprePCA,goodset,goodprofs,goodtimes = pickle.load(file)
 
-profiles_to_process = np.empty(shape=topobathy_check_xshoreFill.shape)
-profiles_to_process[:] = topobathy_check_xshoreFill
+profiles_to_process = np.empty(shape=ZprePCA.shape)
+profiles_to_process[:] = ZprePCA
 rows_nonans = np.where(np.nansum(~np.isnan(profiles_to_process),axis=0 ) == profiles_to_process.shape[0])[0]
 
 # Using rows_nonans would be ALL the rows where the data is available, but the ML_datasets will only see rows/profiles iirow_finalcheck
-iikeep = iirow_finalcheck
-# iikeep = rows_nonans
+# iikeep = iirow_finalcheck
+iikeep = rows_nonans
 data = profiles_to_process[:,iikeep]
 dataMean = np.mean(data,axis=1) # this will give you an average for each cross-shore transect
 dataStd = np.std(data,axis=1)
@@ -159,7 +165,7 @@ ax.set_xlim(0.5,10.5)
 ax.set_ylim(0,100)
 
 fig, ax = plt.subplots(2,4)
-time_PCA = tt_unique[iirow_finalcheck]
+time_PCA = goodtimes
 tplot = pd.to_datetime(time_PCA, unit='s', origin='unix')
 nx = dataNorm.shape[0]
 dx = 0.1
@@ -253,13 +259,9 @@ ax.set_xlabel('x* [m]')
 ax.set_ylabel('z [m]')
 ax.set_title('Profiles reconstructed from PCA')
 
-#
-# with open(picklefile_dir+'topobathy_PCA_ZMHW_0p36m_Lmin_50m.pickle','wb') as file:
-#     pickle.dump([dataNorm,dataMean,dataStd,PCs,EOFs,APEV,reconstruct_profileNorm,reconstruct_profile], file)
-# with open(picklefile_dir+'topobathy_PCA_Zdunetoe_3p2m_Lmin_75.pickle','wb') as file:
-#     pickle.dump([dataNorm,dataMean,dataStd,PCs,EOFs,APEV,reconstruct_profileNorm,reconstruct_profile], file)
-# with open(picklefile_dir+'topobathy_PCA_ZMHW_0p36m_Lmin_50m.pickle','rb') as file:
-#     dataNorm,dataMean,dataStd,PCs,EOFs,APEV,reconstruct_profileNorm,reconstruct_profile = pickle.load(file)
+
+# with open(picklefile_dir + 'topobathyhydro_ML_final_20Feb2025_Nlook96_PCA.pickle', 'wb') as file:
+#     pickle.dump([dataNorm,dataMean,dataStd,PCs,EOFs,APEV,reconstruct_profileNorm,reconstruct_profile],file)
 
 
 
@@ -270,22 +272,28 @@ ax.set_title('Profiles reconstructed from PCA')
 
 
 # Load dataset we are going to compare with...
-# with open(picklefile_dir+'topobathy_finalCheckBeforePCA_Zdunetoe_3p2m.pickle','rb') as file:
-#    topobathy_check_xshoreFill,dataset_passFinalCheck,iiDS_passFinalCheck,iirow_finalcheck = pickle.load(file)
-# with open(picklefile_dir+'topobathy_finalCheckBeforePCA_ZMHW_0p36m.pickle','rb') as file:
-#     topobathy_check_xshoreFill,dataset_passFinalCheck,iiDS_passFinalCheck,iirow_finalcheck = pickle.load(file)
-# with open(picklefile_dir+'topobathy_reshapeToNXbyNumUmiqueT.pickle','rb') as file:
-#     tt_unique,_,_,topobathy_xshoreInterp_plot,topobathy_extension_plot,topobathy_xshoreInterpX2_plot = pickle.load(file)
+
+# with open(picklefile_dir + 'topobathyhydro_ML_final_20Feb2025_Nlook96.pickle', 'rb') as file:
+#     time_fullspan,lidar_xFRF,profileIDs_ML_final,profileTimes_ML_final,hydro_MLinput_final,topobathy_ML_final = pickle.load(file)
+# with open(picklefile_dir + 'topobathyhydro_ML_final_20Feb2025_Nlook96_PrePCA.pickle', 'rb') as file:
+#     xplot,ZprePCA,goodset,goodprofs,goodtimes = pickle.load(file)
+# with open(picklefile_dir + 'topobathyhydro_ML_final_20Feb2025_Nlook96_PCA.pickle', 'rb') as file:
+#     dataNorm,dataMean,dataStd,PCs,EOFs,APEV,reconstruct_profileNorm,reconstruct_profile = pickle.load(file)
 
 # First, isolate the data that ultimately goes into the PCA
-num_datasets = iiDS_passFinalCheck.size
-profiles_to_process = np.empty(shape=topobathy_check_xshoreFill.shape)
-profiles_to_process[:] = topobathy_check_xshoreFill
-iikeep = iirow_finalcheck
-# iikeep = rows_nonans
-# data = profiles_to_process[:,iikeep]
-data = profiles_to_process[:,:]
-dataset_profileIndeces = dataset_index_plot[dataset_passFinalCheck == 1,:]
+num_datasets = goodset.size
+profiles_to_process = np.empty(shape=topobathy_ML_final.shape)
+profiles_to_process[:] = topobathy_ML_final
+# Use same length constraints as before
+Lmin = 75
+Xstart = 50
+Xend = 190
+iistart = np.where(abs(lidar_xFRF-Xstart) == np.nanmin(abs(lidar_xFRF-Xstart)))[0]
+iiend = np.where(abs(lidar_xFRF-Xend) == np.nanmin(abs(lidar_xFRF-Xend)))[0]
+Ztrimlength = topobathy_ML_final[np.arange(iistart,iiend),:]
+data = Ztrimlength[:]
+# data = profiles_to_process[:,:]
+dataset_profileIndeces = profileIDs_ML_final[goodset,:]
 
 # then go through each dataset and pull the profiles that correspond
 dx = 0.1
@@ -315,19 +323,20 @@ for nn in np.arange(num_datasets):
     #         ax.plot(topobathy_xshoreInterpX2_plot[:, flag_prof_dVol_setnn[jj]+1])
 fig, ax = plt.subplots()
 plt.hist(numinset_dVolGTthresh,bins=25)
-ii_dVolThreshMet = (numinset_dVolGTthresh <= 12)
+ii_dVolThreshMet = (numinset_dVolGTthresh <= 1)
 
 
 
 fig, ax = plt.subplots()
 # ax.plot(dVol_obsdata,'.')
-plt.hist(np.resize(dVol_obsdata,(dVol_obsdata.size,)),bins=np.arange(-20,20,1))
+plt.hist(np.resize(dVol_obsdata,(dVol_obsdata.size,)),bins=np.arange(-10,10,0.1))
 
 # do the same for the pca_reconstructed profiles...
 dx = 0.1
 # remake the PCA_reconstruct array so that it is the same size as "data" above
 PCAprofiles_sizedata = np.empty(shape=data.shape)
 PCAprofiles_sizedata[:] = np.nan
+iikeep = goodprofs
 PCAprofiles_sizedata[:,iikeep] = reconstruct_profile
 Vol_pcaRecon = np.empty((num_profs_inset,num_datasets))
 dVol_pcaRecon = np.empty((num_profs_inset-1,num_datasets))
@@ -340,35 +349,35 @@ for nn in np.arange(num_datasets):
     dVol_setnn = Vol_setnn[1:] - Vol_setnn[0:-1]
     Vol_pcaRecon[:,nn] = Vol_setnn
     dVol_pcaRecon[:,nn] = dVol_setnn
-fig, ax = plt.subplots()
-# ax.plot(dVol_obsdata,'.')
 dVol_obsdata_plot = np.resize(dVol_obsdata,(dVol_obsdata.size,))
 dVol_obsdata_mean = np.mean(dVol_obsdata_plot)
 dVol_obsdata_std = np.std(dVol_obsdata_plot)
 dVol_pcaRecon_plot = np.resize(dVol_pcaRecon,(dVol_pcaRecon.size,))
 dVol_pcaRecon_mean = np.mean(dVol_pcaRecon_plot)
 dVol_pcaRecon_std = np.std(dVol_pcaRecon_plot)
-plt.hist(dVol_obsdata_plot,density=True,bins=np.arange(-60,60,.1),alpha=0.5,label='observed, PCA input')
-plt.hist(dVol_pcaRecon_plot,density=True,bins=np.arange(-60,60,.1),alpha=0.5,label='constructed from PCs')
-ax.plot([0,0]+dVol_obsdata_mean,[0, 0.65],'c')
-ax.plot([0,0]+dVol_obsdata_mean+dVol_obsdata_mean,[0, 0.65],'c--')
-ax.plot([0,0]+dVol_obsdata_mean-dVol_obsdata_mean,[0, 0.65],'c--')
-ax.plot([0,0]+dVol_obsdata_mean+2*dVol_obsdata_mean,[0, 0.65],'c:')
-ax.plot([0,0]+dVol_obsdata_mean-2*dVol_obsdata_mean,[0, 0.65],'c:')
-ax.plot([0,0]+dVol_pcaRecon_mean,[0, 0.65],'m')
-ax.plot([0,0]+dVol_pcaRecon_mean+dVol_pcaRecon_std,[0, 0.65],'m--')
-ax.plot([0,0]+dVol_pcaRecon_mean-dVol_pcaRecon_std,[0, 0.65],'m--')
-ax.plot([0,0]+dVol_pcaRecon_mean+2*dVol_pcaRecon_std,[0, 0.65],'m:')
-ax.plot([0,0]+dVol_pcaRecon_mean-2*dVol_pcaRecon_std,[0, 0.65],'m:')
+fig, ax = plt.subplots()
+plt.hist(dVol_obsdata_plot,density=True,bins=np.arange(-5.5,5.5,.1),alpha=0.5,label='observed, PCA input')
+plt.hist(dVol_pcaRecon_plot,density=True,bins=np.arange(-5.5,5.5,.1),alpha=0.5,label='constructed from PCs')
+ax.plot([0,0]+dVol_obsdata_mean,[0, 100],'c')
+ax.plot([0,0]+dVol_obsdata_mean+dVol_obsdata_mean,[0, 100],'c--')
+ax.plot([0,0]+dVol_obsdata_mean-dVol_obsdata_mean,[0, 100],'c--')
+# ax.plot([0,0]+dVol_obsdata_mean+2*dVol_obsdata_mean,[0, 100],'c:')
+# ax.plot([0,0]+dVol_obsdata_mean-2*dVol_obsdata_mean,[0, 100],'c:')
+ax.plot([0,0]+dVol_pcaRecon_mean,[0, 100],'m')
+ax.plot([0,0]+dVol_pcaRecon_mean+dVol_pcaRecon_std,[0,100],'m--')
+ax.plot([0,0]+dVol_pcaRecon_mean-dVol_pcaRecon_std,[0, 100],'m--')
+# ax.plot([0,0]+dVol_pcaRecon_mean+2*dVol_pcaRecon_std,[0, 100],'m:')
+# ax.plot([0,0]+dVol_pcaRecon_mean-2*dVol_pcaRecon_std,[0, 100],'m:')
 ax.set_xlabel('dVol [m^3/m]')
 ax.set_ylabel('pdf [-]')
 ax.legend()
-ax.set_xlim(-15,15)
-ax.set_ylim(0, 0.65)
+# ax.set_xlim(-15,15)
+ax.set_ylim(0, 2)
 fig, ax = plt.subplots()
 xplot = np.resize(dVol_obsdata,(dVol_obsdata.size,))
 yplot = np.resize(dVol_pcaRecon,(dVol_pcaRecon.size,))
-ax.plot(xplot,yplot,'.')
+ax.plot(xplot,yplot,'.',alpha=0.01)
+plt.grid()
 fig, ax = plt.subplots()
 ax.plot(xplot,xplot-yplot,'.',alpha=0.01)
 plt.grid()
@@ -382,26 +391,22 @@ ax.set_ylim(-0.5,0.5)
 
 
 # verify that all the profiles in topobathy_check_xshoreFill for corresponding datasets are NOTNAN
-iiDS_passFinalCheck = np.where(dataset_passFinalCheck == 1)[0]
-iiDS_passDVolCheck = iiDS_passFinalCheck[ii_dVolThreshMet]
-irow_dVolCheck = np.empty(0)
-for jj in np.arange(iiDS_passDVolCheck.size):
-    irow_dVolCheck= np.append(irow_dVolCheck,dataset_index_plot[iiDS_passDVolCheck[jj],:])
-iirow_dVolCheck = np.unique(irow_dVolCheck[1:]).astype(int)
+iiDS_passDVolCheck = goodset[ii_dVolThreshMet]
+iirow_dVolCheck = np.unique(dataset_profileIndeces[np.where(ii_dVolThreshMet)[0],:]).astype(int)
 
-ZZ = topobathy_check_xshoreFill[:,iirow_dVolCheck]
-ZprePCA = topobathy_check_xshoreFill[:,iirow_dVolCheck]
+ZZ = Ztrimlength[:,iirow_dVolCheck]
+ZprePCA = Ztrimlength[:,iirow_dVolCheck]
 cmap = plt.cm.rainbow(np.linspace(0, 1, cont_elev.size ))
-fig, ax = plt.subplots()
-xplot = dx*np.arange(yplot2.size)
-ax.plot(xplot,ZprePCA,color='0.5',linewidth=0.5,alpha=0.1)
+xplot = lidar_xFRF[np.arange(iistart,iiend)]
 profmean = np.nanmean(ZprePCA,axis=1)
 profstd = np.nanstd(ZprePCA,axis=1)
+fig, ax = plt.subplots()
+ax.plot(xplot,ZprePCA,color='0.5',linewidth=0.5,alpha=0.1)
 ax.plot(xplot,profmean,'k')
 ax.plot(xplot,profmean+profstd,'k:')
 ax.plot(xplot,profmean-profstd,'k:')
 plt.grid()
-ax.set_xlim(0,75)
+ax.set_xlim(min(xplot),max(xplot))
 ax.set_ylabel('z [m]')
 ax.set_xlabel('x* [m]')
 ax.plot(xplot,cont_elev[0]+np.zeros(shape=xplot.shape),color=cmap[0, :],label='MLW')
@@ -412,11 +417,7 @@ ax.legend()
 
 
 # NORMALIZE PRE-PCA
-profiles_to_process = np.empty(shape=topobathy_check_xshoreFill.shape)
-profiles_to_process[:] = topobathy_check_xshoreFill
-rows_nonans = np.where(np.nansum(~np.isnan(profiles_to_process),axis=0 ) == profiles_to_process.shape[0])[0]
-iikeep = iirow_dVolCheck
-data = profiles_to_process[:,iikeep]
+data = ZprePCA[:]
 dataMean = np.mean(data,axis=1) # this will give you an average for each cross-shore transect
 dataStd = np.std(data,axis=1)
 dataNormT = (data.T - dataMean.T) / dataStd.T
@@ -461,7 +462,7 @@ ax.set_xlim(0.5,10.5)
 ax.set_ylim(0,100)
 
 fig, ax = plt.subplots(2,4)
-time_PCA = tt_unique[iirow_dVolCheck]
+time_PCA = time_fullspan[iirow_dVolCheck]
 tplot = pd.to_datetime(time_PCA, unit='s', origin='unix')
 nx = dataNorm.shape[0]
 dx = 0.1
@@ -541,3 +542,35 @@ ax[2].set_yticklabels([])
 ax[3].set_yticklabels([])
 ax[4].set_yticklabels([])
 
+
+
+## plot difference between PCA-reconstructed and observed profiles
+reconstruct_profileNorm = np.empty(shape=dataNorm.shape)
+reconstruct_profileNorm[:] = np.nan
+for tt in np.arange(tplot.size):
+    mode1 = EOFs[0,:]*PCs[tt,0]
+    mode2 = EOFs[1,:]*PCs[tt,1]
+    mode3 = EOFs[2, :] * PCs[tt, 2]
+    mode4 = EOFs[3, :] * PCs[tt, 3]
+    mode5 = EOFs[4, :] * PCs[tt, 4]
+    prof_tt = mode1 + mode2 + mode3 + mode4 + mode5
+    # prof_tt = mode1 + mode2
+    reconstruct_profileNorm[:,tt] = prof_tt
+reconstruct_profileT = reconstruct_profileNorm.T*dataStd.T + dataMean.T
+reconstruct_profile = reconstruct_profileT.T
+fig, ax = plt.subplots()
+elev_plot = data-reconstruct_profile
+ax.plot(xplot,elev_plot)
+XX, TT = np.meshgrid(xplot, tplot)
+timescatter = np.reshape(TT, TT.size)
+xscatter = np.reshape(XX, XX.size)
+zscatter = np.reshape(elev_plot, elev_plot.size)
+tt = timescatter[~np.isnan(zscatter)]
+xx = xscatter[~np.isnan(zscatter)]
+zz = zscatter[~np.isnan(zscatter)]
+fig, ax = plt.subplots()
+ph = ax.scatter(xx, tt, s=1, c=zz, cmap='RdBu', vmin=-1,vmax=1)
+cbar = fig.colorbar(ph, ax=ax)
+cbar.set_label('z [m]')
+ax.set_xlabel('x [m, FRF]')
+ax.set_ylabel('time')
