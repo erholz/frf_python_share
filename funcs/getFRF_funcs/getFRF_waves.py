@@ -223,7 +223,8 @@ def getthredds_waves26m(full_path):
     from netCDF4 import Dataset
 
     ## Get the date information from the input file name
-    frf_base = "https://chlthredds.erdc.dren.mil/thredds/dodsC/frf/"
+    # frf_base = "https://chlthredds.erdc.dren.mil/thredds/dodsC/frf/"
+    frf_base = "https://chlthredds.erdc.dren.mil/thredds/catalog/frf/"
 
     ## Wave dataset
     ds = Dataset(frf_base + full_path, "r")

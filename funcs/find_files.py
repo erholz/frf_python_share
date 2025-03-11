@@ -1,6 +1,9 @@
 import os
 import numpy as np
 import datetime as dt
+from bs4 import BeautifulSoup
+import requests
+import re
 
 # prep file collection
 def find_files_in_range(floc,ext,epoch_beg,epoch_end,tzinfo):
@@ -38,7 +41,7 @@ def find_files_thredds(floc,ext_in):
     frf_base = 'https://chlthredds.erdc.dren.mil/thredds/catalog/frf/'
     url_in = frf_base + floc
     soup = BeautifulSoup(requests.get(url_in).text, "html.parser")
-    soup = BeautifulSoup(requests.get(url).text, "html.parser")
+    # soup = BeautifulSoup(requests.get(url).text, "html.parser")
     ids = []
     for tag in soup.find_all('dataset', id=re.compile(ext_in)):
         ids.append(tag['name'])

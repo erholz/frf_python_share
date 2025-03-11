@@ -5,7 +5,7 @@ from datetime import timezone
 import numpy as np
 from netCDF4 import Dataset
 import os
-import more_itertools as mit
+# import more_itertools as mit
 import pickle
 from datetime import timedelta
 
@@ -43,8 +43,8 @@ def round_to_nearest_half_hour(t):
 # local_base = '/volumes/macDrive/FRF_data/'
 local_base = 'C:/Users/rdchlerh/Desktop/FRF_data/'
 
-# wave_base17 = 'waverider-17m/'
-wave_base17 = 'waves_17mwaverider/'
+# wave_base17 = 'waveride?r-17m/'
+wave_base17 = 'waves_17marray/'
 files17 = sorted((f for f in os.listdir(local_base+wave_base17) if not f.startswith(".")), key=str.lower) #os.listdir(local_base+wave_base17)
 # files17.sort()
 files_path17 = [os.path.join(os.path.abspath(local_base+wave_base17), x) for x in files17]
@@ -289,9 +289,9 @@ combinedDmWIS = np.hstack((waveNormWIS,waveNorm[copyOverIndex]))
 combinedTimeWIS = np.hstack((tWaveWIS,cTime[copyOverIndex]))
 
 
-picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_26Nov2024/'
+# picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_26Nov2024/'
+picklefile_dir = 'G:\/Projects/FY24/FY24_SMARTSEED/FRF_data/processed_20Feb2025/'
 with open(picklefile_dir+'stormWaves_WISandFRF.pickle','wb') as file:
     pickle.dump([combinedHsWIS,combinedTpWIS,combinedDmWIS,combinedTimeWIS],file)
-picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_26Nov2024/'
 with open(picklefile_dir+'stormWaves_FRF.pickle','wb') as file:
     pickle.dump([cHs,cTp,cDp,cTime],file)

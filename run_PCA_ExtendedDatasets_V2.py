@@ -54,6 +54,8 @@ ZprePCA = Ztrimlength[:,goodprofs]
 # with open(picklefile_dir + 'topobathyhydro_ML_final_20Feb2025_Nlook96_PrePCA.pickle', 'wb') as file:
 #     pickle.dump([xplot,ZprePCA,goodset,goodprofs,goodtimes],file)
 
+
+
 ############################# MAKE NICE PLOTS OF DATA BEFORE PCA #############################
 
 picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_20Feb2025/'
@@ -272,7 +274,6 @@ ax.set_title('Profiles reconstructed from PCA')
 
 
 # Load dataset we are going to compare with...
-
 # with open(picklefile_dir + 'topobathyhydro_ML_final_20Feb2025_Nlook96.pickle', 'rb') as file:
 #     time_fullspan,lidar_xFRF,profileIDs_ML_final,profileTimes_ML_final,hydro_MLinput_final,topobathy_ML_final = pickle.load(file)
 # with open(picklefile_dir + 'topobathyhydro_ML_final_20Feb2025_Nlook96_PrePCA.pickle', 'rb') as file:
@@ -389,10 +390,12 @@ ax.set_ylim(-0.5,0.5)
 
 ################ RERUN PCA WITH DATASETS WHERE DVOL THRESHOLD MET... ################
 
-
 # verify that all the profiles in topobathy_check_xshoreFill for corresponding datasets are NOTNAN
 iiDS_passDVolCheck = goodset[ii_dVolThreshMet]
 iirow_dVolCheck = np.unique(dataset_profileIndeces[np.where(ii_dVolThreshMet)[0],:]).astype(int)
+data_profIDs_dVolThreshMet = dataset_profileIndeces[np.where(ii_dVolThreshMet)[0],:].astype(int)
+data_hydro = hydro_MLinput_final[iiDS_passDVolCheck,:,:]
+
 
 ZZ = Ztrimlength[:,iirow_dVolCheck]
 ZprePCA = Ztrimlength[:,iirow_dVolCheck]
@@ -574,3 +577,22 @@ cbar = fig.colorbar(ph, ax=ax)
 cbar.set_label('z [m]')
 ax.set_xlabel('x [m, FRF]')
 ax.set_ylabel('time')
+
+
+# make PCs_fullspan, etc.
+PCs_fullspan = np.empty(shape=(time_fullspan.size, xplot.size))*np.nan
+dataNorm_fullspan = np.empty(shape=(xplot.size,time_fullspan.size))*np.nan
+reconstruct_profNorm_fullspan = np.empty(shape=(xplot.size,time_fullspan.size))*np.nan
+reconstruct_prof_fullspan = np.empty(shape=(xplot.size,time_fullspan.size))*np.nan
+for jj in np.arange(iiDS_passDVolCheck.size):
+    ii_fullspan = profileIDs_ML_final[iiDS_passDVolCheck[jj],:].astype(int)
+    ii_PCs = np.where(np.isin(iirow_dVolCheck,ii_fullspan))[0]
+    PCs_fullspan[ii_fullspan,:] = PCs[ii_PCs,:]
+    dataNorm_fullspan[:,ii_fullspan] = dataNorm[:,ii_PCs]
+    reconstruct_profNorm_fullspan[:,ii_fullspan] = reconstruct_profileNorm[:,ii_PCs]
+    reconstruct_prof_fullspan[:,ii_fullspan] = reconstruct_profile[:,ii_PCs]
+
+# ## SAVE
+# with open(picklefile_dir + 'topobathyhydro_ML_final_20Feb2025_Nlook96_PCApostDVol.pickle', 'wb') as file:
+#     pickle.dump([xplot,time_fullspan,dataNorm_fullspan,dataMean,dataStd,PCs_fullspan,EOFs,APEV,data_profIDs_dVolThreshMet,
+#                  reconstruct_profNorm_fullspan,reconstruct_prof_fullspan,data_hydro],file)
