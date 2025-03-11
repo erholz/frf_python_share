@@ -13,7 +13,8 @@ from datetime import timedelta
 
 
 # Load processed deep-water waves from get_wavesForStormClimate
-picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_26Nov2024/'
+# picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_26Nov2024/'
+picklefile_dir = 'G:/Projects/FY24/FY24_SMARTSEED/FRF_data/processed_20Feb2025/'
 with open(picklefile_dir+'stormWaves_WISandFRF.pickle', 'rb') as file:
     combinedHsWIS,combinedTpWIS,combinedDmWIS,combinedTimeWIS = pickle.load(file)
 with open(picklefile_dir+'stormWaves_FRF.pickle','rb') as file:
@@ -287,7 +288,8 @@ output['combinedTimeWIS'] = combinedTimeWIS
 output['peakTimeStormListWIS'] = peakTimeStormListWIS
 
 
-picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_26Nov2024/'
+# picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_26Nov2024/'
+picklefile_dir = 'G:/Projects/FY24/FY24_SMARTSEED/FRF_data/processed_20Feb2025/'
 # with open(picklefile_dir+clusterPickle,'wb') as f:
 #     pickle.dump(output, f)
 

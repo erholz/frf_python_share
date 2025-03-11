@@ -1,4 +1,6 @@
+import matplotlib
 import matplotlib.pyplot as plt
+matplotlib.use('TkAgg')
 import pandas as pd  # to load the dataframe
 import datetime as dt
 from datetime import timezone
@@ -151,9 +153,9 @@ inter = set(timesWithNo17But26).intersection(timeWave26)
 indices = [ind_dict[x] for x in inter]
 indices.sort()
 
-plt.figure()
-plt.plot(timeWave17,hs17,'.',label='17m')
-plt.plot(np.asarray(timeWave26)[indices],hs26[indices],'.',label='26m')
+fig, ax = plt.subplots()
+ax.plot(timeWave17,hs17,'.',label='17m')
+ax.plot(np.asarray(timeWave26)[indices],hs26[indices],'.',label='26m')
 
 combinedTime = np.hstack((np.asarray(timeWave17),np.asarray(timeWave26)[indices]))
 combinedHs = np.hstack((hs17,hs26[indices]))
@@ -290,8 +292,8 @@ combinedTimeWIS = np.hstack((tWaveWIS,cTime[copyOverIndex]))
 
 
 # picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_26Nov2024/'
-picklefile_dir = 'G:\/Projects/FY24/FY24_SMARTSEED/FRF_data/processed_20Feb2025/'
-with open(picklefile_dir+'stormWaves_WISandFRF.pickle','wb') as file:
-    pickle.dump([combinedHsWIS,combinedTpWIS,combinedDmWIS,combinedTimeWIS],file)
-with open(picklefile_dir+'stormWaves_FRF.pickle','wb') as file:
-    pickle.dump([cHs,cTp,cDp,cTime],file)
+picklefile_dir = 'G:/Projects/FY24/FY24_SMARTSEED/FRF_data/processed_20Feb2025/'
+# with open(picklefile_dir+'stormWaves_WISandFRF.pickle','wb') as file:
+#     pickle.dump([combinedHsWIS,combinedTpWIS,combinedDmWIS,combinedTimeWIS],file)
+# with open(picklefile_dir+'stormWaves_FRF.pickle','wb') as file:
+#     pickle.dump([cHs,cTp,cDp,cTime],file)

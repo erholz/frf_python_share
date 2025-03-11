@@ -399,6 +399,12 @@ ax.plot(lidarelev.T)
 
 
 ## Re-save 8m and 17m wave data, fill 8m from 17m where avail/needed
+wave17m_Hs_fullspan = data_wave17m[:,0]
+wave17m_Tp_fullspan = data_wave17m[:,1]
+wave17m_dir_fullspan = data_wave17m[:,2]
+wave8m_Hs_fullspan = data_wave8m[:,0]
+wave8m_Tp_fullspan = data_wave8m[:,1]
+wave8m_dir_fullspan = data_wave8m[:,2]
 #
 # Define 17m waves as H1
 H1 = wave17m_Hs_fullspan[:]
@@ -406,7 +412,7 @@ T = wave17m_Tp_fullspan[:]
 theta1 = wave17m_dir_fullspan[:]
 h1 = 17
 h2 = 8
-breakcrit = 0.75
+breakcrit = 0.7
 g = 9.81
 # do transformation
 H2, theta2 = wavetransform_point([],[], H1, theta1, T, h2, h1, g, breakcrit)
@@ -416,9 +422,9 @@ fig, ax = plt.subplots()
 ax.plot(err,'o')
 fig, ax = plt.subplots()
 ax.plot(wave8m_dir_fullspan,theta2,'o')
-wave8m_gapfilled_Hs = np.empty(shape=wave8m_Hs_fullspan.shape)
-wave8m_gapfilled_Tp = np.empty(shape=wave8m_Tp_fullspan.shape)
-wave8m_gapfilled_dir = np.empty(shape=wave8m_dir_fullspan.shape)
+wave8m_gapfilled_Hs = np.empty(shape=time_fullspan.shape)
+wave8m_gapfilled_Tp = np.empty(shape=time_fullspan.shape)
+wave8m_gapfilled_dir = np.empty(shape=time_fullspan.shape)
 wave8m_gapfilled_Hs[:] = np.nan
 wave8m_gapfilled_Tp[:] = np.nan
 wave8m_gapfilled_dir[:] = np.nan
@@ -446,5 +452,6 @@ data_wave8m_filled[:,1] = wave8m_gapfilled_Tp
 data_wave8m_filled[:,2] = wave8m_gapfilled_dir
 
 # picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_26Nov2024/'
+picklefile_dir = 'G:/Projects/FY24/FY24_SMARTSEED/FRF_data/processed_20Feb2025/'
 # with open(picklefile_dir+'waves_8m&17m_2015_2024.pickle','wb') as file:
 #     pickle.dump([data_wave8m,data_wave17m,data_wave8m_filled], file)
