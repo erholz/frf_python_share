@@ -18,8 +18,10 @@ import seaborn as sns
 
 
 picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_20Feb2025/'
+with open(picklefile_dir + 'topobathyhydro_ML_final_20Feb2025_Nlook96.pickle', 'rb') as file:
+    time_fullspan,lidar_xFRF,profileIDs_ML_final,profileTimes_ML_final,hydro_MLinput_final,topobathy_ML_final = pickle.load(file)
 # with open(picklefile_dir + 'topobathyhydro_ML_final_20Feb2025_Nlook96.pickle', 'rb') as file:
-#     time_fullspan,lidar_xFRF,profileIDs_ML_final,profileTimes_ML_final,hydro_MLinput_final,topobathy_ML_final = pickle.load(file)
+#     time_fullspan,_,_,_,_,_ = pickle.load(file)
 unique_profIDs = np.unique(profileIDs_ML_final).astype(int)
 
 # Use same length constraints as before
