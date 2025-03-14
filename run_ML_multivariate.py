@@ -70,13 +70,15 @@ for nn in np.arange(PCs_fullspan.shape[1]):
     scaled = scaler.fit_transform(unscaled)
     PCs_scaled[:, nn] = np.squeeze(scaled)
 
-num_features = 9
+numhydro = 4
+numPCs = 8
+num_features = numhydro + numPCs
 num_steps = 24*4 - 1
 num_datasets = data_hydro.shape[0]
 inputData = np.empty((num_datasets,num_steps,num_features))
 inputData[:] = np.nan
 # outputData = np.empty((num_datasets,))
-outputData = np.empty((num_datasets,5))
+outputData = np.empty((num_datasets,numPCs))
 outputData[:] = np.nan
 numinset = np.empty((num_datasets,))
 numinset[:] = np.nan
@@ -107,11 +109,17 @@ for jj in np.arange(num_datasets):
     inputData[jj, :, 6] = PCs_setjj[0:-1,2]
     inputData[jj, :, 7] = PCs_setjj[0:-1,3]
     inputData[jj, :, 8] = PCs_setjj[0:-1,4]
+    inputData[jj, :, 9] = PCs_setjj[0:-1, 5]
+    inputData[jj, :, 10] = PCs_setjj[0:-1, 6]
+    inputData[jj, :, 11] = PCs_setjj[0:-1, 7]
     outputData[jj,0] = PCs_setjj[-1,0]
     outputData[jj,1] = PCs_setjj[-1,1]
     outputData[jj,2] = PCs_setjj[-1,2]
     outputData[jj,3] = PCs_setjj[-1,3]
     outputData[jj, 4] = PCs_setjj[-1, 4]
+    outputData[jj, 5] = PCs_setjj[-1, 5]
+    outputData[jj, 6] = PCs_setjj[-1, 6]
+    outputData[jj, 7] = PCs_setjj[-1, 7]
     if np.nansum(np.isnan(PCs_setjj)) > 0:
         nanPCs_data[jj] = 1
 
@@ -126,7 +134,7 @@ inputData_keep = inputData[iikeep,:,:]
 outputData_keep = outputData[iikeep,:]
 
 # separate test and train IDs
-frac = 1/2
+frac = 0.6          # num used for training
 num_datasets = sum(iikeep)
 Ntrain = int(np.floor(num_datasets*frac))
 Ntest = num_datasets - Ntrain
@@ -138,14 +146,14 @@ train_X = np.empty((Ntrain,num_steps,num_features))
 train_X[:,:,:] = inputData_keep[iitrain,:,:]
 # train_y = np.empty((Ntrain,))
 # train_y[:] = outputData_keep[iitrain]
-train_y = np.empty((Ntrain,5))
+train_y = np.empty((Ntrain,numPCs))
 train_y[:] = outputData_keep[iitrain,:]
 # load testing
 test_X = np.empty((Ntest,num_steps,num_features))
 test_X[:,:,:] = inputData_keep[iitest,:,:]
 # test_y = np.empty((Ntest,))
 # test_y[:] = outputData_keep[iitest]
-test_y = np.empty((Ntest,5))
+test_y = np.empty((Ntest,numPCs))
 test_y[:] = outputData_keep[iitest,:]
 
 
@@ -155,30 +163,45 @@ test_y[:] = outputData_keep[iitest,:]
 model = Sequential()
 model.add(LSTM(45, input_shape=(train_X.shape[1], train_X.shape[2]), dropout=0.25))
 # model.add(LSTM(45, input_shape=(train_X.shape[1], train_X.shape[2])))
-model.add(Dense(5))
+model.add(Dense(numPCs))
 
 # custom loss function
-def customLoss(y_true, y_pred):
+def customLoss_wrapper(input_data):
 
-    # loss = data_loss*weight_data + phys_loss*weight_phys
-    weight_data = 0.5
-    weight_phys = 0.5
-    data_loss = keras.losses.MAE(y_true, y_pred)
-    inv_ypred = prev_pred * (PCs_max[0:5] - PCs_min[0:5]) + PCs_min[0:5]
-    inv_ytrue = prev_obs * (PCs_max[0:5] - PCs_min[0:5]) + PCs_min[0:5]
+    input_data = tf.cast(input_data, tf.float32)
+    ytrue_prevobs = input_data[:,-1,4:]
+    inv_ytrue_prevobs = ytrue_prevobs * (PCs_max[0:numPCs] - PCs_min[0:numPCs]) + PCs_min[0:numPCs]
     dx = 0.1
-    vol_true = np.nansum(inv_ytrue*dx)
-    vol_pred = np.nansum(inv_ypred*dx)
-    phys_loss = np.abs(vol_true - vol_pred)
-    loss = weight_phys*phys_loss + weight_data*data_loss
+    vol_true_prev = keras.backend.sum(inv_ytrue_prevobs*dx,axis=1)
 
-    return loss
+    def customLoss(y_true, y_pred):
 
-model.compile(loss=customLoss, optimizer='adam')
+        # loss = data_loss*weight_data + phys_loss*weight_phys
+        weight_dataEOF = 0.4
+        weight_datavol = 0.15
+        weight_dataelev = 0.35
+        weight_dataelev_shore = 0.1
+        # weight_dataDVol = 0.1
+        dataEOF_loss = keras.losses.MAE(y_true, y_pred)
+        inv_ypred = y_pred * (PCs_max[0:numPCs] - PCs_min[0:numPCs]) + PCs_min[0:numPCs]
+        inv_ytrue = y_true * (PCs_max[0:numPCs] - PCs_min[0:numPCs]) + PCs_min[0:numPCs]
+        dataelev_loss = keras.losses.MAE(inv_ytrue, inv_ypred)
+        # dataelevshore_loss = inv_ypred[:,0]-inv_ytrue[:,0]
+        vol_true = keras.backend.sum(inv_ytrue*dx,axis=1)
+        vol_pred = keras.backend.sum(inv_ypred*dx,axis=1)
+        datavol_loss = keras.backend.abs(vol_true - vol_pred)
+        # dataDVol_loss = keras.backend.abs(vol_true_prev - vol_pred)
+        sum_loss = weight_datavol*datavol_loss + weight_dataEOF*dataEOF_loss + weight_dataelev*dataelev_loss #+ weight_dataelev_shore*dataelevshore_loss #+ weight_dataDVol*dataDVol_loss
+
+        return sum_loss
+    return customLoss
+
+model.compile(loss=customLoss_wrapper(train_X), optimizer='adam')
 
 # fit network
 history = model.fit(train_X, train_y, epochs=60, batch_size=40, validation_data=(test_X, test_y), verbose=2,
                     shuffle=False)
+
 # plot history
 fig, ax = plt.subplots()
 plt.plot(history.history['loss'], label='train')
@@ -193,56 +216,36 @@ ax.set_ylabel('error')
 # X_scaled = (X - X_min) / (X_max - X_min)
 # X = X_scaled * (X_max - X_min) + X_min
 yhat = model.predict(test_X)
-inv_yhat = yhat * (PCs_max[0:5] - PCs_min[0:5]) + PCs_min[0:5]
-inv_test_y = test_y * (PCs_max[0:5] - PCs_min[0:5]) + PCs_min[0:5]
+inv_yhat = yhat * (PCs_max[0:numPCs] - PCs_min[0:numPCs]) + PCs_min[0:numPCs]
+inv_test_y = test_y * (PCs_max[0:numPCs] - PCs_min[0:numPCs]) + PCs_min[0:numPCs]
 
 # fig, ax = plt.subplots()
 # ax.plot(inv_test_y,inv_yhat,'.',alpha=0.1)
 # plt.grid()
-rval_modes = np.empty((5,))*np.nan
-pval_modes = np.empty((5,))*np.nan
-stderr_modes = np.empty((5,))*np.nan
-for jj in np.arange(5):
+rval_modes = np.empty((numPCs,))*np.nan
+pval_modes = np.empty((numPCs,))*np.nan
+stderr_modes = np.empty((numPCs,))*np.nan
+rmse_modes = np.empty((numPCs,))*np.nan
+nrmse_modes = np.empty((numPCs,))*np.nan
+for jj in np.arange(numPCs):
     slope, intercept, rval_modes[jj], pval_modes[jj], stderr_modes[jj] = sp.stats.linregress(inv_test_y[:,jj], inv_yhat[:,jj])
+    rmse_modes[jj] = np.sqrt(np.nanmean((inv_test_y[:,jj] - inv_yhat[:,jj])**2))
+    nrmse_modes[jj] = np.sqrt(np.nanmean((inv_test_y[:, jj] - inv_yhat[:, jj]) ** 2))/np.nanmean(inv_test_y[:,jj])
 
 
 minval = -75
 maxval = 75
-fig, ax = plt.subplots(1,5)
-ax[0].plot([minval,maxval],[minval,maxval],'k')
-ax[0].plot(inv_test_y[:,0],inv_yhat[:,0],'.',alpha=0.1)
-ax[0].grid()
-ax[0].set_ylim(minval,maxval)
-ax[0].set_xlim(minval,maxval)
-ax[0].set_title('Mode 1 \n r^2 = '+str("%0.3f" % rval_modes[0]))
-ax[1].plot([minval,maxval],[minval,maxval],'k')
-ax[1].plot(inv_test_y[:,1],inv_yhat[:,1],'.',alpha=0.1)
-ax[1].grid()
-ax[1].set_ylim(minval,maxval)
-ax[1].set_xlim(minval,maxval)
-ax[1].set_title('Mode 2 \n r^2 = '+str("%0.3f" % rval_modes[1]))
-ax[1].set_yticklabels([])
-ax[2].plot([minval,maxval],[minval,maxval],'k')
-ax[2].plot(inv_test_y[:,2],inv_yhat[:,2],'.',alpha=0.1)
-ax[2].grid()
-ax[2].set_ylim(minval,maxval)
-ax[2].set_xlim(minval,maxval)
-ax[2].set_title('Mode 3 \n r^2 = '+str("%0.3f" % rval_modes[2]))
-ax[2].set_yticklabels([])
-ax[3].plot([minval,maxval],[minval,maxval],'k')
-ax[3].plot(inv_test_y[:,3],inv_yhat[:,3],'.',alpha=0.1)
-ax[3].grid()
-ax[3].set_ylim(minval,maxval)
-ax[3].set_xlim(minval,maxval)
-ax[3].set_title('Mode 4 \n r^2 = '+str("%0.3f" % rval_modes[3]))
-ax[3].set_yticklabels([])
-ax[4].plot([minval,maxval],[minval,maxval],'k')
-ax[4].plot(inv_test_y[:,4],inv_yhat[:,4],'.',alpha=0.1)
-ax[4].grid()
-ax[4].set_ylim(minval,maxval)
-ax[4].set_xlim(minval,maxval)
-ax[4].set_title('Mode 5 \n r^2 = '+str("%0.3f" % rval_modes[4]))
-ax[4].set_yticklabels([])
+fig, ax = plt.subplots(1,8)
+for jj in range(int(numPCs)):
+    ax[jj].plot([minval,maxval],[minval,maxval],'k')
+    ax[jj].plot(inv_test_y[:,jj],inv_yhat[:,jj],'.',alpha=0.05)
+    ax[jj].grid()
+    ax[jj].set_ylim(minval,maxval)
+    ax[jj].set_xlim(minval,maxval)
+    # ax[jj].set_title('Mode '+str(jj+1)+' \n r^2 = '+str("%0.3f" % rval_modes[jj]))
+    ax[jj].set_title('Mode ' + str(jj + 1) + ' \n NRMSE = ' + str("%0.1f" % nrmse_modes[jj]))
+fig.set_size_inches(13.5,2.)
+plt.tight_layout()
 
 
 # compare observed at predicted output profiles...
@@ -251,7 +254,10 @@ mode2_obs = np.tile(EOFs[1,:],(inv_test_y.shape[0],1)).T * inv_test_y[:,1]
 mode3_obs = np.tile(EOFs[2,:],(inv_test_y.shape[0],1)).T * inv_test_y[:,2]
 mode4_obs = np.tile(EOFs[3,:],(inv_test_y.shape[0],1)).T * inv_test_y[:,3]
 mode5_obs = np.tile(EOFs[4,:],(inv_test_y.shape[0],1)).T * inv_test_y[:,4]
-profsobs_norm = mode1_obs + mode2_obs + mode3_obs + mode4_obs + mode5_obs
+mode6_obs = np.tile(EOFs[5,:],(inv_test_y.shape[0],1)).T * inv_test_y[:,5]
+mode7_obs = np.tile(EOFs[6,:],(inv_test_y.shape[0],1)).T * inv_test_y[:,6]
+mode8_obs = np.tile(EOFs[7,:],(inv_test_y.shape[0],1)).T * inv_test_y[:,7]
+profsobs_norm = mode1_obs + mode2_obs + mode3_obs + mode4_obs + mode5_obs + mode6_obs + mode7_obs + mode8_obs
 profsobs_T = profsobs_norm.T * dataStd.T + dataMean.T
 profobs = profsobs_T.T
 fig, ax = plt.subplots()
@@ -264,7 +270,10 @@ mode2_pred = np.tile(EOFs[1,:],(inv_yhat.shape[0],1)).T * inv_yhat[:,1]
 mode3_pred = np.tile(EOFs[2,:],(inv_yhat.shape[0],1)).T * inv_yhat[:,2]
 mode4_pred = np.tile(EOFs[3,:],(inv_yhat.shape[0],1)).T * inv_yhat[:,3]
 mode5_pred = np.tile(EOFs[4,:],(inv_yhat.shape[0],1)).T * inv_yhat[:,4]
-profspred_norm = mode1_pred + mode2_pred + mode3_pred + mode4_pred + mode5_pred
+mode6_pred = np.tile(EOFs[5,:],(inv_yhat.shape[0],1)).T * inv_yhat[:,5]
+mode7_pred = np.tile(EOFs[6,:],(inv_yhat.shape[0],1)).T * inv_yhat[:,6]
+mode8_pred = np.tile(EOFs[7,:],(inv_yhat.shape[0],1)).T * inv_yhat[:,7]
+profspred_norm = mode1_pred + mode2_pred + mode3_pred + mode4_pred + mode5_pred + mode6_pred + mode7_pred + mode8_pred
 profspred_T = profspred_norm.T * dataStd.T + dataMean.T
 profpred = profspred_T.T
 fig, ax = plt.subplots()
@@ -336,8 +345,9 @@ for nn in np.arange(storm_times_withdata.size):
 
     # SHORT_TERM PREDICTION
     Npred = Nlook-1
-    prev_pred = np.empty((Npred,5))*np.nan
-    prev_obs = np.empty((Npred,5))*np.nan
+
+    prev_pred = np.empty((Npred,numPCs))*np.nan
+    prev_obs = np.empty((Npred,numPCs))*np.nan
     numnan_hydro = np.empty((Npred,))*np.nan
     for tt in np.arange(Npred):
 
@@ -346,7 +356,7 @@ for nn in np.arange(storm_times_withdata.size):
         iisetnn_hydro = np.arange(iistart + tt, iistart + tt + Nlook-1)
 
         # find and fill nans in PCs
-        PCs_setnn = PCs_scaled[iisetnn_PCs, 0:5]
+        PCs_setnn = PCs_scaled[iisetnn_PCs, 0:numPCs]
         if np.sum(np.isnan(PCs_setnn)) > 5:
             print('warning - too many nans in PC for post-storm '+str(nn)+', moving on')
             plotflag = False
@@ -354,7 +364,7 @@ for nn in np.arange(storm_times_withdata.size):
         else:
             plotflag = True
             ds_PCs = np.empty(shape=PCs_setnn.shape)*np.nan
-            for jj in np.arange(5):
+            for jj in np.arange(numPCs):
                 yv = PCs_setnn[:, jj]
                 if sum(np.isnan(yv)) > 0:
                     xq = np.arange(Nlook-1-tt)
@@ -420,6 +430,9 @@ for nn in np.arange(storm_times_withdata.size):
             inputData[0, :, 6] = ds_PCs[:, 2]
             inputData[0, :, 7] = ds_PCs[:, 3]
             inputData[0, :, 8] = ds_PCs[:, 4]
+            inputData[0, :, 9] = ds_PCs[:, 5]
+            inputData[0, :, 10] = ds_PCs[:, 6]
+            inputData[0, :, 11] = ds_PCs[:, 7]
             # outputData = np.empty((num_datasets, 5))
             # outputData[0, 0] = ds_PCs[-1, 0]
             # outputData[0, 1] = ds_PCs[-1, 1]
@@ -434,80 +447,61 @@ for nn in np.arange(storm_times_withdata.size):
 
             # save last prediction as input for the next set
             prev_pred[tt,:] = yhat[:]
-            prev_obs[tt,:] = PCs_scaled[iisetnn_hydro[-1]+1, 0:5]
+            prev_obs[tt,:] = PCs_scaled[iisetnn_hydro[-1]+1, 0:numPCs]
 
     if plotflag:
         # inverse scale the results
-        inv_yhat = prev_pred * (PCs_max[0:5] - PCs_min[0:5]) + PCs_min[0:5]
-        inv_test_y = prev_obs * (PCs_max[0:5] - PCs_min[0:5]) + PCs_min[0:5]
-        rval_modes = np.empty((5,))*np.nan
-        pval_modes = np.empty((5,))*np.nan
-        stderr_modes = np.empty((5,))*np.nan
-        for jj in np.arange(5):
+        inv_yhat = prev_pred * (PCs_max[0:numPCs] - PCs_min[0:numPCs]) + PCs_min[0:numPCs]
+        inv_test_y = prev_obs * (PCs_max[0:numPCs] - PCs_min[0:numPCs]) + PCs_min[0:numPCs]
+        rval_modes = np.empty((numPCs,))*np.nan
+        pval_modes = np.empty((numPCs,))*np.nan
+        stderr_modes = np.empty((numPCs,))*np.nan
+        rmse_modes = np.empty((numPCs,))*np.nan
+        nrmse_modes = np.empty((numPCs,))*np.nan
+        for jj in np.arange(numPCs):
             slope, intercept, rval_modes[jj], pval_modes[jj], stderr_modes[jj] = sp.stats.linregress(inv_test_y[:,jj], inv_yhat[:,jj])
-
+            rmse_modes[jj] = np.sqrt(np.nanmean((inv_test_y[:,jj] - inv_yhat[:,jj])**2))
+            nrmse_modes[jj] = np.sqrt(np.nanmean((inv_test_y[:, jj] - inv_yhat[:, jj]) ** 2))/np.nanmean(inv_test_y[:,jj])
 
         # now plot prediction vs observed over time
         # fig, ax = plt.subplots()
-        # ax.plot(numnan_hydro,'o')
-        fig, ax = plt.subplots(1,5)
-        fig.set_size_inches(8.7, 2.1)
+
         minval = -75
         maxval = 75
         scatsz = 5
-        ax[0].plot([minval,maxval],[minval,maxval],'k')
-        ax[0].scatter(inv_test_y[:,0],inv_yhat[:,0],scatsz,np.arange(Npred),alpha=0.95,cmap='plasma')
-        ax[0].grid()
-        ax[0].set_ylim(minval,maxval)
-        ax[0].set_xlim(minval,maxval)
-        ax[0].set_title('Mode 1 \n r^2 = '+str("%0.3f" % rval_modes[0]))
-        ax[1].plot([minval,maxval],[minval,maxval],'k')
-        ax[1].scatter(inv_test_y[:,1],inv_yhat[:,1],scatsz,np.arange(Npred),alpha=0.95,cmap='plasma')
-        ax[1].grid()
-        ax[1].set_ylim(minval,maxval)
-        ax[1].set_xlim(minval,maxval)
-        ax[1].set_title('Mode 2 \n r^2 = '+str("%0.3f" % rval_modes[1]))
-        ax[1].set_yticklabels([])
-        ax[2].plot([minval,maxval],[minval,maxval],'k')
-        ax[2].scatter(inv_test_y[:,2],inv_yhat[:,2],scatsz,np.arange(Npred),alpha=0.95,cmap='plasma')
-        ax[2].grid()
-        ax[2].set_ylim(minval,maxval)
-        ax[2].set_xlim(minval,maxval)
-        ax[2].set_title('Mode 3 \n r^2 = '+str("%0.3f" % rval_modes[2]))
-        ax[2].set_yticklabels([])
-        ax[3].plot([minval,maxval],[minval,maxval],'k')
-        ax[3].scatter(inv_test_y[:,3],inv_yhat[:,3],scatsz,np.arange(Npred),alpha=0.5,cmap='plasma')
-        ax[3].grid()
-        ax[3].set_ylim(minval,maxval)
-        ax[3].set_xlim(minval,maxval)
-        ax[3].set_title('Mode 4 \n r^2 = '+str("%0.3f" % rval_modes[3]))
-        ax[3].set_yticklabels([])
-        ax[4].plot([minval,maxval],[minval,maxval],'k')
-        ph = ax[4].scatter(inv_test_y[:,4],inv_yhat[:,4],scatsz,np.arange(Npred),alpha=0.95,cmap='plasma')
-        ax[4].grid()
-        ax[4].set_ylim(minval,maxval)
-        ax[4].set_xlim(minval,maxval)
-        ax[4].set_title('Mode 5 \n r^2 = '+str("%0.3f" % rval_modes[4]))
-        ax[4].set_yticklabels([])
-        cbar = fig.colorbar(ph, ax=ax[4])
-        cbar.set_label('prediction time [hrs]')
+        fig, ax = plt.subplots(1, 8)
+        for jj in range(int(numPCs)):
+            ax[jj].plot([minval, maxval], [minval, maxval], 'k')
+            ax[jj].scatter(inv_test_y[:,jj],inv_yhat[:,jj],scatsz,np.arange(Npred),alpha=0.95,cmap='plasma')
+            ax[jj].grid()
+            ax[jj].set_ylim(minval, maxval)
+            ax[jj].set_xlim(minval, maxval)
+            # ax[jj].set_title('Mode '+str(jj+1)+' \n r^2 = '+str("%0.3f" % rval_modes[jj]))
+            ax[jj].set_title('Mode ' + str(jj + 1) + ' \n NRMSE = ' + str("%0.1f" % nrmse_modes[jj]))
+        fig.set_size_inches(13.5, 2.)
         plt.tight_layout()
 
-        # plot predicted versus observed profiles
-        mode1_obs = np.tile(EOFs[0,:],(inv_test_y.shape[0],1)).T * inv_test_y[:,0]
-        mode2_obs = np.tile(EOFs[1,:],(inv_test_y.shape[0],1)).T * inv_test_y[:,1]
-        mode3_obs = np.tile(EOFs[2,:],(inv_test_y.shape[0],1)).T * inv_test_y[:,2]
-        mode4_obs = np.tile(EOFs[3,:],(inv_test_y.shape[0],1)).T * inv_test_y[:,3]
-        mode5_obs = np.tile(EOFs[4,:],(inv_test_y.shape[0],1)).T * inv_test_y[:,4]
-        profsobs_norm = mode1_obs + mode2_obs + mode3_obs + mode4_obs + mode5_obs
+        # compare observed at predicted output profiles...
+        mode1_obs = np.tile(EOFs[0, :], (inv_test_y.shape[0], 1)).T * inv_test_y[:, 0]
+        mode2_obs = np.tile(EOFs[1, :], (inv_test_y.shape[0], 1)).T * inv_test_y[:, 1]
+        mode3_obs = np.tile(EOFs[2, :], (inv_test_y.shape[0], 1)).T * inv_test_y[:, 2]
+        mode4_obs = np.tile(EOFs[3, :], (inv_test_y.shape[0], 1)).T * inv_test_y[:, 3]
+        mode5_obs = np.tile(EOFs[4, :], (inv_test_y.shape[0], 1)).T * inv_test_y[:, 4]
+        mode6_obs = np.tile(EOFs[5, :], (inv_test_y.shape[0], 1)).T * inv_test_y[:, 5]
+        mode7_obs = np.tile(EOFs[6, :], (inv_test_y.shape[0], 1)).T * inv_test_y[:, 6]
+        mode8_obs = np.tile(EOFs[7, :], (inv_test_y.shape[0], 1)).T * inv_test_y[:, 7]
+        profsobs_norm = mode1_obs + mode2_obs + mode3_obs + mode4_obs + mode5_obs + mode6_obs + mode7_obs + mode8_obs
         profsobs_T = profsobs_norm.T * dataStd.T + dataMean.T
         profobs = profsobs_T.T
-        mode1_pred = np.tile(EOFs[0,:],(inv_yhat.shape[0],1)).T * inv_yhat[:,0]
-        mode2_pred = np.tile(EOFs[1,:],(inv_yhat.shape[0],1)).T * inv_yhat[:,1]
-        mode3_pred = np.tile(EOFs[2,:],(inv_yhat.shape[0],1)).T * inv_yhat[:,2]
-        mode4_pred = np.tile(EOFs[3,:],(inv_yhat.shape[0],1)).T * inv_yhat[:,3]
-        mode5_pred = np.tile(EOFs[4,:],(inv_yhat.shape[0],1)).T * inv_yhat[:,4]
-        profspred_norm = mode1_pred + mode2_pred + mode3_pred + mode4_pred + mode5_pred
+        mode1_pred = np.tile(EOFs[0, :], (inv_yhat.shape[0], 1)).T * inv_yhat[:, 0]
+        mode2_pred = np.tile(EOFs[1, :], (inv_yhat.shape[0], 1)).T * inv_yhat[:, 1]
+        mode3_pred = np.tile(EOFs[2, :], (inv_yhat.shape[0], 1)).T * inv_yhat[:, 2]
+        mode4_pred = np.tile(EOFs[3, :], (inv_yhat.shape[0], 1)).T * inv_yhat[:, 3]
+        mode5_pred = np.tile(EOFs[4, :], (inv_yhat.shape[0], 1)).T * inv_yhat[:, 4]
+        mode6_pred = np.tile(EOFs[5, :], (inv_yhat.shape[0], 1)).T * inv_yhat[:, 5]
+        mode7_pred = np.tile(EOFs[6, :], (inv_yhat.shape[0], 1)).T * inv_yhat[:, 6]
+        mode8_pred = np.tile(EOFs[7, :], (inv_yhat.shape[0], 1)).T * inv_yhat[:, 7]
+        profspred_norm = mode1_pred + mode2_pred + mode3_pred + mode4_pred + mode5_pred + mode6_pred + mode7_pred + mode8_pred
         profspred_T = profspred_norm.T * dataStd.T + dataMean.T
         profpred = profspred_T.T
 
