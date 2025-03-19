@@ -32,8 +32,8 @@ import pandas as pd  # to do datetime conversions
 ############### Step 1 - Load and prep data ###############
 
 picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_20Feb2025/'
-with open(picklefile_dir + 'topobathyhydro_ML_final_20Feb2025_Nlook96_PCApostDVol.pickle', 'rb') as file:
-    xplot,time_fullspan,dataNorm_fullspan,dataMean,dataStd,PCs_fullspan,EOFs,APEV,data_profIDs_dVolThreshMet,reconstruct_profNorm_fullspan,reconstruct_prof_fullspan,data_hydro = pickle.load(file)
+# with open(picklefile_dir + 'topobathyhydro_ML_final_20Feb2025_Nlook96_PCApostDVol.pickle', 'rb') as file:
+#     xplot,time_fullspan,dataNorm_fullspan,dataMean,dataStd,PCs_fullspan,EOFs,APEV,data_profIDs_dVolThreshMet,reconstruct_profNorm_fullspan,reconstruct_prof_fullspan,data_hydro = pickle.load(file)
 with open(picklefile_dir + 'topobathyhydro_ML_final_18Mar2025_Nlook96_PCApostDVol_shifted.pickle', 'rb') as file:
     xplot_shift, time_fullspan, dataNorm_fullspan, dataMean, dataStd, PCs_fullspan, EOFs, APEV,reconstruct_profNorm_fullspan,reconstruct_prof_fullspan,dataobs_shift_fullspan,dataobs_fullspan,data_profIDs_dVolThreshMet,data_hydro,datahydro_fullspan = pickle.load(file)
 
@@ -74,72 +74,62 @@ for nn in np.arange(PCs_fullspan.shape[1]):
     scaled = scaler.fit_transform(unscaled)
     PCs_scaled[:, nn] = np.squeeze(scaled)
 
+
+
+############### Step 2 - Change NLook ###############
+
+Nlook = 48
+num_steps = Nlook-1
 numhydro = 4
 numPCs = 8
 num_features = numhydro + numPCs
-num_steps = 24*4 - 1
-num_datasets = data_hydro.shape[0]
-inputData = np.empty((num_datasets,num_steps,num_features))
-inputData[:] = np.nan
-# outputData = np.empty((num_datasets,))
-outputData = np.empty((num_datasets,numPCs))
-outputData[:] = np.nan
-numinset = np.empty((num_datasets,))
-numinset[:] = np.nan
-avgdt = np.empty((num_datasets,))
-avgdt[:] = np.nan
-nanhydro_data = np.zeros((num_datasets,))
-nanPCs_data = np.zeros((num_datasets,))
-for jj in np.arange(num_datasets):
-    dsjj = jj
+
+inputData = np.empty((1,num_steps,num_features))*np.nan
+outputData = np.empty((1,numPCs))*np.nan
+for tt in np.arange(time_fullspan.size-num_steps):
+
+    ttlook = np.arange(tt,tt + Nlook)
+
     # get input hydro
-    ds_watlev = data_hydro[dsjj,:,0]
-    ds_Hs = data_hydro[dsjj,:,1]
-    ds_Tp = data_hydro[dsjj,:,2]
-    ds_wdir = data_hydro[dsjj,:,3]
-    # if sum(nanflag_hydro[dsjj,:]) > 0:
-    #     nanhydro_data[jj] = 1
+    ds_watlev = hydro_fullspan_scaled[0,ttlook]
+    ds_Hs = hydro_fullspan_scaled[1,ttlook]
+    ds_Tp = hydro_fullspan_scaled[2,ttlook]
+    ds_wdir = hydro_fullspan_scaled[3,ttlook]
     # get input PC amplitudes
-    tmpii = data_profIDs_dVolThreshMet[dsjj,:]
-    PCs_setjj = PCs_scaled[tmpii, :]
-    numinset[jj] = len(tmpii)
-    # load into training matrices
-    inputData[jj, :, 0] = ds_watlev[0:-1]
-    inputData[jj, :, 1] = ds_Hs[0:-1]
-    inputData[jj, :, 2] = ds_Tp[0:-1]
-    inputData[jj, :, 3] = ds_wdir[0:-1]
-    inputData[jj, :, 4] = PCs_setjj[0:-1,0]
-    inputData[jj, :, 5] = PCs_setjj[0:-1,1]
-    inputData[jj, :, 6] = PCs_setjj[0:-1,2]
-    inputData[jj, :, 7] = PCs_setjj[0:-1,3]
-    inputData[jj, :, 8] = PCs_setjj[0:-1,4]
-    inputData[jj, :, 9] = PCs_setjj[0:-1, 5]
-    inputData[jj, :, 10] = PCs_setjj[0:-1, 6]
-    inputData[jj, :, 11] = PCs_setjj[0:-1, 7]
-    outputData[jj,0] = PCs_setjj[-1,0]
-    outputData[jj,1] = PCs_setjj[-1,1]
-    outputData[jj,2] = PCs_setjj[-1,2]
-    outputData[jj,3] = PCs_setjj[-1,3]
-    outputData[jj, 4] = PCs_setjj[-1, 4]
-    outputData[jj, 5] = PCs_setjj[-1, 5]
-    outputData[jj, 6] = PCs_setjj[-1, 6]
-    outputData[jj, 7] = PCs_setjj[-1, 7]
-    if np.nansum(np.isnan(PCs_setjj)) > 0:
-        nanPCs_data[jj] = 1
+    ds_mode1 = PCs_scaled[ttlook, 0]
+    ds_mode2 = PCs_scaled[ttlook, 1]
+    ds_mode3 = PCs_scaled[ttlook, 2]
+    ds_mode4 = PCs_scaled[ttlook, 3]
+    ds_mode5 = PCs_scaled[ttlook, 4]
+    ds_mode6 = PCs_scaled[ttlook, 5]
+    ds_mode7 = PCs_scaled[ttlook, 6]
+    ds_mode8 = PCs_scaled[ttlook, 7]
+
+    # check for nans....
+    ds_data = np.column_stack((ds_watlev.T,ds_Hs.T,ds_Tp.T,ds_wdir.T,ds_mode1,ds_mode2,ds_mode3,ds_mode4,ds_mode5,ds_mode6,ds_mode7,ds_mode8))
+    if np.sum(np.isnan(ds_data)) == 0:
+        # print(str(tt))
+        input_newDS = np.empty((1,num_steps,num_features))*np.nan
+        input_newDS[0,:,:] = ds_data[:-1,:]
+        output_newDS = np.empty((1,numPCs))*np.nan
+        output_newDS[:] = ds_data[-1,4:].T
+        inputData = np.append(inputData,input_newDS,axis=0)
+        outputData = np.append(outputData, output_newDS,axis=0)
+
+inputData = inputData[1:,:,:]
+outputData = outputData[1:,:]
 
 
-############### Step 2 - Split into test/train ###############
+
+############### Step 3 - Split into test/train ###############
 
 # remove few odd sets with nans in hydro data
-iiremove = (nanhydro_data > 0) + (nanPCs_data > 0)
-iiremove[0] = True
-iikeep = ~iiremove
-inputData_keep = inputData[iikeep,:,:]
-outputData_keep = outputData[iikeep,:]
+inputData_keep = inputData[:]
+outputData_keep = outputData[:]
 
 # separate test and train IDs
 frac = 0.6          # num used for training
-num_datasets = sum(iikeep)
+num_datasets = inputData.shape[0]
 Ntrain = int(np.floor(num_datasets*frac))
 Ntest = num_datasets - Ntrain
 tmpii = random.sample(range(num_datasets), Ntrain)
@@ -161,12 +151,12 @@ test_y = np.empty((Ntest,numPCs))
 test_y[:] = outputData_keep[iitest,:]
 
 
-############### Step 3 - Design/Fit network ###############
+############### Step 4 - Design/Fit network ###############
 
 # design network
 model = Sequential()
-# model.add(LSTM(45, input_shape=(train_X.shape[1], train_X.shape[2]), dropout=0.25))
-model.add(LSTM(45, input_shape=(train_X.shape[1], train_X.shape[2])))
+model.add(LSTM(45, input_shape=(train_X.shape[1], train_X.shape[2]), dropout=0.25))
+# model.add(LSTM(45, input_shape=(train_X.shape[1], train_X.shape[2])))
 model.add(Dense(numPCs))
 
 # custom loss function
@@ -181,21 +171,19 @@ def customLoss_wrapper(input_data):
     def customLoss(y_true, y_pred):
 
         # loss = data_loss*weight_data + phys_loss*weight_phys
-        weight_dataEOF = 1
-        weight_datavol = 0.
+        weight_dataEOF = 0.65
+        weight_datavol = 0.35
         weight_dataelev = 0
-        weight_dataelev_shore = 0.
         # weight_dataDVol = 0.1
         dataEOF_loss = keras.losses.MAE(y_true, y_pred)
         inv_ypred = y_pred * (PCs_max[0:numPCs] - PCs_min[0:numPCs]) + PCs_min[0:numPCs]
         inv_ytrue = y_true * (PCs_max[0:numPCs] - PCs_min[0:numPCs]) + PCs_min[0:numPCs]
         dataelev_loss = keras.losses.MAE(inv_ytrue, inv_ypred)
-        # dataelevshore_loss = inv_ypred[:,0]-inv_ytrue[:,0]
         vol_true = keras.backend.sum(inv_ytrue*dx,axis=1)
         vol_pred = keras.backend.sum(inv_ypred*dx,axis=1)
         datavol_loss = keras.backend.abs(vol_true - vol_pred)
         # dataDVol_loss = keras.backend.abs(vol_true_prev - vol_pred)
-        sum_loss = weight_dataEOF*dataEOF_loss + weight_dataelev*dataelev_loss #+ weight_datavol*datavol_loss + weight_dataelev_shore*dataelevshore_loss #+ weight_dataDVol*dataDVol_loss
+        sum_loss = weight_dataEOF*dataEOF_loss + weight_dataelev*dataelev_loss + weight_datavol*datavol_loss  #+ weight_dataDVol*dataDVol_loss
 
         return sum_loss
     return customLoss
@@ -203,7 +191,7 @@ def customLoss_wrapper(input_data):
 model.compile(loss=customLoss_wrapper(train_X), optimizer='adam')
 
 # fit network
-history = model.fit(train_X, train_y, epochs=60, batch_size=40, validation_data=(test_X, test_y), verbose=2,
+history = model.fit(train_X, train_y, epochs=60, batch_size=64, validation_data=(test_X, test_y), verbose=2,
                     shuffle=False)
 
 # plot history
@@ -215,7 +203,7 @@ plt.show()
 ax.set_xlabel('epoch (test/train cycle)')
 ax.set_ylabel('error')
 
-############### Step 4 - Test prediction ###############
+############### Step 5 - Evaluate prediction ###############
 
 # X_scaled = (X - X_min) / (X_max - X_min)
 # X = X_scaled * (X_max - X_min) + X_min
@@ -293,58 +281,18 @@ ax.set_ylabel('z [m]')
 ax.set_title('Obs - Pred')
 
 
-############### Step 5 - Evaluate particular instance ###############
+############### Step 6 - Evaluate particular instance ###############
 
 picklefile_dir = 'G:/Projects/FY24/FY24_SMARTSEED/FRF_data/processed_20Feb2025/'
 with open(picklefile_dir+'stormy_times_fullspan.pickle','rb') as file:
    _,storm_flag,storm_timestart_all,storm_timeend_all = pickle.load(file)
-picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_10Dec2024/'
-with open(picklefile_dir+'data_fullspan.pickle','rb') as file:
-    data_fullspan = pickle.load(file)
-    watlev_fullspan = np.squeeze(data_fullspan["fullspan_tidegauge"])
-picklefile_dir = 'G:/Projects/FY24/FY24_SMARTSEED/FRF_data/processed_20Feb2025/'
-with open(picklefile_dir+'waves_8m&17m_2015_2024.pickle','rb') as file:
-    [_,_,data_wave8m_filled] = pickle.load(file)
 
-# find time post-storm where data is adequate...
-numnan_PCs = np.empty(shape=storm_timeend_all.shape)*np.nan
-numnan_watlev = np.empty(shape=storm_timeend_all.shape)*np.nan
-numnan_Hs = np.empty(shape=storm_timeend_all.shape)*np.nan
-numnan_Tp = np.empty(shape=storm_timeend_all.shape)*np.nan
-numnan_dir = np.empty(shape=storm_timeend_all.shape)*np.nan
-for nn in np.arange(storm_timeend_all.size):
-    iistart = np.where(np.isin(time_fullspan,storm_timeend_all[nn]))[0].astype(int)
-    iisetnn = np.arange(iistart,iistart+Nlook)
-    PCs_setnn = PCs_fullspan[iisetnn,0]
-    numnan_PCs[nn] = np.sum(np.isnan(PCs_setnn))
-    numnan_watlev[nn] = np.sum(np.isnan(watlev_fullspan[iisetnn,]))
-    numnan_Hs[nn] = np.sum(np.isnan(data_wave8m_filled[iisetnn, 0]))
-    numnan_Tp[nn] = np.sum(np.isnan(data_wave8m_filled[iisetnn, 1]))
-    numnan_dir[nn] = np.sum(np.isnan(data_wave8m_filled[iisetnn, 2]))
-fig, ax = plt.subplots()
 tplot = pd.to_datetime(storm_timeend_all, unit='s', origin='unix')
-ax.plot(tplot,numnan_PCs,'*')
-ax.plot(tplot,numnan_watlev,'s')
-ax.plot(tplot,numnan_Hs,'^')
-ax.plot(tplot,numnan_Tp,'o')
-ax.plot(tplot,numnan_dir,'.')
-
-# scale the hydro data according to previously done scaling routines
-# X_scaled = (X - X_min) / (X_max - X_min)
-# X = X_scaled * (X_max - X_min) + X_min
-watlev_scaled = (watlev_fullspan - hydro_min[0]) / (hydro_max[0] - hydro_min[0])
-waveHs_scaled = (data_wave8m_filled[:,0] - hydro_min[1]) / (hydro_max[1] - hydro_min[1])
-waveTp_scaled = (data_wave8m_filled[:,1] - hydro_min[2]) / (hydro_max[2] - hydro_min[2])
-wavedir_scaled = (data_wave8m_filled[:,2] - hydro_min[3]) / (hydro_max[3] - hydro_min[3])
-
-# now perform the prediction on any one of those post-storm times that meets data needs
-storm_times_withdata = storm_timeend_all[numnan_PCs+numnan_watlev+numnan_Hs+numnan_Tp+numnan_dir < 5]
-tplot = pd.to_datetime(storm_times_withdata, unit='s', origin='unix')
 plotflag = True
-# for nn in np.arange(5):
-for nn in np.arange(storm_times_withdata.size):
+for nn in np.arange(10):
+# for nn in np.arange(storm_timeend_all.size):
 
-    tstart = storm_timeend_all[nn] + 2*24*3600
+    tstart = storm_timeend_all[nn] + 1*24*3600
     iistart = np.where(np.isin(time_fullspan, tstart))[0].astype(int)
 
     # SHORT_TERM PREDICTION
@@ -356,8 +304,8 @@ for nn in np.arange(storm_times_withdata.size):
     for tt in np.arange(Npred):
 
         # grab actual data as long Npred < Nlook
-        iisetnn_PCs = np.arange(iistart + tt, iistart + Nlook-1)
-        iisetnn_hydro = np.arange(iistart + tt, iistart + tt + Nlook-1)
+        iisetnn_PCs = np.arange(iistart + tt, iistart + Nlook-1)        # do not shift entire window, complement with prev pred.
+        iisetnn_hydro = np.arange(iistart + tt, iistart + tt + Nlook-1) # shift entire window
 
         # find and fill nans in PCs
         PCs_setnn = PCs_scaled[iisetnn_PCs, 0:numPCs]
@@ -383,7 +331,7 @@ for nn in np.arange(storm_times_withdata.size):
                 ds_PCs = np.vstack((ds_PCs,prev_pred[0:tt,:]))
 
             # find and fill nans in water levels
-            ds_watlev = watlev_scaled[iisetnn_hydro]
+            ds_watlev = hydro_fullspan_scaled[0,iisetnn_hydro]
             yv = ds_watlev
             if sum(np.isnan(yv) > 0):
                 xq = np.arange(Nlook-1)
@@ -392,7 +340,7 @@ for nn in np.arange(storm_times_withdata.size):
                 hydro_interptmp = np.interp(xq, xv, yv)
                 ds_watlev[:] = hydro_interptmp
             # find and fill nans in waveheights
-            ds_Hs = waveHs_scaled[iisetnn_hydro]
+            ds_Hs = hydro_fullspan_scaled[1,iisetnn_hydro]
             yv = ds_Hs
             if sum(np.isnan(yv) > 0):
                 xq = np.arange(Nlook-1)
@@ -401,7 +349,7 @@ for nn in np.arange(storm_times_withdata.size):
                 hydro_interptmp = np.interp(xq, xv, yv)
                 ds_Hs[:] = hydro_interptmp
             # find and fill nans in wave periods
-            ds_Tp = waveTp_scaled[iisetnn_hydro]
+            ds_Tp = hydro_fullspan_scaled[2,iisetnn_hydro]
             yv = ds_Tp
             if sum(np.isnan(yv) > 0):
                 xq = np.arange(Nlook-1)
@@ -410,7 +358,7 @@ for nn in np.arange(storm_times_withdata.size):
                 hydro_interptmp = np.interp(xq, xv, yv)
                 ds_Tp[:] = hydro_interptmp
             # find and fill nans in wave directions
-            ds_wdir = wavedir_scaled[iisetnn_hydro]
+            ds_wdir = hydro_fullspan_scaled[3,iisetnn_hydro]
             yv = ds_wdir
             if sum(np.isnan(yv) > 0):
                 xq = np.arange(Nlook-1)
@@ -533,5 +481,4 @@ for nn in np.arange(storm_times_withdata.size):
         ax[2].plot(xplot,profpred)
         ax[2].set_ylabel('z, predicted [m]')
         plt.tight_layout()
-
 
