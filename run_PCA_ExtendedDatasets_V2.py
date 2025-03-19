@@ -56,6 +56,76 @@ ZprePCA = Ztrimlength[:,goodprofs]
 # with open(picklefile_dir + 'topobathyhydro_ML_final_20Feb2025_Nlook96_PrePCA.pickle', 'wb') as file:
 #     pickle.dump([xplot,ZprePCA,goodset,goodprofs,goodtimes],file)
 
+############################# SHIFT AND SCALE PROFS #############################
+
+picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_20Feb2025/'
+with open(picklefile_dir + 'topobathyhydro_ML_final_20Feb2025_Nlook96_PrePCA.pickle', 'rb') as file:
+   _,ZprePCA,goodset,goodprofs,goodtimes = pickle.load(file)
+
+zc_shore = 6
+numprofs = ZprePCA.shape[1]
+xc_shore = np.empty((numprofs,))*np.nan
+xc_sea = np.empty((numprofs,))*np.nan
+dx = 0.1
+xplot = np.arange(ZprePCA.shape[0])*dx
+for jj in np.arange(numprofs):
+    prof_jj = ZprePCA[:,jj]
+    ix_inspan = np.where((prof_jj <= zc_shore))[0]
+    padding = 2
+    itrim = np.arange(ix_inspan[0] - padding, xplot.size)
+    xtmp = xplot[itrim]
+    ztmp = prof_jj[itrim]
+    xtmp = xtmp[~np.isnan(ztmp)]        # remove nans
+    ztmp = ztmp[~np.isnan(ztmp)]        # remove nans
+    xc_shore[jj] = np.interp(zc_shore,ztmp[0:5],xtmp[0:5])
+    xc_sea[jj] = np.nanmax(xtmp)
+beachwid = xc_sea - xc_shore
+numx = int(np.ceil(np.min(beachwid))/dx)
+ZprePCA_shift = np.empty((numx,numprofs))*np.nan
+for jj in np.arange(numprofs):
+    prof_jj = ZprePCA[:, jj]
+    ix_inspan = np.where((prof_jj <= zc_shore))[0]
+    padding = 2
+    itrim = np.arange(ix_inspan[0] - padding, xplot.size)
+    xtmp = xplot[itrim]
+    ztmp = prof_jj[itrim]
+    xtmp = xtmp[~np.isnan(ztmp)]  # remove nans
+    ztmp = ztmp[~np.isnan(ztmp)]  # remove nans
+    xend = xc_shore[jj] + np.min(beachwid)
+    xinterp = np.linspace(xc_shore[jj], xend, numx)
+    zinterp = np.interp(xinterp, xtmp, ztmp)
+    ZprePCA_shift[:,jj] = zinterp
+
+fig, ax = plt.subplots()
+ax.plot(xplot,ZprePCA,color='0.5',linewidth=0.5,alpha=0.1)
+profmean = np.nanmean(ZprePCA,axis=1)
+profstd = np.nanstd(ZprePCA,axis=1)
+ax.plot(xplot,profmean,'k')
+ax.plot(xplot,profmean+profstd,'k:')
+ax.plot(xplot,profmean-profstd,'k:')
+plt.grid()
+ax.set_xlim(xplot[0],xplot[-1])
+ax.set_ylabel('z [m]')
+ax.set_xlabel('x* [m]')
+ax.set_title('Profiles, unshifted')
+fig, ax = plt.subplots()
+xplot_shift = np.arange(numx)/dx
+ax.plot(xplot_shift,ZprePCA_shift,color='0.5',linewidth=0.5,alpha=0.1)
+profmean = np.nanmean(ZprePCA_shift,axis=1)
+profstd = np.nanstd(ZprePCA_shift,axis=1)
+ax.plot(xplot_shift,profmean,'k')
+ax.plot(xplot_shift,profmean+profstd,'k:')
+ax.plot(xplot_shift,profmean-profstd,'k:')
+plt.grid()
+ax.set_xlim(xplot_shift[0],xplot_shift[-1])
+ax.set_ylabel('z [m]')
+ax.set_xlabel('x* [m]')
+ax.set_title('Profiles, shifted')
+
+
+# picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_20Feb2025/'
+# with open(picklefile_dir + 'topobathyhydro_ML_final_20Feb2025_Nlook96_PrePCA_shifted.pickle', 'wb') as file:
+#     pickle.dump([xplot_shift,ZprePCA_shift,goodset,goodprofs,goodtimes],file)
 
 
 ############################# MAKE NICE PLOTS OF DATA BEFORE PCA #############################
@@ -65,12 +135,15 @@ picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_
 #     time_fullspan,lidar_xFRF,profileIDs_ML_final,profileTimes_ML_final,hydro_MLinput_final,topobathy_ML_final = pickle.load(file)
 # with open(picklefile_dir + 'topobathyhydro_ML_final_20Feb2025_Nlook96_PrePCA.pickle', 'rb') as file:
 #     xplot,ZprePCA,goodset,goodprofs,goodtimes = pickle.load(file)
+# with open(picklefile_dir + 'topobathyhydro_ML_final_20Feb2025_Nlook96_PrePCA_shifted.pickle', 'rb') as file:
+#     xplot_shift,ZprePCA_shift,goodset,goodprofs,goodtimes = pickle.load(file)
 
-yplot2 = np.sum(~np.isnan(ZprePCA),axis=1)
+# yplot2 = np.sum(~np.isnan(ZprePCA),axis=1)
+yplot2 = np.sum(~np.isnan(ZprePCA_shift),axis=1)
 dx = 0.1
 # xplot = dx*np.arange(yplot2.size)
 fig, ax = plt.subplots()
-ax.plot(xplot,yplot2,'r.',label='7) Final selection for ML')
+ax.plot(xplot_shift,yplot2,'r.',label='7) Final selection for ML')
 # ax.set_ylim(0,43000)
 # ax.set_xlim(0,75)
 ax.legend()
@@ -89,20 +162,31 @@ cmap = plt.cm.rainbow(np.linspace(0, 1, cont_elev.size ))
 
 
 fig, ax = plt.subplots()
-ax.plot(xplot,ZprePCA,color='0.5',linewidth=0.5,alpha=0.1)
-profmean = np.nanmean(ZprePCA,axis=1)
-profstd = np.nanstd(ZprePCA,axis=1)
-ax.plot(xplot,profmean,'k')
-ax.plot(xplot,profmean+profstd,'k:')
-ax.plot(xplot,profmean-profstd,'k:')
+# ax.plot(xplot,ZprePCA,color='0.5',linewidth=0.5,alpha=0.1)
+# profmean = np.nanmean(ZprePCA,axis=1)
+# profstd = np.nanstd(ZprePCA,axis=1)
+# ax.plot(xplot,profmean,'k')
+# ax.plot(xplot,profmean+profstd,'k:')
+# ax.plot(xplot,profmean-profstd,'k:')
+ax.plot(xplot_shift,ZprePCA_shift,color='0.5',linewidth=0.5,alpha=0.1)
+profmean = np.nanmean(ZprePCA_shift,axis=1)
+profstd = np.nanstd(ZprePCA_shift,axis=1)
+ax.plot(xplot_shift,profmean,'k')
+ax.plot(xplot_shift,profmean+profstd,'k:')
+ax.plot(xplot_shift,profmean-profstd,'k:')
 plt.grid()
-ax.set_xlim(xplot[0],xplot[-1])
+# ax.set_xlim(xplot[0],xplot[-1])
+# ax.plot(xplot,cont_elev[0]+np.zeros(shape=xplot.shape),color=cmap[0, :],label='MLW')
+# ax.plot(xplot,cont_elev[1]+np.zeros(shape=xplot.shape),color=cmap[1, :],label='MWL')
+# ax.plot(xplot,cont_elev[2]+np.zeros(shape=xplot.shape),color=cmap[2, :],label='MHW')
+# ax.plot(xplot,cont_elev[3]+np.zeros(shape=xplot.shape),color=cmap[3, :],label='Dune toe')
+ax.set_xlim(xplot_shift[0],xplot_shift[-1])
+ax.plot(xplot_shift,cont_elev[0]+np.zeros(shape=xplot_shift.shape),color=cmap[0, :],label='MLW')
+ax.plot(xplot_shift,cont_elev[1]+np.zeros(shape=xplot_shift.shape),color=cmap[1, :],label='MWL')
+ax.plot(xplot_shift,cont_elev[2]+np.zeros(shape=xplot_shift.shape),color=cmap[2, :],label='MHW')
+ax.plot(xplot_shift,cont_elev[3]+np.zeros(shape=xplot_shift.shape),color=cmap[3, :],label='Dune toe')
 ax.set_ylabel('z [m]')
 ax.set_xlabel('x* [m]')
-ax.plot(xplot,cont_elev[0]+np.zeros(shape=xplot.shape),color=cmap[0, :],label='MLW')
-ax.plot(xplot,cont_elev[1]+np.zeros(shape=xplot.shape),color=cmap[1, :],label='MWL')
-ax.plot(xplot,cont_elev[2]+np.zeros(shape=xplot.shape),color=cmap[2, :],label='MHW')
-ax.plot(xplot,cont_elev[3]+np.zeros(shape=xplot.shape),color=cmap[3, :],label='Dune toe')
 ax.legend()
 
 
@@ -112,8 +196,8 @@ ax.legend()
 # with open(picklefile_dir + 'topobathyhydro_ML_final_20Feb2025_Nlook96_PrePCA.pickle', 'rb') as file:
 #     xplot,ZprePCA,goodset,goodprofs,goodtimes = pickle.load(file)
 
-profiles_to_process = np.empty(shape=ZprePCA.shape)
-profiles_to_process[:] = ZprePCA
+profiles_to_process = np.empty(shape=ZprePCA_shift.shape)
+profiles_to_process[:] = ZprePCA_shift
 rows_nonans = np.where(np.nansum(~np.isnan(profiles_to_process),axis=0 ) == profiles_to_process.shape[0])[0]
 
 # Using rows_nonans would be ALL the rows where the data is available, but the ML_datasets will only see rows/profiles iirow_finalcheck
@@ -201,6 +285,8 @@ ax[0].scatter(tplot,PCs[:,0],ccsize,marker='o',label='Mode 1')
 ax[0].scatter(tplot,PCs[:,1],ccsize,marker='o',label='Mode 2')
 ax[0].scatter(tplot,PCs[:,2],ccsize,marker='o',label='Mode 3')
 ax[0].scatter(tplot,PCs[:,3],ccsize,marker='o',label='Mode 4')
+ax[0].scatter(tplot,PCs[:,4],ccsize,marker='o',label='Mode 5')
+ax[0].scatter(tplot,PCs[:,5],ccsize,marker='o',label='Mode 6')
 # ax[0].set_xlabel('time')
 ax[0].set_ylabel('amplitude')
 ax[0].grid(axis="both")
@@ -209,6 +295,8 @@ ax[1].plot(xplot,EOFs[0,:],label='Mode 1')
 ax[1].plot(xplot,EOFs[1,:],label='Mode 2')
 ax[1].plot(xplot,EOFs[2,:],label='Mode 3')
 ax[1].plot(xplot,EOFs[3,:],label='Mode 4')
+ax[1].plot(xplot,EOFs[4,:],label='Mode 5')
+ax[1].plot(xplot,EOFs[5,:],label='Mode 6')
 ax[1].set_xlabel('x* [m]')
 ax[1].set_ylabel('EOF')
 ax[1].grid(axis="both")
@@ -241,7 +329,11 @@ for tt in np.arange(tplot.size):
     mode2 = EOFs[1,:]*PCs[tt,1]
     mode3 = EOFs[2, :] * PCs[tt, 2]
     mode4 = EOFs[3, :] * PCs[tt, 3]
-    prof_tt = mode1 + mode2 + mode3 + mode4
+    mode5 = EOFs[4, :] * PCs[tt, 4]
+    mode6 = EOFs[5, :] * PCs[tt, 5]
+    mode7 = EOFs[6, :] * PCs[tt, 6]
+    mode8 = EOFs[7, :] * PCs[tt, 7]
+    prof_tt = mode1 + mode2 + mode3 + mode4 + mode5 + mode6 + mode7 + mode8
     # prof_tt = mode1 + mode2
     reconstruct_profileNorm[:,tt] = prof_tt
 reconstruct_profileT = reconstruct_profileNorm.T*dataStd.T + dataMean.T
@@ -266,7 +358,8 @@ ax.set_title('Profiles reconstructed from PCA')
 
 # with open(picklefile_dir + 'topobathyhydro_ML_final_20Feb2025_Nlook96_PCA.pickle', 'wb') as file:
 #     pickle.dump([dataNorm,dataMean,dataStd,PCs,EOFs,APEV,reconstruct_profileNorm,reconstruct_profile],file)
-
+# with open(picklefile_dir + 'topobathyhydro_ML_final_20Feb2025_Nlook96_PCA_shifted.pickle', 'wb') as file:
+#     pickle.dump([dataNorm,dataMean,dataStd,PCs,EOFs,APEV,reconstruct_profileNorm,reconstruct_profile],file)
 
 
 
@@ -276,6 +369,7 @@ ax.set_title('Profiles reconstructed from PCA')
 
 
 # Load dataset we are going to compare with...
+picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_20Feb2025/'
 # with open(picklefile_dir + 'topobathyhydro_ML_final_20Feb2025_Nlook96.pickle', 'rb') as file:
 #     time_fullspan,lidar_xFRF,profileIDs_ML_final,profileTimes_ML_final,hydro_MLinput_final,topobathy_ML_final = pickle.load(file)
 # with open(picklefile_dir + 'topobathyhydro_ML_final_20Feb2025_Nlook96_PrePCA.pickle', 'rb') as file:
@@ -289,8 +383,10 @@ profiles_to_process = np.empty(shape=topobathy_ML_final.shape)
 profiles_to_process[:] = topobathy_ML_final
 # Use same length constraints as before
 Lmin = 75
-Xstart = 50
-Xend = 190
+Xstart = lidar_xFRF[0] + np.mean(xc_shore)
+Xend = np.mean(xc_sea)
+# Xstart = 50
+# Xend = 190
 iistart = np.where(abs(lidar_xFRF-Xstart) == np.nanmin(abs(lidar_xFRF-Xstart)))[0]
 iiend = np.where(abs(lidar_xFRF-Xend) == np.nanmin(abs(lidar_xFRF-Xend)))[0]
 Ztrimlength = topobathy_ML_final[np.arange(iistart,iiend),:]
@@ -337,7 +433,7 @@ plt.hist(np.resize(dVol_obsdata,(dVol_obsdata.size,)),bins=np.arange(-10,10,0.1)
 # do the same for the pca_reconstructed profiles...
 dx = 0.1
 # remake the PCA_reconstruct array so that it is the same size as "data" above
-PCAprofiles_sizedata = np.empty(shape=data.shape)
+PCAprofiles_sizedata = np.empty((reconstruct_profile.shape[0],data.shape[1]))
 PCAprofiles_sizedata[:] = np.nan
 iikeep = goodprofs
 PCAprofiles_sizedata[:,iikeep] = reconstruct_profile
@@ -390,34 +486,62 @@ ax.set_ylim(-0.5,0.5)
 
 
 
+numinsetPCA_dVolGTthresh = np.empty((num_datasets,))
+for nn in np.arange(num_datasets):
+    iiprof_in_dataset = dataset_profileIndeces[nn,:].astype(int)
+    prof_in_dataset = PCAprofiles_sizedata[:,iiprof_in_dataset]
+    Vol_setnn = np.empty(num_profs_inset,)
+    for tt in np.arange(num_profs_inset):
+        Vol_setnn[tt] = np.nansum(prof_in_dataset[:,tt]*dx)
+    dVol_setnn = Vol_setnn[1:] - Vol_setnn[0:-1]
+    Vol_obsdata[:,nn] = Vol_setnn
+    dVol_obsdata[:,nn] = dVol_setnn
+    # find where dVol is very high
+    dVol_thresh = 5
+    numinsetPCA_dVolGTthresh[nn] = np.sum(abs(dVol_setnn) > dVol_thresh)
+fig, ax = plt.subplots()
+plt.hist(numinsetPCA_dVolGTthresh,bins=25)
+ii_dVolPCAThreshMet = (numinsetPCA_dVolGTthresh <= 1 )
+
+
+
+
 ################ RERUN PCA WITH DATASETS WHERE DVOL THRESHOLD MET... ################
 
 # verify that all the profiles in topobathy_check_xshoreFill for corresponding datasets are NOTNAN
-iiDS_passDVolCheck = goodset[ii_dVolThreshMet]
-iirow_dVolCheck = np.unique(dataset_profileIndeces[np.where(ii_dVolThreshMet)[0],:]).astype(int)
-data_profIDs_dVolThreshMet = dataset_profileIndeces[np.where(ii_dVolThreshMet)[0],:].astype(int)
+# # iiDS_passDVolCheck = goodset[ii_dVolThreshMet]
+# iirow_dVolCheck = np.unique(dataset_profileIndeces[np.where(ii_dVolThreshMet)[0],:]).astype(int)
+# data_profIDs_dVolThreshMet = dataset_profileIndeces[np.where(ii_dVolThreshMet)[0],:].astype(int)
+iiDS_passDVolCheck = goodset[ii_dVolPCAThreshMet]
+iirow_dVolCheck = np.unique(dataset_profileIndeces[np.where(ii_dVolPCAThreshMet)[0],:]).astype(int)
+data_profIDs_dVolThreshMet = dataset_profileIndeces[np.where(ii_dVolPCAThreshMet)[0],:].astype(int)
 data_hydro = hydro_MLinput_final[iiDS_passDVolCheck,:,:]
 
 
-ZZ = Ztrimlength[:,iirow_dVolCheck]
-ZprePCA = Ztrimlength[:,iirow_dVolCheck]
+
+
+ZprePCA_sizedata = np.empty((reconstruct_profile.shape[0],data.shape[1]))
+ZprePCA_sizedata[:] = np.nan
+iikeep = goodprofs
+ZprePCA_sizedata[:,iikeep] = ZprePCA_shift
+ZprePCA = ZprePCA_sizedata[:,iirow_dVolCheck]
 cmap = plt.cm.rainbow(np.linspace(0, 1, cont_elev.size ))
 xplot = lidar_xFRF[np.arange(iistart,iiend)]
 profmean = np.nanmean(ZprePCA,axis=1)
 profstd = np.nanstd(ZprePCA,axis=1)
 fig, ax = plt.subplots()
-ax.plot(xplot,ZprePCA,color='0.5',linewidth=0.5,alpha=0.1)
-ax.plot(xplot,profmean,'k')
-ax.plot(xplot,profmean+profstd,'k:')
-ax.plot(xplot,profmean-profstd,'k:')
+ax.plot(xplot_shift,ZprePCA,color='0.5',linewidth=0.5,alpha=0.1)
+ax.plot(xplot_shift,profmean,'k')
+ax.plot(xplot_shift,profmean+profstd,'k:')
+ax.plot(xplot_shift,profmean-profstd,'k:')
 plt.grid()
-ax.set_xlim(min(xplot),max(xplot))
+ax.set_xlim(min(xplot_shift),max(xplot_shift))
 ax.set_ylabel('z [m]')
 ax.set_xlabel('x* [m]')
-ax.plot(xplot,cont_elev[0]+np.zeros(shape=xplot.shape),color=cmap[0, :],label='MLW')
-ax.plot(xplot,cont_elev[1]+np.zeros(shape=xplot.shape),color=cmap[1, :],label='MWL')
-ax.plot(xplot,cont_elev[2]+np.zeros(shape=xplot.shape),color=cmap[2, :],label='MHW')
-ax.plot(xplot,cont_elev[3]+np.zeros(shape=xplot.shape),color=cmap[3, :],label='Dune toe')
+ax.plot(xplot_shift,cont_elev[0]+np.zeros(shape=xplot_shift.shape),color=cmap[0, :],label='MLW')
+ax.plot(xplot_shift,cont_elev[1]+np.zeros(shape=xplot_shift.shape),color=cmap[1, :],label='MWL')
+ax.plot(xplot_shift,cont_elev[2]+np.zeros(shape=xplot_shift.shape),color=cmap[2, :],label='MHW')
+ax.plot(xplot_shift,cont_elev[3]+np.zeros(shape=xplot_shift.shape),color=cmap[3, :],label='Dune toe')
 ax.legend()
 
 
@@ -558,14 +682,17 @@ for tt in np.arange(tplot.size):
     mode3 = EOFs[2, :] * PCs[tt, 2]
     mode4 = EOFs[3, :] * PCs[tt, 3]
     mode5 = EOFs[4, :] * PCs[tt, 4]
-    prof_tt = mode1 + mode2 + mode3 + mode4 + mode5
+    mode6 = EOFs[5, :] * PCs[tt, 5]
+    mode7 = EOFs[6, :] * PCs[tt, 6]
+    mode8 = EOFs[7, :] * PCs[tt, 7]
+    prof_tt = mode1 + mode2 + mode3 + mode4 + mode5 + mode6 + mode7 + mode8
     # prof_tt = mode1 + mode2
     reconstruct_profileNorm[:,tt] = prof_tt
 reconstruct_profileT = reconstruct_profileNorm.T*dataStd.T + dataMean.T
 reconstruct_profile = reconstruct_profileT.T
 fig, ax = plt.subplots()
 elev_plot = data-reconstruct_profile
-ax.plot(xplot,elev_plot)
+ax.plot(xplot_shift,elev_plot)
 XX, TT = np.meshgrid(xplot, tplot)
 timescatter = np.reshape(TT, TT.size)
 xscatter = np.reshape(XX, XX.size)
@@ -582,10 +709,13 @@ ax.set_ylabel('time')
 
 
 # make PCs_fullspan, etc.
-PCs_fullspan = np.empty(shape=(time_fullspan.size, xplot.size))*np.nan
-dataNorm_fullspan = np.empty(shape=(xplot.size,time_fullspan.size))*np.nan
-reconstruct_profNorm_fullspan = np.empty(shape=(xplot.size,time_fullspan.size))*np.nan
-reconstruct_prof_fullspan = np.empty(shape=(xplot.size,time_fullspan.size))*np.nan
+PCs_fullspan = np.empty(shape=(time_fullspan.size, xplot_shift.size))*np.nan
+dataNorm_fullspan = np.empty(shape=(xplot_shift.size,time_fullspan.size))*np.nan
+reconstruct_profNorm_fullspan = np.empty(shape=(xplot_shift.size,time_fullspan.size))*np.nan
+reconstruct_prof_fullspan = np.empty(shape=(xplot_shift.size,time_fullspan.size))*np.nan
+dataobs_fullspan = np.empty(shape=(Ztrimlength.shape[0],time_fullspan.size))*np.nan
+dataobs_shift_fullspan = np.empty(shape=(xplot_shift.size,time_fullspan.size))*np.nan
+datahydro_fullspan = np.empty((4,time_fullspan.size))*np.nan
 for jj in np.arange(iiDS_passDVolCheck.size):
     ii_fullspan = profileIDs_ML_final[iiDS_passDVolCheck[jj],:].astype(int)
     ii_PCs = np.where(np.isin(iirow_dVolCheck,ii_fullspan))[0]
@@ -593,8 +723,16 @@ for jj in np.arange(iiDS_passDVolCheck.size):
     dataNorm_fullspan[:,ii_fullspan] = dataNorm[:,ii_PCs]
     reconstruct_profNorm_fullspan[:,ii_fullspan] = reconstruct_profileNorm[:,ii_PCs]
     reconstruct_prof_fullspan[:,ii_fullspan] = reconstruct_profile[:,ii_PCs]
-
+    dataobs_shift_fullspan[:,ii_fullspan] = data[:,ii_PCs]
+    dataobs_fullspan[:,ii_fullspan] = Ztrimlength[:,ii_fullspan]
+    for nn in np.arange(4):
+        datahydro_fullspan[nn,ii_fullspan] = data_hydro[jj,:,nn]
 # ## SAVE
 # with open(picklefile_dir + 'topobathyhydro_ML_final_20Feb2025_Nlook96_PCApostDVol.pickle', 'wb') as file:
 #     pickle.dump([xplot,time_fullspan,dataNorm_fullspan,dataMean,dataStd,PCs_fullspan,EOFs,APEV,data_profIDs_dVolThreshMet,
 #                  reconstruct_profNorm_fullspan,reconstruct_prof_fullspan,data_hydro],file)
+
+# with open(picklefile_dir + 'topobathyhydro_ML_final_18Mar2025_Nlook96_PCApostDVol_shifted.pickle', 'wb') as file:
+#     pickle.dump([xplot_shift,time_fullspan,dataNorm_fullspan,dataMean,dataStd,PCs_fullspan,EOFs,APEV,reconstruct_profNorm_fullspan,
+#                  reconstruct_prof_fullspan,dataobs_shift_fullspan,dataobs_fullspan,data_profIDs_dVolThreshMet,data_hydro,
+#                  datahydro_fullspan],file)

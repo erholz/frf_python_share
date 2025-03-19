@@ -34,7 +34,8 @@ import pandas as pd  # to do datetime conversions
 picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_20Feb2025/'
 with open(picklefile_dir + 'topobathyhydro_ML_final_20Feb2025_Nlook96_PCApostDVol.pickle', 'rb') as file:
     xplot,time_fullspan,dataNorm_fullspan,dataMean,dataStd,PCs_fullspan,EOFs,APEV,data_profIDs_dVolThreshMet,reconstruct_profNorm_fullspan,reconstruct_prof_fullspan,data_hydro = pickle.load(file)
-
+with open(picklefile_dir + 'topobathyhydro_ML_final_18Mar2025_Nlook96_PCApostDVol_shifted.pickle', 'rb') as file:
+    xplot_shift, time_fullspan, dataNorm_fullspan, dataMean, dataStd, PCs_fullspan, EOFs, APEV,reconstruct_profNorm_fullspan,reconstruct_prof_fullspan,dataobs_shift_fullspan,dataobs_fullspan,data_profIDs_dVolThreshMet,data_hydro,datahydro_fullspan = pickle.load(file)
 
 # Re-scale data
 Nlook = 24*4
@@ -49,6 +50,7 @@ PCs_min = np.empty((PCs_fullspan.shape[1],))
 PCs_max = np.empty((PCs_fullspan.shape[1],))
 PCs_avg = np.empty((PCs_fullspan.shape[1],))
 PCs_stdev = np.empty((PCs_fullspan.shape[1],))
+hydro_fullspan_scaled = np.empty(shape=datahydro_fullspan.shape)*np.nan
 for nn in np.arange(4):
     unscaled = data_hydro[:,:,nn].reshape((Nlook*num_datasets,1))
     hydro_min[nn] = np.nanmin(unscaled)
@@ -60,6 +62,8 @@ for nn in np.arange(4):
     scaled = scaler.fit_transform(unscaled)
     scaled_reshape = scaled.reshape((num_datasets,Nlook))
     hydro_datasetsForML_scaled[:,:,nn] = scaled_reshape
+    # (X - X_min) / (X_max - X_min)
+    hydro_fullspan_scaled[nn,:] = (datahydro_fullspan[nn,:] - hydro_min[nn]) / (hydro_max[nn] - hydro_min[nn])
 for nn in np.arange(PCs_fullspan.shape[1]):
     unscaled = PCs_fullspan[:,nn].reshape((PCs_fullspan.shape[0],1))
     PCs_min[nn] = np.nanmin(unscaled)
@@ -123,6 +127,17 @@ for jj in np.arange(num_datasets):
     if np.nansum(np.isnan(PCs_setjj)) > 0:
         nanPCs_data[jj] = 1
 
+############### Step 1b - Change NLook ###############
+
+Nlook = 48
+num_steps = Nlook
+
+inputData = np.empty((0,num_steps,num_features))*np.nan
+outputData = np.empty((0,numPCs))*np.nan
+for tt in np.arange(time_fullspan.size):
+    tlook = np.arange(tt,tt + num_steps)
+
+
 
 ############### Step 2 - Split into test/train ###############
 
@@ -161,8 +176,8 @@ test_y[:] = outputData_keep[iitest,:]
 
 # design network
 model = Sequential()
-model.add(LSTM(45, input_shape=(train_X.shape[1], train_X.shape[2]), dropout=0.25))
-# model.add(LSTM(45, input_shape=(train_X.shape[1], train_X.shape[2])))
+# model.add(LSTM(45, input_shape=(train_X.shape[1], train_X.shape[2]), dropout=0.25))
+model.add(LSTM(45, input_shape=(train_X.shape[1], train_X.shape[2])))
 model.add(Dense(numPCs))
 
 # custom loss function
@@ -177,10 +192,10 @@ def customLoss_wrapper(input_data):
     def customLoss(y_true, y_pred):
 
         # loss = data_loss*weight_data + phys_loss*weight_phys
-        weight_dataEOF = 0.4
-        weight_datavol = 0.15
-        weight_dataelev = 0.35
-        weight_dataelev_shore = 0.1
+        weight_dataEOF = 1
+        weight_datavol = 0.
+        weight_dataelev = 0
+        weight_dataelev_shore = 0.
         # weight_dataDVol = 0.1
         dataEOF_loss = keras.losses.MAE(y_true, y_pred)
         inv_ypred = y_pred * (PCs_max[0:numPCs] - PCs_min[0:numPCs]) + PCs_min[0:numPCs]
@@ -191,7 +206,7 @@ def customLoss_wrapper(input_data):
         vol_pred = keras.backend.sum(inv_ypred*dx,axis=1)
         datavol_loss = keras.backend.abs(vol_true - vol_pred)
         # dataDVol_loss = keras.backend.abs(vol_true_prev - vol_pred)
-        sum_loss = weight_datavol*datavol_loss + weight_dataEOF*dataEOF_loss + weight_dataelev*dataelev_loss #+ weight_dataelev_shore*dataelevshore_loss #+ weight_dataDVol*dataDVol_loss
+        sum_loss = weight_dataEOF*dataEOF_loss + weight_dataelev*dataelev_loss #+ weight_datavol*datavol_loss + weight_dataelev_shore*dataelevshore_loss #+ weight_dataDVol*dataDVol_loss
 
         return sum_loss
     return customLoss
@@ -261,7 +276,7 @@ profsobs_norm = mode1_obs + mode2_obs + mode3_obs + mode4_obs + mode5_obs + mode
 profsobs_T = profsobs_norm.T * dataStd.T + dataMean.T
 profobs = profsobs_T.T
 fig, ax = plt.subplots()
-ax.plot(xplot,profobs)
+ax.plot(xplot_shift,profobs)
 ax.set_xlabel('xFRF [m]')
 ax.set_ylabel('z [m]')
 ax.set_title('Observed* (PCs)')
@@ -277,13 +292,13 @@ profspred_norm = mode1_pred + mode2_pred + mode3_pred + mode4_pred + mode5_pred 
 profspred_T = profspred_norm.T * dataStd.T + dataMean.T
 profpred = profspred_T.T
 fig, ax = plt.subplots()
-ax.plot(xplot,profpred)
+ax.plot(xplot_shift,profpred)
 ax.set_xlabel('xFRF [m]')
 ax.set_ylabel('z [m]')
 ax.set_title('Predicted')
 
 fig, ax = plt.subplots()
-ax.plot(xplot,profpred-profobs)
+ax.plot(xplot_shift,profpred-profobs)
 ax.set_xlabel('xFRF [m]')
 ax.set_ylabel('z [m]')
 ax.set_title('Obs - Pred')
@@ -506,6 +521,7 @@ for nn in np.arange(storm_times_withdata.size):
         profpred = profspred_T.T
 
         # plot against observed data
+        xplot = xplot_shift[:]
         dataprof_fullspan = (dataNorm_fullspan.T * dataStd) + dataMean
         iiplot = np.arange(iistart + Nlook, iistart + Nlook + Npred)
         fig, ax = plt.subplots(1,3)
