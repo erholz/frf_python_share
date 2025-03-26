@@ -18,10 +18,13 @@ import seaborn as sns
 
 
 picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_20Feb2025/'
-with open(picklefile_dir + 'topobathyhydro_ML_final_20Feb2025_Nlook96.pickle', 'rb') as file:
-    time_fullspan,lidar_xFRF,profileIDs_ML_final,profileTimes_ML_final,hydro_MLinput_final,topobathy_ML_final = pickle.load(file)
+# with open(picklefile_dir + 'topobathyhydro_ML_final_20Feb2025_Nlook96.pickle', 'rb') as file:
+#     time_fullspan,lidar_xFRF,profileIDs_ML_final,profileTimes_ML_final,hydro_MLinput_final,topobathy_ML_final = pickle.load(file)
 # with open(picklefile_dir + 'topobathyhydro_ML_final_20Feb2025_Nlook96.pickle', 'rb') as file:
 #     time_fullspan,_,_,_,_,_ = pickle.load(file)
+with open(picklefile_dir + 'topobathyhydro_ML_final_25Mar2025_Nlook60'+'.pickle', 'rb') as file:
+    time_fullspan,lidar_xFRF,profileIDs_ML_final,profileTimes_ML_final,hydro_MLinput_final,topobathy_ML_final = pickle.load( file)
+
 unique_profIDs = np.unique(profileIDs_ML_final).astype(int)
 
 # Use same length constraints as before
@@ -46,6 +49,10 @@ for jj in np.arange(badprof.size):
     new_sets = sets_containing_profjj[~np.isin(sets_containing_profjj,badset)]
     badset = np.append(badset,new_sets)
 
+# load the profiles we decided to keep
+# with open(picklefile_dir + 'topobathyhydro_ML_final_25Mar2025_slowlyVaryingPCs.pickle', 'rb') as file:
+#     time_fullspan, PCs_iikeep = pickle.load(file)
+
 setid = np.arange(profileIDs_ML_final.shape[0])
 goodset = setid[~np.isin(setid,badset)]
 goodprofs = np.unique(profileIDs_ML_final[goodset,:]).astype(int)
@@ -55,12 +62,17 @@ ZprePCA = Ztrimlength[:,goodprofs]
 # picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_20Feb2025/'
 # with open(picklefile_dir + 'topobathyhydro_ML_final_20Feb2025_Nlook96_PrePCA.pickle', 'wb') as file:
 #     pickle.dump([xplot,ZprePCA,goodset,goodprofs,goodtimes],file)
+# with open(picklefile_dir + 'topobathyhydro_ML_final_25Mar2025_PrePCA.pickle', 'wb') as file:
+#     pickle.dump([xplot,ZprePCA,goodset,goodprofs,goodtimes],file)
+
 
 ############################# SHIFT AND SCALE PROFS #############################
 
 picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_20Feb2025/'
-with open(picklefile_dir + 'topobathyhydro_ML_final_20Feb2025_Nlook96_PrePCA.pickle', 'rb') as file:
-   _,ZprePCA,goodset,goodprofs,goodtimes = pickle.load(file)
+# with open(picklefile_dir + 'topobathyhydro_ML_final_20Feb2025_Nlook96_PrePCA.pickle', 'rb') as file:
+#    _,ZprePCA,goodset,goodprofs,goodtimes = pickle.load(file)
+with open(picklefile_dir + 'topobathyhydro_ML_final_25Mar2025_PrePCA.pickle', 'rb') as file:
+    _,ZprePCA,goodset,goodprofs,goodtimes = pickle.load(file)
 
 zc_shore = 6
 numprofs = ZprePCA.shape[1]
@@ -123,10 +135,11 @@ ax.set_xlabel('x* [m]')
 ax.set_title('Profiles, shifted')
 
 
-# picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_20Feb2025/'
+picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_20Feb2025/'
 # with open(picklefile_dir + 'topobathyhydro_ML_final_20Feb2025_Nlook96_PrePCA_shifted.pickle', 'wb') as file:
+# #     pickle.dump([xplot_shift,ZprePCA_shift,goodset,goodprofs,goodtimes],file)
+# with open(picklefile_dir + 'topobathyhydro_ML_final_25Mar2025_Nlook60_PrePCA_shifted.pickle', 'wb') as file:
 #     pickle.dump([xplot_shift,ZprePCA_shift,goodset,goodprofs,goodtimes],file)
-
 
 ############################# MAKE NICE PLOTS OF DATA BEFORE PCA #############################
 
@@ -137,6 +150,8 @@ picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_
 #     xplot,ZprePCA,goodset,goodprofs,goodtimes = pickle.load(file)
 # with open(picklefile_dir + 'topobathyhydro_ML_final_20Feb2025_Nlook96_PrePCA_shifted.pickle', 'rb') as file:
 #     xplot_shift,ZprePCA_shift,goodset,goodprofs,goodtimes = pickle.load(file)
+with open(picklefile_dir + 'topobathyhydro_ML_final_25Mar2025_Nlook60_PrePCA_shifted.pickle', 'rb') as file:
+    xplot_shift,ZprePCA_shift,goodset,goodprofs,goodtimes = pickle.load(file)
 
 # yplot2 = np.sum(~np.isnan(ZprePCA),axis=1)
 yplot2 = np.sum(~np.isnan(ZprePCA_shift),axis=1)
@@ -360,7 +375,8 @@ ax.set_title('Profiles reconstructed from PCA')
 #     pickle.dump([dataNorm,dataMean,dataStd,PCs,EOFs,APEV,reconstruct_profileNorm,reconstruct_profile],file)
 # with open(picklefile_dir + 'topobathyhydro_ML_final_20Feb2025_Nlook96_PCA_shifted.pickle', 'wb') as file:
 #     pickle.dump([dataNorm,dataMean,dataStd,PCs,EOFs,APEV,reconstruct_profileNorm,reconstruct_profile],file)
-
+# with open(picklefile_dir + 'topobathyhydro_ML_final_25Mar2025_Nlook60_PCA_shifted.pickle', 'wb') as file:
+#     pickle.dump([dataNorm,dataMean,dataStd,PCs,EOFs,APEV,reconstruct_profileNorm,reconstruct_profile],file)
 
 
 ############################# Conservation of Mass --> Loss function? #############################
@@ -376,6 +392,11 @@ picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_
 #     xplot,ZprePCA,goodset,goodprofs,goodtimes = pickle.load(file)
 # with open(picklefile_dir + 'topobathyhydro_ML_final_20Feb2025_Nlook96_PCA.pickle', 'rb') as file:
 #     dataNorm,dataMean,dataStd,PCs,EOFs,APEV,reconstruct_profileNorm,reconstruct_profile = pickle.load(file)
+# with open(picklefile_dir + 'topobathyhydro_ML_final_20Feb2025_Nlook96_PCA_shifted.pickle', 'rb') as file:
+#     dataNorm,dataMean,dataStd,PCs,EOFs,APEV,reconstruct_profileNorm,reconstruct_profile = pickle.load(file)
+with open(picklefile_dir + 'topobathyhydro_ML_final_25Mar2025_Nlook60_PCA_shifted.pickle', 'rb') as file:
+    dataNorm,dataMean,dataStd,PCs,EOFs,APEV,reconstruct_profileNorm,reconstruct_profile = pickle.dump(file)
+
 
 # First, isolate the data that ultimately goes into the PCA
 num_datasets = goodset.size
@@ -483,7 +504,6 @@ plt.grid()
 ax.set_ylabel('Error = dVol_obs - dVol_PCA [m^3/m]')
 ax.set_xlabel('dVol_obs [m^3/m]')
 ax.set_ylim(-0.5,0.5)
-
 
 
 numinsetPCA_dVolGTthresh = np.empty((num_datasets,))
@@ -736,3 +756,8 @@ for jj in np.arange(iiDS_passDVolCheck.size):
 #     pickle.dump([xplot_shift,time_fullspan,dataNorm_fullspan,dataMean,dataStd,PCs_fullspan,EOFs,APEV,reconstruct_profNorm_fullspan,
 #                  reconstruct_prof_fullspan,dataobs_shift_fullspan,dataobs_fullspan,data_profIDs_dVolThreshMet,data_hydro,
 #                  datahydro_fullspan],file)
+
+# with open(picklefile_dir + 'topobathyhydro_ML_final_25Mar2025_Nlook60_PCApostDVol_shifted.pickle', 'wb') as file:
+#     pickle.dump([xplot_shift,time_fullspan,dataNorm_fullspan,dataMean,dataStd,PCs_fullspan,EOFs,APEV,reconstruct_profNorm_fullspan,
+#                 reconstruct_prof_fullspan,dataobs_shift_fullspan,dataobs_fullspan,data_profIDs_dVolThreshMet,data_hydro,
+#                 datahydro_fullspan],file)

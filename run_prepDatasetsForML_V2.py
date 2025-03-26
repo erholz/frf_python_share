@@ -16,8 +16,8 @@ from funcs.interpgap import interpolate_with_max_gap
 
 
 ## OPEN DICTS
-picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_26Nov2024/'
-# picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_10Dec2024/'
+# picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_26Nov2024/'
+picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_10Dec2024/'
 with open(picklefile_dir+'lidar_xFRF.pickle', 'rb') as file:
     lidar_xFRF = np.array(pickle.load(file))
     lidar_xFRF = lidar_xFRF[0][:]
@@ -48,6 +48,8 @@ picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_
 # with open(picklefile_dir+'data_fullspan_addBlendedLidarBathy.pickle', 'wb') as file:
 #    pickle.dump(data_fullspan, file)
 
+
+
 ########################## Add to "data_fullspan" the "Stormy" times to exclude ##########################
 
 istormy_fullspan = np.ones(shape=time_fullspan.shape)
@@ -63,11 +65,25 @@ picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_
 # with open(picklefile_dir+'data_fullspan_addBlendedLidarBathy.pickle', 'wb') as file:
 #    pickle.dump(data_fullspan, file)
 
-
+picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_20Feb2025/'
+with open(picklefile_dir+'data_fullspan_addBlendedLidarBathy.pickle', 'rb') as file:
+   data_fullspan = pickle.load(file)
+   time_fullspan = data_fullspan["fullspan_time"]
+   watlev_fullspan = data_fullspan["fullspan_tidegauge"]
+   Hs8m_fullspan = data_fullspan["fullspan_Hs_8m"]
+   Tp8m_fullspan = data_fullspan["fullspan_Tp_8m"]
+   dir8m_fullspan = data_fullspan["fullspan_wavedir_8m"]
+   Hs17m_fullspan = data_fullspan["fullspan_Hs_17m"]
+   Tp17m_fullspan = data_fullspan["fullspan_Tp_17m"]
+   dir17m_fullspan = data_fullspan["fullspan_wavedir_17m"]
+   elev2p_fullspan = data_fullspan["fullspan_elev2p"]
+   lidarwg_fullspan = data_fullspan["fullspan_lidargauge_110"]
+   topobathy_fullspan = data_fullspan["fullspan_lidarbathy_blend_20Feb2025"]
+   istormy_fullspan = data_fullspan["fullspan_istormy_1yes0no"]
 
 ########################## Find N-day series with adequate data coverage ##########################
 
-Nlook = 4*24                   # look through Nlook hours to quantify data availability
+Nlook = int(2.5*24)                   # look through Nlook hours to quantify data availability
 profelev_numhrly_thresh = 0.75  # use to count percent of days (by x-locs) where THRESH % profile data available over Nlook
 watlev_perctotal_thresh = 0.9
 waves_perctotal_thresh = 0.9
@@ -199,7 +215,7 @@ with open(picklefile_dir+'data_fullspan_addBlendedLidarBathy.pickle', 'rb') as f
    topobathy_fullspan = data_fullspan["fullspan_lidarbathy_blend_20Feb2025"]
 
 num_datasets = set_ii_prelimbathyhydrothreshmet.size
-Nlook = 4*24
+Nlook = int(2.5*24)
 nx = lidar_xFRF.size
 
 topobathy_prexshoreinterp = np.empty(shape=topobathy_fullspan.shape)
@@ -291,7 +307,7 @@ with open(picklefile_dir+'data_fullspan_addBlendedLidarBathy.pickle', 'rb') as f
    dir8m_fullspan = data_fullspan["fullspan_wavedir_8m"]
 
 num_datasets = set_ii_prelimbathyhydrothreshmet.size
-Nlook = 4*24
+Nlook = int(2.5*24)
 nanflag_hydro = np.zeros((num_datasets,4))
 hydro_datasetsForML = np.empty((num_datasets,Nlook,4))
 for jj in np.arange(num_datasets-1):
@@ -377,7 +393,7 @@ iistart = np.where(abs(lidar_xFRF-Xstart) == np.nanmin(abs(lidar_xFRF-Xstart)))[
 iiend = np.where(abs(lidar_xFRF-Xend) == np.nanmin(abs(lidar_xFRF-Xend)))[0]
 
 num_datasets = set_ii_prelimbathyhydrothreshmet.size
-Nlook = 4*24
+Nlook = int(2.5*24)
 numprofs_at_xstart = np.zeros(shape=set_ii_prelimbathyhydrothreshmet.shape)*np.nan
 numprofs_at_xend = np.zeros(shape=set_ii_prelimbathyhydrothreshmet.shape)*np.nan
 topobathy_nansPerSet = np.zeros(shape=set_ii_prelimbathyhydrothreshmet.shape)*np.nan
@@ -441,4 +457,6 @@ topobathy_ML_final = topobathy_fillSmallGaps[:]
 
 picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_20Feb2025/'
 # with open(picklefile_dir + 'topobathyhydro_ML_final_20Feb2025_Nlook'+str(Nlook)+'.pickle', 'wb') as file:
+#     pickle.dump([time_fullspan,lidar_xFRF,profileIDs_ML_final,profileTimes_ML_final,hydro_MLinput_final,topobathy_ML_final], file)
+# with open(picklefile_dir + 'topobathyhydro_ML_final_25Mar2025_Nlook'+str(Nlook)+'.pickle', 'wb') as file:
 #     pickle.dump([time_fullspan,lidar_xFRF,profileIDs_ML_final,profileTimes_ML_final,hydro_MLinput_final,topobathy_ML_final], file)

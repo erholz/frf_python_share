@@ -34,11 +34,14 @@ import pandas as pd  # to do datetime conversions
 picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_20Feb2025/'
 # with open(picklefile_dir + 'topobathyhydro_ML_final_20Feb2025_Nlook96_PCApostDVol.pickle', 'rb') as file:
 #     xplot,time_fullspan,dataNorm_fullspan,dataMean,dataStd,PCs_fullspan,EOFs,APEV,data_profIDs_dVolThreshMet,reconstruct_profNorm_fullspan,reconstruct_prof_fullspan,data_hydro = pickle.load(file)
-with open(picklefile_dir + 'topobathyhydro_ML_final_18Mar2025_Nlook96_PCApostDVol_shifted.pickle', 'rb') as file:
-    xplot_shift, time_fullspan, dataNorm_fullspan, dataMean, dataStd, PCs_fullspan, EOFs, APEV,reconstruct_profNorm_fullspan,reconstruct_prof_fullspan,dataobs_shift_fullspan,dataobs_fullspan,data_profIDs_dVolThreshMet,data_hydro,datahydro_fullspan = pickle.load(file)
+# with open(picklefile_dir + 'topobathyhydro_ML_final_18Mar2025_Nlook96_PCApostDVol_shifted.pickle', 'rb') as file:
+#     xplot_shift, time_fullspan, dataNorm_fullspan, dataMean, dataStd, PCs_fullspan, EOFs, APEV,reconstruct_profNorm_fullspan,reconstruct_prof_fullspan,dataobs_shift_fullspan,dataobs_fullspan,data_profIDs_dVolThreshMet,data_hydro,datahydro_fullspan = pickle.load(file)
+
+with open(picklefile_dir + 'topobathyhydro_ML_final_25Mar2025_Nlook60_PCApostDVol_shifted.pickle', 'rb') as file:
+    xplot_shift, time_fullspan, dataNorm_fullspan, dataMean, dataStd, PCs_fullspan, EOFs, APEV, reconstruct_profNorm_fullspan, reconstruct_prof_fullspan, dataobs_shift_fullspan, dataobs_fullspan, data_profIDs_dVolThreshMet, data_hydro, datahydro_fullspan = pickle.load(file)
 
 # Re-scale data
-Nlook = 24*4
+Nlook = int(24*2.5)
 num_datasets = data_hydro.shape[0]
 hydro_datasetsForML_scaled = np.empty(shape=data_hydro.shape)
 PCs_scaled = np.empty(shape=PCs_fullspan.shape)
@@ -74,11 +77,92 @@ for nn in np.arange(PCs_fullspan.shape[1]):
     scaled = scaler.fit_transform(unscaled)
     PCs_scaled[:, nn] = np.squeeze(scaled)
 
+############### Step 1.2 - Remove "large" dPCs and rescale ###############
+
+PCs_scaled = np.empty(shape=PCs_fullspan.shape)
+PCs_min = np.empty((PCs_fullspan.shape[1],))
+PCs_max = np.empty((PCs_fullspan.shape[1],))
+PCs_avg = np.empty((PCs_fullspan.shape[1],))
+PCs_stdev = np.empty((PCs_fullspan.shape[1],))
+
+PC1 = PCs_scaled[:,0]
+dPC1 = PC1[1:] - PC1[0:-1]
+flagii = np.where((dPC1 > 0.15) | (dPC1 < -0.15))[0]
+PC1[flagii+1] = np.nan
+PCs_scaled[flagii+1,0] = np.nan
+PCs_fullspan[flagii+1,0] = np.nan
+# sum(np.sum(~np.isnan(PC1),axis=1) == 48)
+
+PC2 = PCs_scaled[:,1]
+dPC2 = PC2[1:] - PC2[0:-1]
+flagii = np.where((dPC2 > 0.2) | (dPC2 < -0.2))[0]
+PC2[flagii+1] = np.nan
+PCs_scaled[flagii+1,1] = np.nan
+PCs_fullspan[flagii+1,1] = np.nan
+# sum(np.sum(~np.isnan(PC2),axis=1) == 48)
+
+PC3 = PCs_scaled[:,2]
+dPC3 = PC3[1:] - PC3[0:-1]
+flagii = np.where((dPC3 > 0.2) | (dPC3 < -0.2))[0]
+PC3[flagii+1] = np.nan
+PCs_scaled[flagii+1,2] = np.nan
+PCs_fullspan[flagii+1,2] = np.nan
+# sum(np.sum(~np.isnan(PC3),axis=1) == 48)
+
+PC4 = PCs_scaled[:,3]
+dPC4 = PC4[1:] - PC4[0:-1]
+flagii = np.where((dPC4 > 0.2) | (dPC4 < -0.2))[0]
+PC4[flagii+1] = np.nan
+PCs_scaled[flagii+1,3] = np.nan
+PCs_fullspan[flagii+1,3] = np.nan
+
+PC5 = PCs_scaled[:,4]
+dPC5 = PC5[1:] - PC5[0:-1]
+flagii = np.where((dPC5 > 0.3) | (dPC5 < -0.3))[0]
+PC5[flagii+1] = np.nan
+PCs_scaled[flagii+1,4] = np.nan
+PCs_fullspan[flagii+1,4] = np.nan
+
+PC6 = PCs_scaled[:,5]
+dPC6 = PC6[1:] - PC6[0:-1]
+flagii = np.where((dPC6 > 0.16) | (dPC6 < -0.16))[0]
+PC6[flagii+1] = np.nan
+PCs_scaled[flagii+1,5] = np.nan
+PCs_fullspan[flagii+1,5] = np.nan
+
+PC7 = PCs_scaled[:,6]
+dPC7 = PC7[1:] - PC7[0:-1]
+flagii = np.where((dPC7 > 0.2) | (dPC7 < -0.2))[0]
+PC7[flagii+1] = np.nan
+PCs_scaled[flagii+1,6] = np.nan
+PCs_fullspan[flagii+1,6] = np.nan
+
+PC8 = PCs_scaled[:,7]
+dPC8 = PC8[1:] - PC8[0:-1]
+flagii = np.where((dPC8 > 0.35) | (dPC8 < -0.35))[0]
+PC8[flagii+1] = np.nan
+PCs_scaled[flagii+1,7] = np.nan
+PCs_fullspan[flagii+1,7] = np.nan
+
+for nn in np.arange(PCs_fullspan.shape[1]):
+    unscaled = PCs_fullspan[:,nn].reshape((PCs_fullspan.shape[0],1))
+    PCs_min[nn] = np.nanmin(unscaled)
+    PCs_max[nn] = np.nanmax(unscaled)
+    PCs_avg[nn] = np.nanmean(unscaled)
+    PCs_stdev[nn] = np.nanstd(unscaled)
+    scaler = MinMaxScaler()
+    scaled = scaler.fit_transform(unscaled)
+    PCs_scaled[:, nn] = np.squeeze(scaled)
+
+PCs_iikeep = np.sum(np.isnan(PCs_scaled),axis=1) == 0
+# with open(picklefile_dir + 'topobathyhydro_ML_final_25Mar2025_slowlyVaryingPCs.pickle', 'wb') as file:
+#     pickle.dump([time_fullspan, PCs_iikeep],file)
+
 
 
 ############### Step 2 - Change NLook ###############
 
-Nlook = 48
+Nlook = int(2.5*24)
 num_steps = Nlook-1
 numhydro = 4
 numPCs = 8
@@ -128,7 +212,7 @@ inputData_keep = inputData[:]
 outputData_keep = outputData[:]
 
 # separate test and train IDs
-frac = 0.6          # num used for training
+frac = 0.5          # num used for training
 num_datasets = inputData.shape[0]
 Ntrain = int(np.floor(num_datasets*frac))
 Ntest = num_datasets - Ntrain
@@ -155,11 +239,14 @@ test_y[:] = outputData_keep[iitest,:]
 
 # design network
 model = Sequential()
-model.add(LSTM(45, input_shape=(train_X.shape[1], train_X.shape[2]), dropout=0.25))
+model.add(LSTM(45, input_shape=(train_X.shape[1], train_X.shape[2]), dropout=0.15))
 # model.add(LSTM(45, input_shape=(train_X.shape[1], train_X.shape[2])))
+# output_1 = Dense(2)
+# output_2 = Dense(numPCs-2)
+# model.add(outputs=[output_1,output_2])
 model.add(Dense(numPCs))
 
-# custom loss function
+# custom loss function, defined as some data_loss*weight_data + phys_loss*weight_phys
 def customLoss_wrapper(input_data):
 
     input_data = tf.cast(input_data, tf.float32)
@@ -170,20 +257,26 @@ def customLoss_wrapper(input_data):
 
     def customLoss(y_true, y_pred):
 
-        # loss = data_loss*weight_data + phys_loss*weight_phys
-        weight_dataEOF = 0.65
-        weight_datavol = 0.35
+        # assign weights
+        weight_dataEOF = 0.85
+        weight_datavol = 0
         weight_dataelev = 0
-        # weight_dataDVol = 0.1
-        dataEOF_loss = keras.losses.MAE(y_true, y_pred)
+        weight_dataDVol = 0.15
+        # calculate profile stats
         inv_ypred = y_pred * (PCs_max[0:numPCs] - PCs_min[0:numPCs]) + PCs_min[0:numPCs]
         inv_ytrue = y_true * (PCs_max[0:numPCs] - PCs_min[0:numPCs]) + PCs_min[0:numPCs]
-        dataelev_loss = keras.losses.MAE(inv_ytrue, inv_ypred)
         vol_true = keras.backend.sum(inv_ytrue*dx,axis=1)
         vol_pred = keras.backend.sum(inv_ypred*dx,axis=1)
+        # calculate individual losses
+        dataelev_loss = keras.losses.MAE(inv_ytrue, inv_ypred)
         datavol_loss = keras.backend.abs(vol_true - vol_pred)
-        # dataDVol_loss = keras.backend.abs(vol_true_prev - vol_pred)
-        sum_loss = weight_dataEOF*dataEOF_loss + weight_dataelev*dataelev_loss + weight_datavol*datavol_loss  #+ weight_dataDVol*dataDVol_loss
+        dataDVol_loss = keras.backend.abs(vol_true_prev - vol_pred)
+        dataEOF_loss = keras.losses.MAE(y_true, y_pred)
+        ## dataEOF_loss1 = keras.losses.MAE(y_true[0:4], y_pred[0:4])
+        ## dataEOF_loss2 = keras.losses.MAE(y_true[5:], y_pred[5:])
+        # calculate total loss
+        sum_loss = weight_dataEOF*dataEOF_loss + weight_dataelev*dataelev_loss + weight_datavol*datavol_loss + weight_dataDVol*dataDVol_loss
+
 
         return sum_loss
     return customLoss
@@ -191,7 +284,7 @@ def customLoss_wrapper(input_data):
 model.compile(loss=customLoss_wrapper(train_X), optimizer='adam')
 
 # fit network
-history = model.fit(train_X, train_y, epochs=60, batch_size=64, validation_data=(test_X, test_y), verbose=2,
+history = model.fit(train_X, train_y, epochs=50, batch_size=1, validation_data=(test_X, test_y), verbose=2,
                     shuffle=False)
 
 # plot history
@@ -289,14 +382,15 @@ with open(picklefile_dir+'stormy_times_fullspan.pickle','rb') as file:
 
 tplot = pd.to_datetime(storm_timeend_all, unit='s', origin='unix')
 plotflag = True
-for nn in np.arange(10):
+for nn in np.arange(5):
 # for nn in np.arange(storm_timeend_all.size):
 
     tstart = storm_timeend_all[nn] + 1*24*3600
     iistart = np.where(np.isin(time_fullspan, tstart))[0].astype(int)
 
     # SHORT_TERM PREDICTION
-    Npred = Nlook-1
+    # Npred = Nlook-1
+    Npred = 12
 
     prev_pred = np.empty((Npred,numPCs))*np.nan
     prev_obs = np.empty((Npred,numPCs))*np.nan
@@ -319,6 +413,7 @@ for nn in np.arange(10):
             for jj in np.arange(numPCs):
                 yv = PCs_setnn[:, jj]
                 if sum(np.isnan(yv)) > 0:
+                    print(sum(np.isnan(yv)))
                     xq = np.arange(Nlook-1-tt)
                     xv = xq[~np.isnan(yv)]
                     yv = yv[~np.isnan(yv)]
@@ -482,3 +577,91 @@ for nn in np.arange(10):
         ax[2].set_ylabel('z, predicted [m]')
         plt.tight_layout()
 
+
+############### MISC  ###############
+
+
+## Look at statistics of EOF1
+
+y1 = PCs_fullspan[:,0]
+y2 = PCs_scaled[:,0]
+dy1 = y1[1:]-y1[0:-1]
+dy2 = y2[1:]-y2[0:-1]
+tplot = pd.to_datetime(time_fullspan, unit='s', origin='unix')
+
+fig, ax1 = plt.subplots()
+ax1.plot(tplot,y1,'o')
+ax2 = ax1.twinx()
+ax2.plot(tplot,y2,'r.')
+fig, ax1 = plt.subplots()
+ax1.plot(tplot[1:],dy1,'o')
+ax2 = ax1.twinx()
+ax2.plot(tplot[1:],dy2,'r.')
+fig, ax = plt.subplots()
+ax.hist(dy1,bins=50)
+
+PC1 = np.column_stack((inputData[:,:,4],outputData[:,0]))
+dPC1 = PC1[:,1:] - PC1[:,0:-1]
+fig, ax = plt.subplots()
+ax.plot(dPC1.T,'.')
+flagrow,flagcol = np.where((dPC1 > 0.15) | (dPC1 < -0.15))
+PC1[flagrow,flagcol+1] = np.nan
+dPC1 = PC1[:,1:] - PC1[:,0:-1]
+fig, ax = plt.subplots()
+ax.plot(dPC1.T,'.')
+sum(np.sum(~np.isnan(PC1),axis=1) == 48)
+
+PC2 = np.column_stack((inputData[:,:,5],outputData[:,1]))
+dPC2 = PC2[:,1:] - PC2[:,0:-1]
+fig, ax = plt.subplots()
+ax.plot(dPC2.T,'.')
+flagrow,flagcol = np.where((dPC2 > 0.2) | (dPC2 < -0.2))
+PC2[flagrow,flagcol+1] = np.nan
+sum(np.sum(~np.isnan(PC2),axis=1) == 48)
+
+
+PC3 = np.column_stack((inputData[:,:,6],outputData[:,2]))
+dPC3 = PC3[:,1:] - PC3[:,0:-1]
+fig, ax = plt.subplots()
+ax.plot(dPC3.T,'.')
+flagrow,flagcol = np.where((dPC3 > 0.2) | (dPC3 < -0.2))
+PC3[flagrow,flagcol+1] = np.nan
+sum(np.sum(~np.isnan(PC3),axis=1) == 48)
+
+PC4 = np.column_stack((inputData[:,:,7],outputData[:,3]))
+dPC4 = PC4[:,1:] - PC4[:,0:-1]
+fig, ax = plt.subplots()
+ax.plot(dPC4.T,'.')
+flagrow,flagcol = np.where((dPC4 > 0.2) | (dPC4 < -0.2))
+PC4[flagrow,flagcol+1] = np.nan
+sum(np.sum(~np.isnan(PC4),axis=1) == 48)
+
+PC5 = np.column_stack((inputData[:,:,8],outputData[:,4]))
+dPC5 = PC5[:,1:] - PC5[:,0:-1]
+fig, ax = plt.subplots()
+ax.plot(dPC5.T,'.')
+flagrow,flagcol = np.where((dPC5 > 0.3) | (dPC5 < -0.3))
+PC5[flagrow,flagcol+1] = np.nan
+sum(np.sum(~np.isnan(PC5),axis=1) == 48)
+
+PC6 = np.column_stack((inputData[:,:,9],outputData[:,5]))
+dPC6 = PC6[:,1:] - PC6[:,0:-1]
+fig, ax = plt.subplots()
+ax.plot(dPC6.T,'.')
+flagrow,flagcol = np.where((dPC6 > 0.16) | (dPC6 < -0.16))
+PC6[flagrow,flagcol+1] = np.nan
+
+PC7 = np.column_stack((inputData[:,:,10],outputData[:,6]))
+dPC7 = PC7[:,1:] - PC7[:,0:-1]
+fig, ax = plt.subplots()
+ax.plot(dPC7.T,'.')
+flagrow,flagcol = np.where((dPC7 > 0.2) | (dPC7 < -0.2))
+PC7[flagrow,flagcol+1] = np.nan
+
+
+PC8 = np.column_stack((inputData[:,:,11],outputData[:,7]))
+dPC8 = PC8[:,1:] - PC8[:,0:-1]
+fig, ax = plt.subplots()
+ax.plot(dPC8.T,'.')
+flagrow,flagcol = np.where((dPC8 > 0.35) | (dPC8 < -0.35))
+PC8[flagrow,flagcol+1] = np.nan
