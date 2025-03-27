@@ -128,9 +128,6 @@ ax.set_ylabel('dVol')
 ax.set_xlabel('pre-storm volume')
 ax.legend()
 
-
-
-
 fig, ax = plt.subplots()
 ax.plot(beachwid_prestorm_obs,dvol_obs,'r<',label='obs')
 ax.plot(beachwid_prestorm_pca,dvol_pca,'b>',label='pca')
@@ -170,9 +167,11 @@ for jj in ii_netloss_vol:
     if len(ii_poststorm) > 1:
         ii_poststorm = ii_poststorm[0]
     nnplot = np.arange(ii_poststorm,ii_poststorm+24*30)
+    xplot = nnplot/24
     yplot = total_beachVol_pca[nnplot] - beachvol_prestorm_pca[jj]
-    ax1.plot(yplot)
+    ax1.plot(xplot,yplot)
     yplot = total_obsBeachWid_pca[nnplot] - beachwid_prestorm_pca[jj]
-    ax2.plot(yplot)
+    ax2.plot(xplot,yplot)
 ax1.grid()
+ax1.set_xlabel('time')
 ax2.grid()
