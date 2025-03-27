@@ -16,8 +16,8 @@ os.environ["KERAS_BACKEND"] = "tensorflow"
 import tensorflow as tf
 import tensorboard
 from tensorflow import keras
-from keras.models import Sequential
-from keras.layers import Dense, LSTM, Dropout, Activation, Flatten
+from keras.models import Sequential, Model
+from keras.layers import Dense, LSTM, Dropout, Activation, Flatten, Input
 from keras.utils import plot_model
 import datetime as dt
 import pydot
@@ -25,6 +25,7 @@ import visualkeras
 import random
 import scipy as sp
 import pandas as pd  # to do datetime conversions
+from numpy.random import seed
 
 
 
@@ -87,7 +88,7 @@ PCs_stdev = np.empty((PCs_fullspan.shape[1],))
 
 PC1 = PCs_scaled[:,0]
 dPC1 = PC1[1:] - PC1[0:-1]
-flagii = np.where((dPC1 > 0.15) | (dPC1 < -0.15))[0]
+flagii = np.where((dPC1 > 0.02) | (dPC1 < -0.02))[0]
 PC1[flagii+1] = np.nan
 PCs_scaled[flagii+1,0] = np.nan
 PCs_fullspan[flagii+1,0] = np.nan
@@ -95,7 +96,7 @@ PCs_fullspan[flagii+1,0] = np.nan
 
 PC2 = PCs_scaled[:,1]
 dPC2 = PC2[1:] - PC2[0:-1]
-flagii = np.where((dPC2 > 0.2) | (dPC2 < -0.2))[0]
+flagii = np.where((dPC2 > 0.05) | (dPC2 < -0.05))[0]
 PC2[flagii+1] = np.nan
 PCs_scaled[flagii+1,1] = np.nan
 PCs_fullspan[flagii+1,1] = np.nan
@@ -103,7 +104,7 @@ PCs_fullspan[flagii+1,1] = np.nan
 
 PC3 = PCs_scaled[:,2]
 dPC3 = PC3[1:] - PC3[0:-1]
-flagii = np.where((dPC3 > 0.2) | (dPC3 < -0.2))[0]
+flagii = np.where((dPC3 > 0.05) | (dPC3 < -0.05))[0]
 PC3[flagii+1] = np.nan
 PCs_scaled[flagii+1,2] = np.nan
 PCs_fullspan[flagii+1,2] = np.nan
@@ -111,35 +112,35 @@ PCs_fullspan[flagii+1,2] = np.nan
 
 PC4 = PCs_scaled[:,3]
 dPC4 = PC4[1:] - PC4[0:-1]
-flagii = np.where((dPC4 > 0.2) | (dPC4 < -0.2))[0]
+flagii = np.where((dPC4 > 0.15) | (dPC4 < -0.13))[0]
 PC4[flagii+1] = np.nan
 PCs_scaled[flagii+1,3] = np.nan
 PCs_fullspan[flagii+1,3] = np.nan
 
 PC5 = PCs_scaled[:,4]
 dPC5 = PC5[1:] - PC5[0:-1]
-flagii = np.where((dPC5 > 0.3) | (dPC5 < -0.3))[0]
+flagii = np.where((dPC5 > 0.2) | (dPC5 < -0.27))[0]
 PC5[flagii+1] = np.nan
 PCs_scaled[flagii+1,4] = np.nan
 PCs_fullspan[flagii+1,4] = np.nan
 
 PC6 = PCs_scaled[:,5]
 dPC6 = PC6[1:] - PC6[0:-1]
-flagii = np.where((dPC6 > 0.16) | (dPC6 < -0.16))[0]
+flagii = np.where((dPC6 > 0.13) | (dPC6 < -0.11))[0]
 PC6[flagii+1] = np.nan
 PCs_scaled[flagii+1,5] = np.nan
 PCs_fullspan[flagii+1,5] = np.nan
 
 PC7 = PCs_scaled[:,6]
 dPC7 = PC7[1:] - PC7[0:-1]
-flagii = np.where((dPC7 > 0.2) | (dPC7 < -0.2))[0]
+flagii = np.where((dPC7 > 0.13) | (dPC7 < -0.13))[0]
 PC7[flagii+1] = np.nan
 PCs_scaled[flagii+1,6] = np.nan
 PCs_fullspan[flagii+1,6] = np.nan
 
 PC8 = PCs_scaled[:,7]
 dPC8 = PC8[1:] - PC8[0:-1]
-flagii = np.where((dPC8 > 0.35) | (dPC8 < -0.35))[0]
+flagii = np.where((dPC8 > 0.13) | (dPC8 < -0.11))[0]
 PC8[flagii+1] = np.nan
 PCs_scaled[flagii+1,7] = np.nan
 PCs_fullspan[flagii+1,7] = np.nan
@@ -162,7 +163,7 @@ PCs_iikeep = np.sum(np.isnan(PCs_scaled),axis=1) == 0
 
 ############### Step 2 - Change NLook ###############
 
-Nlook = int(2.5*24)
+Nlook = int(2.*24)
 num_steps = Nlook-1
 numhydro = 4
 numPCs = 8
@@ -191,6 +192,7 @@ for tt in np.arange(time_fullspan.size-num_steps):
 
     # check for nans....
     ds_data = np.column_stack((ds_watlev.T,ds_Hs.T,ds_Tp.T,ds_wdir.T,ds_mode1,ds_mode2,ds_mode3,ds_mode4,ds_mode5,ds_mode6,ds_mode7,ds_mode8))
+    # ds_data = np.column_stack((ds_watlev.T, ds_Hs.T, ds_Tp.T, ds_wdir.T, ds_mode1, ds_mode2, ds_mode3, ds_mode4, ds_mode5, ds_mode6, ds_mode7))
     if np.sum(np.isnan(ds_data)) == 0:
         # print(str(tt))
         input_newDS = np.empty((1,num_steps,num_features))*np.nan
@@ -212,7 +214,7 @@ inputData_keep = inputData[:]
 outputData_keep = outputData[:]
 
 # separate test and train IDs
-frac = 0.5          # num used for training
+frac = 0.65          # num used for training
 num_datasets = inputData.shape[0]
 Ntrain = int(np.floor(num_datasets*frac))
 Ntest = num_datasets - Ntrain
@@ -239,7 +241,7 @@ test_y[:] = outputData_keep[iitest,:]
 
 # design network
 model = Sequential()
-model.add(LSTM(45, input_shape=(train_X.shape[1], train_X.shape[2]), dropout=0.15))
+model.add(LSTM(24, input_shape=(train_X.shape[1], train_X.shape[2]), dropout=0.05))
 # model.add(LSTM(45, input_shape=(train_X.shape[1], train_X.shape[2])))
 # output_1 = Dense(2)
 # output_2 = Dense(numPCs-2)
@@ -250,18 +252,18 @@ model.add(Dense(numPCs))
 def customLoss_wrapper(input_data):
 
     input_data = tf.cast(input_data, tf.float32)
-    ytrue_prevobs = input_data[:,-1,4:]
-    inv_ytrue_prevobs = ytrue_prevobs * (PCs_max[0:numPCs] - PCs_min[0:numPCs]) + PCs_min[0:numPCs]
+    # ytrue_prevobs = input_data[:,-1,4:]
+    # inv_ytrue_prevobs = ytrue_prevobs * (PCs_max[0:numPCs] - PCs_min[0:numPCs]) + PCs_min[0:numPCs]
     dx = 0.1
-    vol_true_prev = keras.backend.sum(inv_ytrue_prevobs*dx,axis=1)
+    # vol_true_prev = keras.backend.sum(inv_ytrue_prevobs*dx,axis=1)
 
     def customLoss(y_true, y_pred):
 
         # assign weights
-        weight_dataEOF = 0.85
+        weight_dataEOF = 0.9
         weight_datavol = 0
-        weight_dataelev = 0
-        weight_dataDVol = 0.15
+        weight_dataelev = 0.1
+        weight_dataDVol = 0
         # calculate profile stats
         inv_ypred = y_pred * (PCs_max[0:numPCs] - PCs_min[0:numPCs]) + PCs_min[0:numPCs]
         inv_ytrue = y_true * (PCs_max[0:numPCs] - PCs_min[0:numPCs]) + PCs_min[0:numPCs]
@@ -270,12 +272,12 @@ def customLoss_wrapper(input_data):
         # calculate individual losses
         dataelev_loss = keras.losses.MAE(inv_ytrue, inv_ypred)
         datavol_loss = keras.backend.abs(vol_true - vol_pred)
-        dataDVol_loss = keras.backend.abs(vol_true_prev - vol_pred)
+        # dataDVol_loss = keras.backend.abs(vol_true_prev - vol_pred)
         dataEOF_loss = keras.losses.MAE(y_true, y_pred)
         ## dataEOF_loss1 = keras.losses.MAE(y_true[0:4], y_pred[0:4])
         ## dataEOF_loss2 = keras.losses.MAE(y_true[5:], y_pred[5:])
         # calculate total loss
-        sum_loss = weight_dataEOF*dataEOF_loss + weight_dataelev*dataelev_loss + weight_datavol*datavol_loss + weight_dataDVol*dataDVol_loss
+        sum_loss = weight_dataEOF*dataEOF_loss + weight_dataelev*dataelev_loss + weight_datavol*datavol_loss #+ weight_dataDVol*dataDVol_loss
 
 
         return sum_loss
@@ -284,7 +286,7 @@ def customLoss_wrapper(input_data):
 model.compile(loss=customLoss_wrapper(train_X), optimizer='adam')
 
 # fit network
-history = model.fit(train_X, train_y, epochs=50, batch_size=1, validation_data=(test_X, test_y), verbose=2,
+history = model.fit(train_X, train_y, epochs=60, batch_size=24, validation_data=(test_X, test_y), verbose=2,
                     shuffle=False)
 
 # plot history
@@ -295,6 +297,58 @@ plt.legend()
 plt.show()
 ax.set_xlabel('epoch (test/train cycle)')
 ax.set_ylabel('error')
+
+# ############### Step 4 v2 - try concatenating input & output -->  CONCATENATE NOT AVAIL FOR LSTM ###############
+#
+# model = Sequential()
+# inp = Input(shape=(train_X.shape[1], train_X.shape[2]))
+# input_custom = LSTM(45)(inp)
+# input_custom = Dense(1)(input_custom)  # input
+# output_custom_temp = Dense(numPCs)            # output layer
+# output_custom = keras.layers.concatenate([input_custom, output_custom_temp])
+# model_custom = Model(inputs=[input_custom], outputs=[output_custom])
+
+
+# ############### Step 4 v3 - try fit_generator --> GENERATOR NOT AVAIL FOR LSTM ###############
+
+# def generator(x, y, batch_size, Ntrain):
+#     curIndex = 0
+#     batch_x = np.zeros((batch_size,2))
+#     batch_y = np.zeros((batch_size,1))
+#     while True:
+#         for i in range(batch_size):
+#             batch_x[i] = x[curIndex,:]
+#             batch_y[i] = y[curIndex,:]
+#             i += 1;
+#             if i == Ntrain:
+#                 i = 0
+#         yield batch_x, batch_y
+#
+# # set the seeds so that we get the same initialization across different trials
+# seed_numpy = 0
+# seed_tensorflow = 0
+# seed(seed_numpy)
+# tf.random.set_seed(seed_tensorflow)
+
+
+# batch_size = 60
+# model = Sequential()
+# model.add(LSTM(45, input_shape=(train_X.shape[1], train_X.shape[2]), dropout=0.15))
+# model.add(Dense(numPCs))
+
+# model.fit_generator(generator(train_X,train_y,batch_size), epochs=50)
+
+
+############### Step 4 v4 - try sample_weights --> ONE LOSS, CANNOT ACCEPT 8 WEIGHTS ###############
+
+# model = Sequential()
+# model.add(LSTM(45, input_shape=(train_X.shape[1], train_X.shape[2]), dropout=0.15))
+# model.add(Dense(numPCs))
+# model.compile(loss='mae',optimizer='adam',loss_weight=[0.3,0.2,0.15,0.1,0.075,0.075,0.075,0.025])
+#
+# # fit network
+# history = model.fit(train_X, train_y, epochs=50, batch_size=60, validation_data=(test_X, test_y), verbose=2,
+#                     shuffle=False)
 
 ############### Step 5 - Evaluate prediction ###############
 
@@ -320,7 +374,7 @@ for jj in np.arange(numPCs):
 
 minval = -75
 maxval = 75
-fig, ax = plt.subplots(1,8)
+fig, ax = plt.subplots(1,numPCs)
 for jj in range(int(numPCs)):
     ax[jj].plot([minval,maxval],[minval,maxval],'k')
     ax[jj].plot(inv_test_y[:,jj],inv_yhat[:,jj],'.',alpha=0.05)
@@ -341,7 +395,7 @@ mode4_obs = np.tile(EOFs[3,:],(inv_test_y.shape[0],1)).T * inv_test_y[:,3]
 mode5_obs = np.tile(EOFs[4,:],(inv_test_y.shape[0],1)).T * inv_test_y[:,4]
 mode6_obs = np.tile(EOFs[5,:],(inv_test_y.shape[0],1)).T * inv_test_y[:,5]
 mode7_obs = np.tile(EOFs[6,:],(inv_test_y.shape[0],1)).T * inv_test_y[:,6]
-mode8_obs = np.tile(EOFs[7,:],(inv_test_y.shape[0],1)).T * inv_test_y[:,7]
+mode8_obs = 0#np.tile(EOFs[7,:],(inv_test_y.shape[0],1)).T * inv_test_y[:,7]
 profsobs_norm = mode1_obs + mode2_obs + mode3_obs + mode4_obs + mode5_obs + mode6_obs + mode7_obs + mode8_obs
 profsobs_T = profsobs_norm.T * dataStd.T + dataMean.T
 profobs = profsobs_T.T
@@ -357,7 +411,7 @@ mode4_pred = np.tile(EOFs[3,:],(inv_yhat.shape[0],1)).T * inv_yhat[:,3]
 mode5_pred = np.tile(EOFs[4,:],(inv_yhat.shape[0],1)).T * inv_yhat[:,4]
 mode6_pred = np.tile(EOFs[5,:],(inv_yhat.shape[0],1)).T * inv_yhat[:,5]
 mode7_pred = np.tile(EOFs[6,:],(inv_yhat.shape[0],1)).T * inv_yhat[:,6]
-mode8_pred = np.tile(EOFs[7,:],(inv_yhat.shape[0],1)).T * inv_yhat[:,7]
+mode8_pred = 0#np.tile(EOFs[7,:],(inv_yhat.shape[0],1)).T * inv_yhat[:,7]
 profspred_norm = mode1_pred + mode2_pred + mode3_pred + mode4_pred + mode5_pred + mode6_pred + mode7_pred + mode8_pred
 profspred_T = profspred_norm.T * dataStd.T + dataMean.T
 profpred = profspred_T.T
@@ -385,12 +439,12 @@ plotflag = True
 for nn in np.arange(5):
 # for nn in np.arange(storm_timeend_all.size):
 
-    tstart = storm_timeend_all[nn] + 1*24*3600
+    tstart = storm_timeend_all[nn] + int(1*24*3600)
     iistart = np.where(np.isin(time_fullspan, tstart))[0].astype(int)
 
     # SHORT_TERM PREDICTION
     # Npred = Nlook-1
-    Npred = 12
+    Npred = 3
 
     prev_pred = np.empty((Npred,numPCs))*np.nan
     prev_obs = np.empty((Npred,numPCs))*np.nan
@@ -480,12 +534,6 @@ for nn in np.arange(5):
             inputData[0, :, 9] = ds_PCs[:, 5]
             inputData[0, :, 10] = ds_PCs[:, 6]
             inputData[0, :, 11] = ds_PCs[:, 7]
-            # outputData = np.empty((num_datasets, 5))
-            # outputData[0, 0] = ds_PCs[-1, 0]
-            # outputData[0, 1] = ds_PCs[-1, 1]
-            # outputData[0, 2] = ds_PCs[-1, 2]
-            # outputData[0, 3] = ds_PCs[-1, 3]
-            # outputData[0, 4] = ds_PCs[-1, 4]
 
             # make predicition
             test_X = np.empty(shape=inputData.shape)*np.nan
@@ -536,7 +584,7 @@ for nn in np.arange(5):
         mode5_obs = np.tile(EOFs[4, :], (inv_test_y.shape[0], 1)).T * inv_test_y[:, 4]
         mode6_obs = np.tile(EOFs[5, :], (inv_test_y.shape[0], 1)).T * inv_test_y[:, 5]
         mode7_obs = np.tile(EOFs[6, :], (inv_test_y.shape[0], 1)).T * inv_test_y[:, 6]
-        mode8_obs = np.tile(EOFs[7, :], (inv_test_y.shape[0], 1)).T * inv_test_y[:, 7]
+        mode8_obs = 0#np.tile(EOFs[7, :], (inv_test_y.shape[0], 1)).T * inv_test_y[:, 7]
         profsobs_norm = mode1_obs + mode2_obs + mode3_obs + mode4_obs + mode5_obs + mode6_obs + mode7_obs + mode8_obs
         profsobs_T = profsobs_norm.T * dataStd.T + dataMean.T
         profobs = profsobs_T.T
@@ -547,7 +595,7 @@ for nn in np.arange(5):
         mode5_pred = np.tile(EOFs[4, :], (inv_yhat.shape[0], 1)).T * inv_yhat[:, 4]
         mode6_pred = np.tile(EOFs[5, :], (inv_yhat.shape[0], 1)).T * inv_yhat[:, 5]
         mode7_pred = np.tile(EOFs[6, :], (inv_yhat.shape[0], 1)).T * inv_yhat[:, 6]
-        mode8_pred = np.tile(EOFs[7, :], (inv_yhat.shape[0], 1)).T * inv_yhat[:, 7]
+        mode8_pred = 0#np.tile(EOFs[7, :], (inv_yhat.shape[0], 1)).T * inv_yhat[:, 7]
         profspred_norm = mode1_pred + mode2_pred + mode3_pred + mode4_pred + mode5_pred + mode6_pred + mode7_pred + mode8_pred
         profspred_T = profspred_norm.T * dataStd.T + dataMean.T
         profpred = profspred_T.T
