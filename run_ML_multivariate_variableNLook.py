@@ -20,12 +20,16 @@ from keras.models import Sequential, Model
 from keras.layers import Dense, LSTM, Dropout, Activation, Flatten, Input
 from keras.utils import plot_model
 import datetime as dt
-import pydot
-import visualkeras
+# import pydot
+# import visualkeras
 import random
 import scipy as sp
 import pandas as pd  # to do datetime conversions
 from numpy.random import seed
+from funcs.create_contours import *
+from funcs.calculate_beachvol import *
+from funcs.interpgap import interpolate_with_max_gap
+
 
 
 
@@ -713,3 +717,371 @@ fig, ax = plt.subplots()
 ax.plot(dPC8.T,'.')
 flagrow,flagcol = np.where((dPC8 > 0.35) | (dPC8 < -0.35))
 PC8[flagrow,flagcol+1] = np.nan
+
+
+########### LSTM for VOLUME and/or WIDTH #############
+
+picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_20Feb2025/'
+
+with open(picklefile_dir + 'topobathyhydro_ML_final_25Mar2025_Nlook60_PCApostDVol_shifted.pickle', 'rb') as file:
+    _, time_fullspan, dataNorm_fullspan, dataMean, dataStd, PCs_fullspan, EOFs, APEV, reconstruct_profNorm_fullspan, reconstruct_prof_fullspan, dataobs_shift_fullspan, dataobs_fullspan, data_profIDs_dVolThreshMet, data_hydro, datahydro_fullspan = pickle.load(file)
+dataPCA_fullspan = reconstruct_prof_fullspan
+dx = 0.1
+xplot_shift = np.arange(reconstruct_prof_fullspan.shape[0])*dx
+
+picklefile_dir = 'G:/Projects/FY24/FY24_SMARTSEED/FRF_data/processed_20Feb2025/'
+with open(picklefile_dir+'stormy_times_fullspan.pickle','rb') as file:
+   _,storm_flag,storm_timestart_all,storm_timeend_all = pickle.load(file)
+
+# apply 12-hr (~tidal) moving window over the data
+hydro_fullspan_smooth = np.empty(shape=datahydro_fullspan.shape)*np.nan
+nsmooth = 12
+for nn in np.arange(4):
+    ytmp = datahydro_fullspan[nn,:]
+    hydro_fullspan_smooth[nn,:] = np.convolve(ytmp, np.ones(nsmooth) / nsmooth, mode='same')
+
+# Calculate beach volume and width
+mlw = -0.62
+mwl = -0.13
+zero = 0
+mhw = 0.36
+dune_toe = 3.22
+upper_lim = 5.95
+cont_elev = np.array([mlw,mwl,mhw,dune_toe,upper_lim]) #np.arange(0,2.5,0.5)   # <<< MUST BE POSITIVELY INCREASING
+cont_ts_pca, cmean, cstd = create_contours(dataPCA_fullspan.T,time_fullspan,xplot_shift,cont_elev)
+beachVol_pca, beachVol_xc_pca, dBeachVol_dt_pca, total_beachVol_pca, total_dBeachVol_dt_pca, total_obsBeachWid_pca =  calculate_beachvol(dataPCA_fullspan.T,time_fullspan,xplot_shift,cont_elev,cont_ts_pca)
+total_beachVol_pca[total_beachVol_pca == 0] = np.nan
+
+tplot = pd.to_datetime(time_fullspan, unit='s', origin='unix')
+
+beachVol = total_beachVol_pca
+nsmooth = 20
+ymean = np.convolve(beachVol, np.ones(nsmooth) / nsmooth, mode='same')
+ts = pd.Series(beachVol)
+ystd = ts.rolling(window=nsmooth, center=True).std()
+bad_id = (abs(beachVol - ymean) >= 3 * ystd)
+beachVol[bad_id] = np.nan
+fig, ax = plt.subplots()
+ax.plot(tplot,total_beachVol_pca,'o')
+ax.plot(tplot,beachVol,'.')
+
+beachWid = total_obsBeachWid_pca
+nsmooth = 20
+ymean = np.convolve(beachWid, np.ones(nsmooth) / nsmooth, mode='same')
+ts = pd.Series(beachWid)
+ystd = ts.rolling(window=nsmooth, center=True).std()
+bad_id = (abs(beachWid - ymean) >= 3 * ystd)
+beachWid[bad_id] = np.nan
+fig, ax = plt.subplots()
+ax.plot(tplot,total_obsBeachWid_pca,'o')
+ax.plot(tplot,beachWid,'.')
+
+mhw_xc = cont_ts_pca[2,:]
+mlw_xc = cont_ts_pca[0,:]
+dunetoe_xc = cont_ts_pca[3,:]
+fig, ax = plt.subplots()
+ax.plot(tplot,mhw_xc,'o')
+xplot_tmp = np.arange(time_fullspan.size)
+orig_x = xplot_tmp[~np.isnan(mhw_xc)]
+orig_y = mhw_xc[~np.isnan(mhw_xc)]
+target_x = xplot_tmp
+max_gap = 8
+mhw_xc = interpolate_with_max_gap(orig_x,orig_y,target_x,max_gap,False,False)
+ax.plot(tplot,mhw_xc,'.')
+ax.plot(tplot,mlw_xc)
+ax.plot(tplot,dunetoe_xc)
+
+# smooth
+nsmooth = 12
+beachVol_smooth = np.convolve(beachVol, np.ones(nsmooth) / nsmooth, mode='same')
+beachWid_smooth = np.convolve(beachWid, np.ones(nsmooth) / nsmooth, mode='same')
+mhw_xc_smooth = np.convolve(mhw_xc, np.ones(nsmooth) / nsmooth, mode='same')
+mlw_xc_smooth = np.convolve(mlw_xc, np.ones(nsmooth) / nsmooth, mode='same')
+dunetoe_xc_smooth = np.convolve(dunetoe_xc, np.ones(nsmooth) / nsmooth, mode='same')
+fig, ax = plt.subplots()
+ax.plot(tplot,hydro_fullspan_smooth.T,'.')
+ax.plot(tplot,beachVol_smooth,'.')
+ax.plot(tplot,beachWid_smooth,'.')
+ax.plot(tplot,mhw_xc_smooth,'.')
+ax.plot(tplot,mlw_xc_smooth,'.')
+ax.plot(tplot,dunetoe_xc_smooth,'.')
+
+# (X - X_min) / (X_max - X_min)
+beachWid_min = np.nanmin(beachWid)
+beachWid_max = np.nanmax(beachWid)
+beachWid_scaled = (beachWid - beachWid_min) / (beachWid_max - beachWid_min)
+beachVol_min = np.nanmin(beachVol)
+beachVol_max = np.nanmax(beachVol)
+beachVol_scaled = (beachVol - beachVol_min) / (beachVol_max - beachVol_min)
+mhw_xc_min = np.nanmin(mhw_xc)
+mhw_xc_max = np.nanmax(mhw_xc)
+mhw_xc_scaled = (mhw_xc - mhw_xc_min) / (mhw_xc_max - mhw_xc_min)
+mlw_xc_min = np.nanmin(mlw_xc)
+mlw_xc_max = np.nanmax(mlw_xc)
+mlw_xc_scaled = (mlw_xc - mlw_xc_min) / (mlw_xc_max - mlw_xc_min)
+dunetoe_xc_min = np.nanmin(dunetoe_xc)
+dunetoe_xc_max = np.nanmax(dunetoe_xc)
+dunetoe_xc_scaled = (dunetoe_xc - dunetoe_xc_min) / (dunetoe_xc_max - dunetoe_xc_min)
+
+## Scale the hydro data
+hydro_min = np.empty((4,))
+hydro_max = np.empty((4,))
+hydro_avg = np.empty((4,))
+hydro_stdev = np.empty((4,))
+hydro_fullspan_scaled = np.empty(shape=datahydro_fullspan.shape)*np.nan
+for nn in np.arange(4):
+    unscaled = datahydro_fullspan[nn,:]
+    hydro_min[nn] = np.nanmin(unscaled)
+    hydro_max[nn] = np.nanmax(unscaled)
+    hydro_avg[nn] = np.nanmean(unscaled)
+    hydro_stdev[nn] = np.nanstd(unscaled)
+    hydro_fullspan_scaled[nn,:] = (unscaled - hydro_min[nn]) / (hydro_max[nn] - hydro_min[nn])
+
+
+####### LSTM #######
+
+beachstat_fullspan = np.empty(shape=mhw_xc_scaled.shape)*np.nan
+beachstat_fullspan[:] = mhw_xc_scaled[:]
+beachstat_max = mhw_xc_max
+beachstat_min = mhw_xc_min
+
+Nlook = int(10)
+num_steps = Nlook-1
+numhydro = 4
+numPCs = 1
+num_features = numhydro + numPCs
+
+inputData = np.empty((1,num_steps,num_features))*np.nan
+outputData = np.empty((1,numPCs))*np.nan
+for tt in np.arange(time_fullspan.size-num_steps):
+
+    ttlook = np.arange(tt,tt + Nlook)
+
+    # get input hydro
+    ds_watlev = hydro_fullspan_scaled[0,ttlook]
+    ds_Hs = hydro_fullspan_scaled[1,ttlook]
+    ds_Tp = hydro_fullspan_scaled[2,ttlook]
+    ds_wdir = hydro_fullspan_scaled[3,ttlook]
+    # get input PC amplitudes
+    ds_beachstat = beachstat_fullspan[ttlook]
+    # check for nans....
+    ds_data = np.column_stack((ds_watlev.T,ds_Hs.T,ds_Tp.T,ds_wdir.T,ds_beachstat))
+    if np.sum(np.isnan(ds_data)) == 0:
+        # print(str(tt))
+        input_newDS = np.empty((1,num_steps,num_features))*np.nan
+        input_newDS[0,:,:] = ds_data[:-1,:]
+        output_newDS = np.empty((1,numPCs))*np.nan
+        output_newDS[:] = ds_data[-1,4:].T
+        inputData = np.append(inputData,input_newDS,axis=0)
+        outputData = np.append(outputData, output_newDS,axis=0)
+
+inputData = inputData[1:,:,:]
+outputData = outputData[1:,:]
+
+# remove few odd sets with nans in hydro data
+inputData_keep = inputData[:]
+outputData_keep = outputData[:]
+
+# separate test and train IDs
+frac = 0.65          # num used for training
+num_datasets = inputData.shape[0]
+Ntrain = int(np.floor(num_datasets*frac))
+Ntest = num_datasets - Ntrain
+tmpii = random.sample(range(num_datasets), Ntrain)
+iitrain = np.isin(np.arange(num_datasets),tmpii)
+iitest = ~iitrain
+# load training
+train_X = np.empty((Ntrain,num_steps,num_features))
+train_X[:,:,:] = inputData_keep[iitrain,:,:]
+# train_y = np.empty((Ntrain,))
+# train_y[:] = outputData_keep[iitrain]
+train_y = np.empty((Ntrain,numPCs))
+train_y[:] = outputData_keep[iitrain,:]
+# load testing
+test_X = np.empty((Ntest,num_steps,num_features))
+test_X[:,:,:] = inputData_keep[iitest,:,:]
+# test_y = np.empty((Ntest,))
+# test_y[:] = outputData_keep[iitest]
+test_y = np.empty((Ntest,numPCs))
+test_y[:] = outputData_keep[iitest,:]
+
+# design network
+model = Sequential()
+model.add(LSTM(40, input_shape=(train_X.shape[1], train_X.shape[2]), dropout=0.25))
+model.add(Dense(numPCs))
+model.compile(loss='mae', optimizer='adam')
+
+# fit network
+history = model.fit(train_X, train_y, epochs=60, batch_size=24, validation_data=(test_X, test_y), verbose=2,
+                    shuffle=False)
+
+# plot history
+fig, ax = plt.subplots()
+plt.plot(history.history['loss'], label='train')
+plt.plot(history.history['val_loss'], label='test')
+plt.legend()
+plt.show()
+ax.set_xlabel('epoch (test/train cycle)')
+ax.set_ylabel('error')
+
+# test network
+yhat = model.predict(test_X)
+inv_yhat = yhat * (beachstat_max - beachstat_min) + beachstat_min
+inv_test_y = test_y * (beachstat_max - beachstat_min) + beachstat_min
+fig, ax = plt.subplots()
+ax.plot([np.min(inv_test_y)-20,np.max(inv_test_y)+20],[np.min(inv_test_y)-20,np.max(inv_test_y)+20],'-k')
+ax.plot(inv_test_y,inv_yhat,'o')
+ax.set_xlabel('observed - all testing times')
+ax.set_ylabel('predicted - all testing times')
+ax.grid()
+
+# test time series prediction
+tplot = pd.to_datetime(storm_timeend_all, unit='s', origin='unix')
+plotflag = True
+for nn in np.arange(20):
+# for nn in np.arange(storm_timeend_all.size):
+
+    tstart = storm_timeend_all[nn] + int(3*24*3600)
+    iistart = np.where(np.isin(time_fullspan, tstart))[0].astype(int)
+
+    # SHORT_TERM PREDICTION
+    # Npred = Nlook*100
+    Npred = 250
+
+    prev_pred = np.empty((Npred,))*np.nan
+    prev_obs = np.empty((Npred,))*np.nan
+    numnan_hydro = np.empty((Npred,))*np.nan
+    init_obs = np.empty((Nlook-1,))*np.nan
+    for tt in np.arange(Npred):
+
+        iisetnn_hydro = np.arange(iistart + tt, iistart + tt + Nlook-1) # shift entire window
+
+        # grab actual data as long Npred < Nlook
+        if tt <= Nlook:
+            iisetnn_beachstat = np.arange(iistart + tt, iistart + Nlook-1)        # do not shift entire window, complement with prev pred.
+            # find and fill nans in PCs
+            beachstat_setnn = beachstat_fullspan[iisetnn_beachstat]
+            ytest = np.empty(shape=beachstat_setnn.shape)*np.nan
+            ytest[:] = beachstat_setnn[:]
+            if (np.sum(np.isnan(ytest)) > 1):
+                print('warning - too many nans for post-storm ' + str(nn) + ', moving on')
+                plotflag = False
+                break
+            else:
+                if len(ytest) != 0:
+                    plotflag = True
+                    ds_beachstat = np.empty(shape=ytest.shape) * np.nan
+                    yv = ytest
+                    if sum(np.isnan(yv)) > 0:
+                        print(sum(np.isnan(yv)))
+                        xq = np.arange(Nlook - 1 - tt)
+                        xv = xq[~np.isnan(yv)]
+                        yv = yv[~np.isnan(yv)]
+                        beachstatjj_interptmp = np.interp(xq, xv, yv)
+                        ds_beachstat[:] = beachstatjj_interptmp
+                    else:
+                        ds_beachstat[:] = yv
+                    # add previous predictions to fill out rest of PCs, if tt > 0
+                    if (tt > 0) & (tt <= Nlook - 1):
+                        ds_beachstat = np.append(ds_beachstat, prev_pred[0:tt])
+                    elif tt == 0:
+                        init_obs[:] = ds_beachstat[:]
+        else:
+            ytest = np.empty((Nlook-1,1))*np.nan
+            ds_beachstat = prev_pred[tt - Nlook:tt - 1]
+
+        # find and fill nans in water levels
+        ds_watlev = hydro_fullspan_scaled[0,iisetnn_hydro]
+        ds_Hs = hydro_fullspan_scaled[1,iisetnn_hydro]
+        ds_Tp = hydro_fullspan_scaled[2,iisetnn_hydro]
+        ds_wdir = hydro_fullspan_scaled[3,iisetnn_hydro]
+        if sum(~np.isnan(ds_watlev)) != 0:
+            yv = ds_watlev
+            if (sum(np.isnan(yv)) > 0) == True:
+                xq = np.arange(Nlook-1)
+                xv = xq[~np.isnan(yv)]
+                yv = yv[~np.isnan(yv)]
+                hydro_interptmp = np.interp(xq, xv, yv)
+                ds_watlev[:] = hydro_interptmp
+            # find and fill nans in waveheights
+            yv = ds_Hs
+            if (sum(np.isnan(yv)) > 0):
+                xq = np.arange(Nlook-1)
+                xv = xq[~np.isnan(yv)]
+                yv = yv[~np.isnan(yv)]
+                hydro_interptmp = np.interp(xq, xv, yv)
+                ds_Hs[:] = hydro_interptmp
+            # find and fill nans in wave periods
+            yv = ds_Tp
+            if (sum(np.isnan(yv)) > 0):
+                xq = np.arange(Nlook-1)
+                xv = xq[~np.isnan(yv)]
+                yv = yv[~np.isnan(yv)]
+                hydro_interptmp = np.interp(xq, xv, yv)
+                ds_Tp[:] = hydro_interptmp
+            # find and fill nans in wave directions
+            yv = ds_wdir
+            if (sum(np.isnan(yv)) > 0):
+                xq = np.arange(Nlook-1)
+                xv = xq[~np.isnan(yv)]
+                yv = yv[~np.isnan(yv)]
+                hydro_interptmp = np.interp(xq, xv, yv)
+                ds_wdir[:] = hydro_interptmp
+
+        # check for nans
+        numnan_hydro[tt] = np.sum(np.isnan(np.vstack((ds_watlev,ds_Hs,ds_Tp,ds_wdir))))
+
+        # make input matrix for input model
+        num_datasets = 1
+        inputData = np.empty((num_datasets, num_steps, num_features))
+        inputData[0, :, 0] = ds_watlev[:]
+        inputData[0, :, 1] = ds_Hs[:]
+        inputData[0, :, 2] = ds_Tp[:]
+        inputData[0, :, 3] = ds_wdir[:]
+        inputData[0, :, 4] = ds_beachstat[:]
+
+        # make predicition
+        test_X = np.empty(shape=inputData.shape)*np.nan
+        test_X[:] = inputData[:]
+        yhat = model.predict(test_X)
+
+        # save last prediction as input for the next set
+        prev_pred[tt] = yhat[:]
+        prev_obs[tt] = beachstat_fullspan[iisetnn_hydro[-1]+1]
+
+    if plotflag:
+        # inverse scale the results
+        inv_yhat = prev_pred * (beachstat_max - beachstat_min) + beachstat_min
+        inv_test_y = prev_obs * (beachstat_max - beachstat_min) + beachstat_min
+        inv_input_y = init_obs * (beachstat_max - beachstat_min) + beachstat_min
+        slope, intercept, rval_modes, pval_modes, stderr_modes = sp.stats.linregress(inv_test_y, inv_yhat)
+        rmse_modes = np.sqrt(np.nanmean((inv_test_y - inv_yhat)**2))
+        nrmse_modes = np.sqrt(np.nanmean((inv_test_y - inv_yhat) ** 2))/np.nanmean(inv_test_y)
+
+        # now plot prediction vs observed over time
+        fig, ax = plt.subplots(1, 2)
+        ax[0].scatter(inv_test_y,inv_yhat,5,np.arange(Npred),alpha=0.95,cmap='plasma')
+        ax[0].grid()
+        # ax.set_ylim(minval, maxval)
+        # ax.set_xlim(minval, maxval)
+        ax[0].set_xlabel('observed')
+        ax[0].set_ylabel('predicted')
+
+        # plot against observed data
+        xplot = pd.to_datetime(time_fullspan, unit='s', origin='unix')
+        iiplot = np.arange(iistart, iistart + Nlook-1)
+        ax[1].plot(xplot[iiplot], inv_input_y, '.-k')
+        iiplot = np.arange(iistart + Nlook, iistart + Nlook + Npred)
+        ax[1].plot(xplot[iiplot], inv_test_y,'.k')
+        ax[1].scatter(xplot[iiplot],inv_yhat,5,iiplot,cmap='plasma')
+        ax[1].grid()
+        ax[1].set_xlabel('time')
+        # yplot = inv_input_y[1:] - inv_input_y[0:-1]
+        # ax[1].plot(xplot[iiplot[1:]], yplot, '.-k')
+        # iiplot = np.arange(iistart + Nlook, iistart + Nlook + Npred)
+        # yplot = inv_test_y[1:] - inv_test_y[0:-1]
+        # ax[1].plot(xplot[iiplot[1:]], yplot, '.k')
+        # yplot = inv_yhat[1:] - inv_yhat[0:-1]
+        # ax[1].scatter(xplot[iiplot[1:]], yplot, 5, iiplot[1:], cmap='plasma')
+        # ax[1].grid()
+        # ax[1].set_xlabel('time')

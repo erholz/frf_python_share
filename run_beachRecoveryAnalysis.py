@@ -10,8 +10,8 @@ import pickle
 
 
 
-picklefile_dir = 'C:/Users/rdchlerh/Desktop/frf_data_backup/processed/processed_20Feb2025/'
-
+# picklefile_dir = 'C:/Users/rdchlerh/Desktop/frf_data_backup/processed/processed_20Feb2025/'
+picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_20Feb2025/'
 with open(picklefile_dir + 'topobathyhydro_ML_final_25Mar2025_Nlook60_PCApostDVol_shifted.pickle', 'rb') as file:
     xplot_shift, time_fullspan, dataNorm_fullspan, dataMean, dataStd, PCs_fullspan, EOFs, APEV, reconstruct_profNorm_fullspan, reconstruct_prof_fullspan, dataobs_shift_fullspan, dataobs_fullspan, data_profIDs_dVolThreshMet, data_hydro, datahydro_fullspan = pickle.load(file)
 with open(picklefile_dir+'stormy_times_fullspan.pickle','rb') as file:
@@ -50,6 +50,7 @@ with open(picklefile_dir+'stormHs95_Over12Hours.pickle','rb') as f:
     wavePowerStormList = np.array(output['wavePowerStormList'])
     startTimeStormList = np.array(output['startTimeStormList'])
     endTimeStormList = np.array(output['endTimeStormList'])
+    recoveryTimeStorm = (np.asarray(endTimeStormList)[1:] - np.asarray(startTimeStormList)[0:-1])
 
 nstorms = len(startTimeStormList)-3
 
@@ -160,18 +161,66 @@ ii_netloss_wid = tmp[(dwidth_pca > 0)]
 
 ii_netgain = tmp[(dwidth_pca < 0) | (dvol_pca < 0)]
 
+
+ii_netloss_vol = [ 15,  29,  32,  52,  72,  78,  89, 101, 106]
 fig1, ax1 = plt.subplots()      # volume
-fig2, ax2 = plt.subplots()      # width
+# cmap = plt.cm.rainbow(np.linspace(0, 1, len(ii_netloss_vol)))
+# ax1.set_prop_cycle('color',cmap)
+vol_recovery_time = np.empty((nstorms,))*np.nan
 for jj in ii_netloss_vol:
     ii_poststorm = np.where(abs(time_fullspan - endTimeStormList[jj])==np.min(abs(time_fullspan - endTimeStormList[jj])))[0]
     if len(ii_poststorm) > 1:
         ii_poststorm = ii_poststorm[0]
-    nnplot = np.arange(ii_poststorm,ii_poststorm+24*30)
-    xplot = nnplot/24
+    ii_nextstorm = np.where(abs(time_fullspan - startTimeStormList[jj+1])==np.min(abs(time_fullspan - startTimeStormList[jj+1])))[0]
+    if len(ii_nextstorm) > 1:
+        ii_nextstorm = ii_nextstorm[0]
+    # nnplot = np.arange(ii_poststorm,ii_poststorm+24*60)
+    nnplot = np.arange(ii_poststorm,ii_nextstorm)
+    xplot = (nnplot-ii_poststorm)/24
     yplot = total_beachVol_pca[nnplot] - beachvol_prestorm_pca[jj]
-    ax1.plot(xplot,yplot)
-    yplot = total_obsBeachWid_pca[nnplot] - beachwid_prestorm_pca[jj]
-    ax2.plot(xplot,yplot)
+    nsmooth = 12
+    ymean = np.convolve(yplot, np.ones(nsmooth) / nsmooth, mode='same')
+    ts = pd.Series(yplot)
+    ystd = ts.rolling(window=nsmooth, center=True).std()
+    bad_id = (abs(yplot - ymean) >= 3 * ystd)
+    yplot[bad_id] = np.nan
+    ysmooth = np.convolve(yplot, np.ones(nsmooth) / nsmooth, mode='same')
+    # ysmooth[ysmooth>100] = np.nan
+    ax1.plot(xplot,ysmooth,linewidth=2)
+    recover_time_approx = np.where(abs(ysmooth) == np.nanmin(abs(ysmooth)))[0]
+    if abs(ysmooth[recover_time_approx]) < 100:
+        itmp = np.arange(recover_time_approx-3,recover_time_approx+3)
+        vol_recovery_time[jj] = np.interp(0,ysmooth[itmp],xplot[itmp])
 ax1.grid()
 ax1.set_xlabel('time')
+
+
+fig2, ax2 = plt.subplots()      # width
+cmap = plt.cm.rainbow(np.linspace(0, 1, len(ii_netloss_wid)))
+ax2.set_prop_cycle('color',cmap)
+for jj in ii_netloss_wid:
+    ii_poststorm = np.where(abs(time_fullspan - endTimeStormList[jj])==np.min(abs(time_fullspan - endTimeStormList[jj])))[0]
+    if len(ii_poststorm) > 1:
+        ii_poststorm = ii_poststorm[0]
+    ii_nextstorm = np.where(abs(time_fullspan - startTimeStormList[jj+1])==np.min(abs(time_fullspan - startTimeStormList[jj+1])))[0]
+    if len(ii_nextstorm) > 1:
+        ii_nextstorm = ii_nextstorm[0]
+    # nnplot = np.arange(ii_poststorm,ii_poststorm+24*60)
+    nnplot = np.arange(ii_poststorm,ii_nextstorm)
+    xplot = (nnplot-ii_poststorm)/24
+    yplot = total_obsBeachWid_pca[nnplot] - beachwid_prestorm_pca[jj]
+    nsmooth = 12
+    ymean = np.convolve(yplot, np.ones(nsmooth) / nsmooth, mode='same')
+    ts = pd.Series(yplot)
+    ystd = ts.rolling(window=nsmooth, center=True).std()
+    bad_id = (abs(yplot - ymean) >= 3 * ystd)
+    yplot[bad_id] = np.nan
+    ax2.plot(xplot,yplot)
 ax2.grid()
+ax2.set_xlabel('time (days)')
+
+fig, ax = plt.subplots()
+ax.plot(wavePowerStormList[:nstorms],vol_recovery_time,'x')
+fig, ax = plt.subplots()
+ax.plot(dvol_pca,vol_recovery_time,'b+')
+ax.plot(dvol_pca,recoveryTimeStorm[:nstorms]/(24*3600),'xr')
