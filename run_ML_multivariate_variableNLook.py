@@ -11,6 +11,7 @@ from pandas import concat
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import mean_squared_error
+from matplotlib.dates import DateFormatter
 import os
 os.environ["KERAS_BACKEND"] = "tensorflow"
 import tensorflow as tf
@@ -809,34 +810,50 @@ ax.plot(tplot,dunetoe_xc_smooth,'.')
 # (X - X_min) / (X_max - X_min)
 beachWid_min = np.nanmin(beachWid)
 beachWid_max = np.nanmax(beachWid)
-beachWid_scaled = (beachWid - beachWid_min) / (beachWid_max - beachWid_min)
+beachWid_mean = np.nanmean(beachWid)
+beachWid_std = np.nanstd(beachWid)
 beachVol_min = np.nanmin(beachVol)
 beachVol_max = np.nanmax(beachVol)
-beachVol_scaled = (beachVol - beachVol_min) / (beachVol_max - beachVol_min)
+beachVol_mean = np.nanmean(beachVol)
+beachVol_std = np.nanstd(beachVol)
 mhw_xc_min = np.nanmin(mhw_xc)
 mhw_xc_max = np.nanmax(mhw_xc)
-mhw_xc_scaled = (mhw_xc - mhw_xc_min) / (mhw_xc_max - mhw_xc_min)
+mhw_xc_mean = np.nanmean(mhw_xc)
+mhw_xc_std = np.nanstd(mhw_xc)
 mlw_xc_min = np.nanmin(mlw_xc)
 mlw_xc_max = np.nanmax(mlw_xc)
-mlw_xc_scaled = (mlw_xc - mlw_xc_min) / (mlw_xc_max - mlw_xc_min)
+mlw_xc_mean = np.nanmean(mlw_xc)
+mlw_xc_std = np.nanstd(mlw_xc)
 dunetoe_xc_min = np.nanmin(dunetoe_xc)
 dunetoe_xc_max = np.nanmax(dunetoe_xc)
+dunetoe_xc_mean = np.nanmean(dunetoe_xc)
+dunetoe_xc_std = np.nanstd(dunetoe_xc)
+beachWid_scaled = (beachWid - beachWid_min) / (beachWid_max - beachWid_min)
+beachVol_scaled = (beachVol - beachVol_min) / (beachVol_max - beachVol_min)
+mlw_xc_scaled = (mlw_xc - mlw_xc_min) / (mlw_xc_max - mlw_xc_min)
+mhw_xc_scaled = (mhw_xc - mhw_xc_min) / (mhw_xc_max - mhw_xc_min)
 dunetoe_xc_scaled = (dunetoe_xc - dunetoe_xc_min) / (dunetoe_xc_max - dunetoe_xc_min)
+# beachWid_scaled = (beachWid - beachWid_mean) / beachWid_std
+# beachVol_scaled = (beachVol - beachVol_mean) / beachVol_std
+# mlw_xc_scaled = (mlw_xc - mlw_xc_mean) / mlw_xc_std
+# mhw_xc_scaled = (mhw_xc - mhw_xc_mean) / mhw_xc_std
+# dunetoe_xc_scaled = (dunetoe_xc - dunetoe_xc_mean) / dunetoe_xc_std
+
 
 ## Scale the hydro data
 hydro_min = np.empty((4,))
 hydro_max = np.empty((4,))
-hydro_avg = np.empty((4,))
-hydro_stdev = np.empty((4,))
+hydro_mean = np.empty((4,))
+hydro_std = np.empty((4,))
 hydro_fullspan_scaled = np.empty(shape=datahydro_fullspan.shape)*np.nan
 for nn in np.arange(4):
     unscaled = datahydro_fullspan[nn,:]
     hydro_min[nn] = np.nanmin(unscaled)
     hydro_max[nn] = np.nanmax(unscaled)
-    hydro_avg[nn] = np.nanmean(unscaled)
-    hydro_stdev[nn] = np.nanstd(unscaled)
+    hydro_mean[nn] = np.nanmean(unscaled)
+    hydro_std[nn] = np.nanstd(unscaled)
     hydro_fullspan_scaled[nn,:] = (unscaled - hydro_min[nn]) / (hydro_max[nn] - hydro_min[nn])
-
+    # hydro_fullspan_scaled[nn, :] = (unscaled - hydro_mean[nn]) / hydro_std[nn]
 
 ####### LSTM #######
 
@@ -845,7 +862,10 @@ beachstat_fullspan[:] = mhw_xc_scaled[:]
 beachstat_max = mhw_xc_max
 beachstat_min = mhw_xc_min
 
-Nlook = int(10)
+Nlook = 12        # best for mhw
+lstm_units = 49   # best for mhw
+# Nlook = 40
+# lstm_units = 80
 num_steps = Nlook-1
 numhydro = 4
 numPCs = 1
@@ -906,43 +926,60 @@ test_y = np.empty((Ntest,numPCs))
 test_y[:] = outputData_keep[iitest,:]
 
 # design network
+# 49/50, 47
 model = Sequential()
-model.add(LSTM(40, input_shape=(train_X.shape[1], train_X.shape[2]), dropout=0.25))
+model.add(LSTM(49, input_shape=(train_X.shape[1], train_X.shape[2]), dropout=0.3))
 model.add(Dense(numPCs))
 model.compile(loss='mae', optimizer='adam')
 
 # fit network
+es = keras.callbacks.EarlyStopping(monitor='val_loss', mode='min')
 history = model.fit(train_X, train_y, epochs=60, batch_size=24, validation_data=(test_X, test_y), verbose=2,
                     shuffle=False)
 
 # plot history
 fig, ax = plt.subplots()
-plt.plot(history.history['loss'], label='train')
-plt.plot(history.history['val_loss'], label='test')
+plt.plot(history.history['loss'],'k-', label='train')
+plt.plot(history.history['val_loss'],'r*-', label='test')
 plt.legend()
 plt.show()
 ax.set_xlabel('epoch (test/train cycle)')
-ax.set_ylabel('error')
+ax.set_ylabel('testing error')
 
 # test network
 yhat = model.predict(test_X)
 inv_yhat = yhat * (beachstat_max - beachstat_min) + beachstat_min
 inv_test_y = test_y * (beachstat_max - beachstat_min) + beachstat_min
 fig, ax = plt.subplots()
-ax.plot([np.min(inv_test_y)-20,np.max(inv_test_y)+20],[np.min(inv_test_y)-20,np.max(inv_test_y)+20],'-k')
-ax.plot(inv_test_y,inv_yhat,'o')
-ax.set_xlabel('observed - all testing times')
-ax.set_ylabel('predicted - all testing times')
+ax.plot([np.min(inv_test_y)-5,np.max(inv_test_y)+5],[np.min(inv_test_y)-5,np.max(inv_test_y)+5],':k')
+ax.plot(inv_test_y,inv_yhat,'o',alpha=0.2)
+ax.set_xlabel('observed $Xc_{MHW}$ [m]')
+ax.set_ylabel('predicted $Xc_{MHW}$ [m]')
+ax.set_xlim([np.min(inv_test_y)-3,np.max(inv_test_y)+3])
+ax.set_ylim([np.min(inv_test_y)-3,np.max(inv_test_y)+3])
 ax.grid()
+RMSE = np.sqrt(np.mean((inv_test_y - inv_yhat)**2))
+ax.set_title('RMSE = '+str("%0.2f" % RMSE)+' m')
+fig.set_size_inches(4.1,3.8)
+plt.tight_layout()
+
 
 # test time series prediction
 tplot = pd.to_datetime(storm_timeend_all, unit='s', origin='unix')
-plotflag = True
-for nn in np.arange(20):
+# plotflag = True
+# iistart_plot = [686, 10808, 64975]  # for mhw_xc
+iistart_plot = [ 1339, 880, 1552]
+figwid = []
+fight = []
+ii_withdata = np.where(~np.isnan(beachstat_fullspan))[0]
+# iistart_plot = ii_withdata[random.sample(range(0,ii_withdata.size), 30)]
+# for nn in np.arange(20):
+for nn in np.arange(len(iistart_plot)):
 # for nn in np.arange(storm_timeend_all.size):
 
-    tstart = storm_timeend_all[nn] + int(3*24*3600)
-    iistart = np.where(np.isin(time_fullspan, tstart))[0].astype(int)
+    # tstart = storm_timeend_all[nn] + int(2.5*24*3600)
+    # iistart = np.where(np.isin(time_fullspan, tstart))[0].astype(int)
+    iistart = iistart_plot[nn]
 
     # SHORT_TERM PREDICTION
     # Npred = Nlook*100
@@ -1059,23 +1096,45 @@ for nn in np.arange(20):
         nrmse_modes = np.sqrt(np.nanmean((inv_test_y - inv_yhat) ** 2))/np.nanmean(inv_test_y)
 
         # now plot prediction vs observed over time
-        fig, ax = plt.subplots(1, 2)
-        ax[0].scatter(inv_test_y,inv_yhat,5,np.arange(Npred),alpha=0.95,cmap='plasma')
-        ax[0].grid()
-        # ax.set_ylim(minval, maxval)
-        # ax.set_xlim(minval, maxval)
-        ax[0].set_xlabel('observed')
-        ax[0].set_ylabel('predicted')
+        # fig, ax = plt.subplots(1, 2)
+        # ax[0].scatter(inv_test_y,inv_yhat,5,np.arange(Npred),alpha=0.95,cmap='plasma')
+        # ax[0].grid()
+        # # ax.set_ylim(minval, maxval)
+        # # ax.set_xlim(minval, maxval)
+        # ax[0].set_xlabel('observed')
+        # ax[0].set_ylabel('predicted')
 
         # plot against observed data
+        fig, ax = plt.subplots()
         xplot = pd.to_datetime(time_fullspan, unit='s', origin='unix')
         iiplot = np.arange(iistart, iistart + Nlook-1)
-        ax[1].plot(xplot[iiplot], inv_input_y, '.-k')
+        normxplot = np.arange(-(Nlook-1),0)
+        # ax.plot(xplot[iiplot], inv_input_y, '.-k')
+        ax.plot(normxplot, inv_input_y, '.-k')
+        # min_taxis = xplot[iiplot[0]]
+        min_taxis = normxplot[0]
         iiplot = np.arange(iistart + Nlook, iistart + Nlook + Npred)
-        ax[1].plot(xplot[iiplot], inv_test_y,'.k')
-        ax[1].scatter(xplot[iiplot],inv_yhat,5,iiplot,cmap='plasma')
-        ax[1].grid()
-        ax[1].set_xlabel('time')
+        normxplot = np.arange(0,Npred)
+        # ax.plot(xplot[iiplot], inv_test_y,'.-',color='grey')
+        ax.plot(normxplot, inv_test_y, '.-', color='grey')
+        # max_taxis = xplot[iiplot[-1]]
+        max_taxis = normxplot[-1]
+        ax.grid()
+        ax.set_xlabel('$t_{predict}$ [hr]')
+        ax.set_ylabel('$Xc_{MHW}$ [m], observed')
+        ax2 = ax.twinx()  # instantiate a second Axes that shares the same x-axis
+        # ax2.scatter(xplot[iiplot],inv_yhat,10,iiplot,cmap='plasma')
+        ax2.scatter(normxplot,inv_yhat,10,np.arange(normxplot.size),cmap='plasma',vmin=0,vmax=Npred)
+        ax2.set_ylabel('$Xc_{MHW}$ [m], predicted')
+        ax.set_title(str(iistart))
+        # date_form = DateFormatter("%m/%d/%y")
+        # ax.xaxis.set_major_formatter(date_form)
+        ax2.set_xlim(min_taxis,max_taxis)
+        ax.set_xlim(min_taxis,max_taxis)
+        # ax.tick_params(axis='x', labelrotation=45)
+        # ax2.tick_params(axis='x', labelrotation=45)
+        fig.set_size_inches(8.352, 2.792)
+        plt.tight_layout()
         # yplot = inv_input_y[1:] - inv_input_y[0:-1]
         # ax[1].plot(xplot[iiplot[1:]], yplot, '.-k')
         # iiplot = np.arange(iistart + Nlook, iistart + Nlook + Npred)
@@ -1085,3 +1144,6 @@ for nn in np.arange(20):
         # ax[1].scatter(xplot[iiplot[1:]], yplot, 5, iiplot[1:], cmap='plasma')
         # ax[1].grid()
         # ax[1].set_xlabel('time')
+
+
+# 1339, 880, 1552, 45746, 18331, 18346
