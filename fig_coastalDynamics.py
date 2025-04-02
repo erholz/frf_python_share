@@ -117,7 +117,7 @@ ystd = np.nanstd(dataobs_shift_fullspan,axis=1)
 ax.plot(xplot_shift,ymean,'k')
 ax.plot(xplot_shift,ymean+ystd,'k:')
 ax.plot(xplot_shift,ymean-ystd,'k:')
-ax.plot(xplot_shift,mhw+np.zeros(shape=xplot_shift.shape),color='c',linewidth=2)
+ax.plot(xplot_shift,mhw+np.zeros(shape=xplot_shift.shape),'--',color='c',linewidth=2)
 ax.plot([0,0]+cmean[2],[-4,8],color='tab:orange')
 ax.plot([0,0]+(cmean[2]+cstd[2]),[-4,8],':',color='tab:orange')
 ax.plot([0,0]+(cmean[2]-cstd[2]),[-4,8],':',color='tab:orange')
@@ -132,3 +132,39 @@ ax.set_xlim(0,130)
 ax.grid()
 ax.set_xlabel('x [m]')
 ax.set_ylabel('z [m]')
+
+# plot one profile
+ii = 255
+fig, ax = plt.subplots()
+ax.plot(xplot_shift,mhw+np.zeros(shape=xplot_shift.shape),'--',color='c',linewidth=2)
+ax.plot(xplot_shift,dataobs_shift_fullspan[:,ii],color='0.5',linewidth=2)
+ax.scatter(cont_ts_pca[2,ii],cont_elev[2],40,color='tab:orange')
+ax.set_ylim(-4,7)
+ax.set_xlim(0,130)
+ax.grid()
+ax.set_xlabel('x [m]')
+ax.set_ylabel('z [m]')
+
+# plot histograms of cont_ts, WL, Hs, Tp, dir available for analysis
+fig, ax = plt.subplots(2,3)
+iiplot = ~np.isnan(cont_ts_pca[2,:])
+yplot = cont_ts_pca[2,iiplot]
+ax[1,1].hist(yplot,bins=30,density=False,color='tab:orange')
+yplot = datahydro_fullspan[0,iiplot]
+ax[0,0].hist(yplot,bins=30,density=False,color='0.6')
+yplot = datahydro_fullspan[1,iiplot]
+ax[0,1].hist(yplot,bins=30,density=False,color='0.6')
+yplot = datahydro_fullspan[2,iiplot]
+ax[0,2].hist(yplot,bins=30,density=False,color='0.6')
+yplot = datahydro_fullspan[3,iiplot]
+ax[1,0].hist(yplot,bins=30,density=False,color='0.6')
+ax[0,0].set_title('$\overline{\eta}$ [m]')
+ax[0,1].set_title('$H_s$ [m]')
+ax[0,2].set_title('$T_p$ [s]')
+ax[1,0].set_title('$\\theta_p$ (deg.)')
+ax[1,1].set_title('$Xc_{MHW}$ [m]')
+ax[0,0].set_ylim(0,4400)
+ax[0,1].set_ylim(0,4400)
+ax[0,2].set_ylim(0,4400)
+ax[1,0].set_ylim(0,4400)
+ax[1,1].set_ylim(0,4400)

@@ -245,9 +245,9 @@ afterStorm = (np.asarray(endTimeStormList)[1:]-np.asarray(startTimeStormList)[0:
 plt.figure()
 cp = plt.scatter(np.asarray(durationStormList)[0:-1],np.asarray(hsMaxStormList)[0:-1],c=np.asarray(afterStorm),vmin=0,vmax=60)
 cb = plt.colorbar(cp)
-cb.set_label('Recovery Time After (days)')
-plt.ylabel('Max Hs (m)')
-plt.xlabel('Duration (hrs)')
+cb.set_label('Recovery time available [days]')
+plt.ylabel('Max $H_s$ [m]')
+plt.xlabel('Duration [hrs]')
 
 
 
