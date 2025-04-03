@@ -13,27 +13,21 @@ from funcs.interpgap import interpolate_with_max_gap
 from funcs.find_nangaps import find_nangaps
 
 
+################## LOAD DATA ##################
 
-# picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_26Nov2024/'
-# picklefile_dir = 'D:/Projects/FY24/FY24_SMARTSEED/FRF_data/processed_26Nov2024/'
-picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_26Nov2024/'
-with open(picklefile_dir+'IO_alignedintime.pickle', 'rb') as file:
-    time_fullspan,data_wave8m,data_wave17m,data_tidegauge,data_lidar_elev2p,data_lidarwg080,data_lidarwg090,data_lidarwg100,data_lidarwg110,data_lidarwg140,_,_,lidarelev_fullspan = pickle.load(file)
-with open(picklefile_dir+'lidar_xFRF.pickle', 'rb') as file:
-    lidar_xFRF = np.array(pickle.load(file))
-    lidar_xFRF = lidar_xFRF[0][:]
-with open(picklefile_dir + 'final_profile_13Nov2024.pickle', 'rb') as file:
-    profile_fullspan = pickle.load(file)
+picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_to_share_02Apr2025/'
 
-## FIRST, load the processed data from Dylan
-# picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_26Nov2024/'
-# picklefile_dir = 'D:/Projects/FY24/FY24_SMARTSEED/FRF_data/processed_26Nov2024/'
-picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_26Nov2024/'
+with open(picklefile_dir+'cleanLidarProfiles.pickle','rb') as file:
+    lidar_xFRF,time_fullspan,final_profile_fullspan_best = pickle.load(file)
+lidarprofile_fullspan = final_profile_fullspan_best[:]
 with open(picklefile_dir + 'tidalAveragedMetrics.pickle', 'rb') as file:
     datload = pickle.load(file)
 list(datload)
 bathysurvey_elev = np.array(datload['smoothUpperTidalAverage'])
 bathysurvey_times = np.array(datload['highTideTimes'])
+
+
+################## ISOLATE BATHY DATA FROM COMBINED ##################
 
 # PLOT surveys from Dylan
 XX, TT = np.meshgrid(lidar_xFRF, bathysurvey_times)
@@ -44,20 +38,20 @@ tt = timescatter[~np.isnan(zscatter)]
 xx = xscatter[~np.isnan(zscatter)]
 zz = zscatter[~np.isnan(zscatter)]
 fig, ax = plt.subplots()
-ph = ax.scatter(xx, tt, s=5, c=zz, cmap='viridis')
+fig.set_size_inches(15,3.)
+ph = ax.scatter(tt,xx, s=3, c=zz, cmap='rainbow',vmin=-4,vmax=8)
 cbar = fig.colorbar(ph, ax=ax)
-cbar.set_label('z [m]')
-ax.set_xlabel('x [m, FRF]')
-ax.set_ylabel('time')
+cbar.set_label('diff [m]')
+ax.set_title('tidally averaged topo-bathy')
 
-# Find overlap in Dylan's elevation set and the raw initial profiles
-nt = np.nanmax([bathysurvey_elev.T.shape[1], lidarelev_fullspan.shape[1]])
+# Find overlap in Dylan's elevation set and the lidar profiles
+nt = np.nanmax([bathysurvey_elev.T.shape[1], lidarprofile_fullspan.shape[1]])
 nx = lidar_xFRF.size
 bathypresenc = np.empty((nx,nt))
 bathypresenc[:] = np.nan
 lidarpresenc = np.empty((nx,nt))
 lidarpresenc[:] = np.nan
-lidarpresenc[~np.isnan(lidarelev_fullspan)] = 1
+lidarpresenc[~np.isnan(lidarprofile_fullspan)] = 1
 tplot_lidar = pd.to_datetime(time_fullspan, unit='s', origin='unix')
 tplot_bathy = bathysurvey_times.copy()
 bathysurvey_fullspan = np.empty((nx,nt))
@@ -86,23 +80,23 @@ zscatter = np.reshape(elev_overlap.T, elev_overlap.T.size)
 tt = timescatter[~np.isnan(zscatter)]
 xx = xscatter[~np.isnan(zscatter)]
 zz = zscatter[~np.isnan(zscatter)]
-fig, ax = plt.subplots()
-ph = ax.scatter(xx, tt, s=2, c=zz, vmin=0, vmax=2, cmap='viridis')
-cbar = fig.colorbar(ph, ax=ax)
-cbar.set_label('OVERLAP')
-ax.set_xlabel('x [m, FRF]')
-ax.set_ylabel('time')
-ax.set_title('Lidar = 1, BathySurvey = 0.5')
+# fig, ax = plt.subplots()
+# ph = ax.scatter(xx, tt, s=2, c=zz, vmin=0, vmax=2, cmap='viridis')
+# cbar = fig.colorbar(ph, ax=ax)
+# cbar.set_label('OVERLAP')
+# ax.set_xlabel('x [m, FRF]')
+# ax.set_ylabel('time')
+# ax.set_title('Lidar = 1, BathySurvey = 0.5')
 ## PROFILE PLOT OF DLA'S DATA
-fig, ax = plt.subplots()
+# fig, ax = plt.subplots()
 zmean = np.nanmean(bathy_nolidar,axis=1)
 zstd = np.nanstd(bathy_nolidar,axis=1)
-ax.plot(lidar_xFRF,bathy_nolidar)
-ax.plot(lidar_xFRF,zmean,'k')
-ax.plot(lidar_xFRF,zmean+2.*zstd,'k:')
-ax.plot(lidar_xFRF,zmean-2.*zstd,'k:')
-ax.set_xlabel('xFRF [m]')
-ax.set_ylabel('z [m]')
+# ax.plot(lidar_xFRF,bathy_nolidar)
+# ax.plot(lidar_xFRF,zmean,'k')
+# ax.plot(lidar_xFRF,zmean+2.*zstd,'k:')
+# ax.plot(lidar_xFRF,zmean-2.*zstd,'k:')
+# ax.set_xlabel('xFRF [m]')
+# ax.set_ylabel('z [m]')
 thresh = zmean+2*zstd
 iixx = (lidar_xFRF >= 146.97) & (lidar_xFRF <= 164)
 thresh_iixx = thresh[iixx]
@@ -112,18 +106,13 @@ for tt in np.arange(time_fullspan.size):
     ztmp = bathy_nolidar[iixx,tt]
     ztmp[ztmp > thresh_iixx] = np.nan
     bathy_nolidar_clean[iixx,tt] = ztmp
-fig, ax = plt.subplots()
-ax.plot(lidar_xFRF,bathy_nolidar_clean)
-ax.set_xlabel('xFRF [m]')
-ax.set_ylabel('z [m]')
-
-########## SAVE BATHY_NOLIDAR, interp'ed to time_fullspan ##########
-picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_20Feb2025/'
-# with open(picklefile_dir+'bathy_nolidar_fullspan.pickle', 'wb') as file:
-#     pickle.dump(bathy_nolidar_clean, file)
+# fig, ax = plt.subplots()
+# ax.plot(lidar_xFRF,bathy_nolidar_clean)
+# ax.set_xlabel('xFRF [m]')
+# ax.set_ylabel('z [m]')
 
 
-########## Now use Nick's code to interp in time and space ##########
+################## INTERP BATHY DATA IN TIME AND SPACE ##################
 
 bathy_times = time_fullspan
 bathy_elevation = bathy_nolidar_clean
@@ -156,26 +145,26 @@ for ix in np.arange(len(xinterp)):
         zInterpAll[:,ix] = np.interp(time_fullspan, bathy_dates_unique[iinotnan], tempz[iinotnan])
 
 ## Ok, now plot interps
-fig, ax = plt.subplots()
-ax.plot(xinterp,zInterpSurvey.T)
-ax.set_xlabel('xFRF [m]')
-ax.set_ylabel('z [m]')
-ax.set_title('Interp in space')
+# fig, ax = plt.subplots()
+# ax.plot(xinterp,zInterpSurvey.T)
+# ax.set_xlabel('xFRF [m]')
+# ax.set_ylabel('z [m]')
+# ax.set_title('Interp in space')
 zmean = np.nanmean(zInterpSurvey,axis=0)
 zstd = np.nanstd(zInterpSurvey,axis=0)
-ax.plot(xinterp,zmean,'k')
-ax.plot(xinterp,zmean+2.*zstd,'k:')
-ax.plot(xinterp,zmean-2.*zstd,'k:')
-fig, ax = plt.subplots()
-ax.plot(xinterp,zInterpAll.T)
-ax.set_xlabel('xFRF [m]')
-ax.set_ylabel('z [m]')
-ax.set_title('Interp in time')
+# ax.plot(xinterp,zmean,'k')
+# ax.plot(xinterp,zmean+2.*zstd,'k:')
+# ax.plot(xinterp,zmean-2.*zstd,'k:')
+# fig, ax = plt.subplots()
+# ax.plot(xinterp,zInterpAll.T)
+# ax.set_xlabel('xFRF [m]')
+# ax.set_ylabel('z [m]')
+# ax.set_title('Interp in time')
 zmean = np.nanmean(zInterpAll,axis=0)
 zstd = np.nanstd(zInterpAll,axis=0)
-ax.plot(xinterp,zmean,'k')
-ax.plot(xinterp,zmean+2.*zstd,'k:')
-ax.plot(xinterp,zmean-2.*zstd,'k:')
+# ax.plot(xinterp,zmean,'k')
+# ax.plot(xinterp,zmean+2.*zstd,'k:')
+# ax.plot(xinterp,zmean-2.*zstd,'k:')
 # Plot as surface...
 XX, TT = np.meshgrid(xinterp, time_fullspan)
 timescatter = np.reshape(TT, TT.size)
@@ -184,36 +173,29 @@ zscatter = np.reshape(zInterpAll, zInterpAll.size)
 tt = timescatter[~np.isnan(zscatter)]
 xx = xscatter[~np.isnan(zscatter)]
 zz = zscatter[~np.isnan(zscatter)]
-fig, ax = plt.subplots()
-ph = ax.scatter(xx, tt, s=3, c=zz, cmap='viridis')
-cbar = fig.colorbar(ph, ax=ax)
-cbar.set_label('z [m]')
-ax.set_xlabel('x [m, FRF]')
-ax.set_ylabel('time')
+# fig, ax = plt.subplots()
+# ph = ax.scatter(xx, tt, s=3, c=zz, cmap='viridis')
+# cbar = fig.colorbar(ph, ax=ax)
+# cbar.set_label('z [m]')
+# ax.set_xlabel('x [m, FRF]')
+# ax.set_ylabel('time')
 
 
-########## SAVE BATHY_INTERP to TiME and SPACE ##########
-picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_20Feb2025/'
-# with open(picklefile_dir+'bathy_InterpSpaceTime_fullspan.pickle', 'wb') as file:
-#     pickle.dump([xinterp, time_fullspan, zInterpAll], file)
-with open(picklefile_dir+'bathy_InterpSpaceTime_fullspan.pickle', 'rb') as file:
-   xinterp, time_fullspan, zInterpAll = pickle.load(file)
 
+################## COMBINE LIDAR AND INTERP'ED BATHY ##################
 
-########## Now we can combine ##########
-
-ZbFull_addLidar = np.zeros(shape=profile_fullspan.shape)*np.nan
-lidarinterp_fullspan = np.zeros(shape=profile_fullspan.shape)*np.nan
-bathyinterp_fullspan = np.zeros(shape=profile_fullspan.shape)*np.nan
-weighted_bathy_fullspan = np.zeros(shape=profile_fullspan.shape)*np.nan
-weighted_lidar_fullspan = np.zeros(shape=profile_fullspan.shape)*np.nan
+ZbFull_addLidar = np.zeros(shape=lidarprofile_fullspan.shape)*np.nan
+lidarinterp_fullspan = np.zeros(shape=lidarprofile_fullspan.shape)*np.nan
+bathyinterp_fullspan = np.zeros(shape=lidarprofile_fullspan.shape)*np.nan
+weighted_bathy_fullspan = np.zeros(shape=lidarprofile_fullspan.shape)*np.nan
+weighted_lidar_fullspan = np.zeros(shape=lidarprofile_fullspan.shape)*np.nan
 # for tt in np.arange(30):
 for tt in np.arange(time_fullspan.size):
 
-    iilidarnotnan = np.where(~np.isnan(profile_fullspan[:,tt]))[0]
+    iilidarnotnan = np.where(~np.isnan(lidarprofile_fullspan[:,tt]))[0]
     iibathynotnan = np.where(~np.isnan(zInterpAll[tt,:]))[0]
     if sum(iilidarnotnan) & sum(iibathynotnan) >= 10:
-        lidarprof_tt = profile_fullspan[iilidarnotnan[0]:iilidarnotnan[-1],tt]
+        lidarprof_tt = lidarprofile_fullspan[iilidarnotnan[0]:iilidarnotnan[-1],tt]
         lidarprof_xx = lidar_xFRF[iilidarnotnan[0]:iilidarnotnan[-1]]
         lidarprof_tt[lidarprof_tt == 0.0] = np.nan
         bathyprof_tt = zInterpAll[tt,iibathynotnan[0]:iibathynotnan[-1]]
@@ -271,40 +253,54 @@ for tt in np.arange(time_fullspan.size):
             bathyinterp_fullspan[:,tt] = tmpbathy
             lidarinterp_fullspan[:, tt] = tmplidar
 ZbFull_addLidar[ZbFull_addLidar == 0.000] = np.nan
+topobathy_fullspan =ZbFull_addLidar[:]
 
-# Plot as surface...
-XX, TT = np.meshgrid(lidar_xFRF, time_fullspan)
+################## PLOT FINAL RESULTS ##################
+
+
+tplot = pd.to_datetime(time_fullspan, unit='s', origin='unix')
+XX, TT = np.meshgrid(lidar_xFRF, tplot)
 timescatter = np.reshape(TT, TT.size)
 xscatter = np.reshape(XX, XX.size)
+zscatter = np.reshape(bathy_nolidar.T, bathy_nolidar.size)
+tt = timescatter[~np.isnan(zscatter)]
+xx = xscatter[~np.isnan(zscatter)]
+zz = zscatter[~np.isnan(zscatter)]
+fig, ax = plt.subplots()
+fig.set_size_inches(15,3.)
+ph = ax.scatter(tt,xx, s=3, c=zz, cmap='rainbow',vmin=-4,vmax=8)
+cbar = fig.colorbar(ph, ax=ax)
+cbar.set_label('z [m]')
+ax.set_title('bathy only')
 zscatter = np.reshape(ZbFull_addLidar.T, ZbFull_addLidar.size)
 tt = timescatter[~np.isnan(zscatter)]
 xx = xscatter[~np.isnan(zscatter)]
 zz = zscatter[~np.isnan(zscatter)]
 fig, ax = plt.subplots()
-ph = ax.scatter(xx, tt, s=1, c=zz, cmap='viridis')
+fig.set_size_inches(15,3.)
+ph = ax.scatter(tt,xx, s=3, c=zz, cmap='rainbow',vmin=-4,vmax=8)
 cbar = fig.colorbar(ph, ax=ax)
 cbar.set_label('z [m]')
-ax.set_xlabel('x [m, FRF]')
-ax.set_ylabel('time')
+ax.set_title('bathy + lidar')
 
-# Plot profiles...
-vplot = ZbFull_addLidar[:]
-vplot[vplot == 0.00] = np.nan
 fig, ax = plt.subplots()
-ax.plot(lidar_xFRF,vplot,'.')
+ax.plot(lidar_xFRF,bathy_nolidar)
 ax.set_xlabel('xFRF [m]')
 ax.set_ylabel('z [m]')
-# ax.set_title('Blend lidar and bathy')
-zmean = np.nanmean(vplot,axis=1)
-zstd = np.nanstd(vplot,axis=1)
+ax.set_title('bathy only')
+fig, ax = plt.subplots()
+ax.plot(lidar_xFRF,ZbFull_addLidar)
+ax.set_xlabel('xFRF [m]')
+ax.set_ylabel('z [m]')
+ax.set_title('Blend lidar and bathy')
+zmean = np.nanmean(ZbFull_addLidar,axis=1)
+zstd = np.nanstd(ZbFull_addLidar,axis=1)
 ax.plot(lidar_xFRF,zmean,'k')
 ax.plot(lidar_xFRF,zmean+2.*zstd,'k:')
 ax.plot(lidar_xFRF,zmean-2.*zstd,'k:')
 
 
 ########## SAVE BLENDED TOPO-BATHY ##########
-picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_20Feb2025/'
-# with open(picklefile_dir+'ZbFull_LidarBathyBlended.pickle', 'wb') as file:
-#     pickle.dump([lidar_xFRF, time_fullspan, ZbFull_addLidar], file)
-with open(picklefile_dir+'ZbFull_LidarBathyBlended.pickle', 'rb') as file:
-   lidar_xFRF, time_fullspan, ZbFull_addLidar = pickle.load(file)
+
+with open(picklefile_dir+'blendedLidarBathy.pickle', 'wb') as file:
+   pickle.dump([lidar_xFRF, time_fullspan, topobathy_fullspan],file)
