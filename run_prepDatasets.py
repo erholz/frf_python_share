@@ -116,8 +116,9 @@ for jj in np.arange(time_fullspan.size):
         xtmp = xtmp[~np.isnan(ztmp)]  # remove nans
         ztmp = ztmp[~np.isnan(ztmp)]  # remove nans
         # xend = xc_shore[jj] + np.nanmin(beachwid)
-        xend = xc_shore[jj] + xtmp[-1]
-        xinterp = np.linspace(xc_shore[jj], xend, numx)
+        # xinterp = np.linspace(xc_shore[jj], xend, numx)
+        xend = xtmp[-1]
+        xinterp = np.linspace(xc_shore[jj], xend, int(np.floor(xend-xc_shore[jj])/dx))
         if sum(~np.isnan(xtmp)) > 25:
             zinterp = np.interp(xinterp, xtmp, ztmp)
             topobathy_fullspan_gapfilled_shift[:xinterp.size,jj] = zinterp
@@ -151,20 +152,22 @@ ax[3].plot(tplot,dir17m,'o',color='yellow',alpha=0.1)
 ax[3].plot(tplot,dir17m_fullspan,'.',color='tab:red')
 ax[3].set_ylabel('$\\theta_p$')
 
-yplot1 = 100*np.sum(~np.isnan(topobathy_fullspan),axis=1)/time_fullspan.size
-yplot2 = 100*np.sum(~np.isnan(topobathy_fullspan_gapfilled),axis=1)/time_fullspan.size
-fig, ax = plt.subplots()
-ax.plot(lidar_xFRF,yplot1,'.',label='pre-filled')
-ax.plot(lidar_xFRF,yplot2,'.',label='post-filled')
-ax.legend()
-ax.set_xlabel('x [m]')
-ax.set_ylabel('Percent Not-Nan')
-
 fig, ax = plt.subplots()
 ax.plot(xplot_shift,topobathy_fullspan_gapfilled_shift)
 ax.set_xlabel('x* [m]')
 ax.set_ylabel('z [m]')
 ax.set_title('shifted profiles')
+
+fig, ax = plt.subplots()
+yplot1 = 100*np.sum(~np.isnan(topobathy_fullspan),axis=1)/time_fullspan.size
+yplot2 = 100*np.sum(~np.isnan(topobathy_fullspan_gapfilled),axis=1)/time_fullspan.size
+yplot3 = 100*np.sum(~np.isnan(topobathy_fullspan_gapfilled_shift),axis=1)/time_fullspan.size
+ax.plot(lidar_xFRF-lidar_xFRF[0],yplot1,'o',label='pre-filled')
+ax.plot(lidar_xFRF-lidar_xFRF[0],yplot2,'*',label='post-filled')
+ax.plot(xplot_shift,yplot3,'.',label='post-filled, shifted')
+ax.legend()
+ax.set_xlabel('x [m]')
+ax.set_ylabel('Percent Not-Nan')
 
 
 ########## SAVE BLENDED TOPO-BATHY ##########
