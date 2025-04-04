@@ -29,20 +29,6 @@ bathysurvey_times = np.array(datload['highTideTimes'])
 
 ################## ISOLATE BATHY DATA FROM COMBINED ##################
 
-# PLOT surveys from Dylan
-XX, TT = np.meshgrid(lidar_xFRF, bathysurvey_times)
-timescatter = np.reshape(TT, TT.size)
-xscatter = np.reshape(XX, XX.size)
-zscatter = np.reshape(bathysurvey_elev, bathysurvey_elev.size)
-tt = timescatter[~np.isnan(zscatter)]
-xx = xscatter[~np.isnan(zscatter)]
-zz = zscatter[~np.isnan(zscatter)]
-fig, ax = plt.subplots()
-fig.set_size_inches(15,3.)
-ph = ax.scatter(tt,xx, s=3, c=zz, cmap='rainbow',vmin=-4,vmax=8)
-cbar = fig.colorbar(ph, ax=ax)
-cbar.set_label('diff [m]')
-ax.set_title('tidally averaged topo-bathy')
 
 # Find overlap in Dylan's elevation set and the lidar profiles
 nt = np.nanmax([bathysurvey_elev.T.shape[1], lidarprofile_fullspan.shape[1]])
@@ -73,13 +59,13 @@ bathy_nolidar = np.empty((nx,nt))
 bathy_nolidar[:] = np.nan
 bathy_nolidar[elev_overlap == 0.5] = bathysurvey_fullspan[elev_overlap == 0.5]
 ## SCATTER PLOT SHOWING OVERLAP
-XX, TT = np.meshgrid(lidar_xFRF, time_fullspan)
-timescatter = np.reshape(TT, TT.size)
-xscatter = np.reshape(XX, XX.size)
-zscatter = np.reshape(elev_overlap.T, elev_overlap.T.size)
-tt = timescatter[~np.isnan(zscatter)]
-xx = xscatter[~np.isnan(zscatter)]
-zz = zscatter[~np.isnan(zscatter)]
+# XX, TT = np.meshgrid(lidar_xFRF, time_fullspan)
+# timescatter = np.reshape(TT, TT.size)
+# xscatter = np.reshape(XX, XX.size)
+# zscatter = np.reshape(elev_overlap.T, elev_overlap.T.size)
+# tt = timescatter[~np.isnan(zscatter)]
+# xx = xscatter[~np.isnan(zscatter)]
+# zz = zscatter[~np.isnan(zscatter)]
 # fig, ax = plt.subplots()
 # ph = ax.scatter(xx, tt, s=2, c=zz, vmin=0, vmax=2, cmap='viridis')
 # cbar = fig.colorbar(ph, ax=ax)
@@ -87,6 +73,16 @@ zz = zscatter[~np.isnan(zscatter)]
 # ax.set_xlabel('x [m, FRF]')
 # ax.set_ylabel('time')
 # ax.set_title('Lidar = 1, BathySurvey = 0.5')
+## TEST TO CONFIRM NO-OVERLAP
+# testbathy = bathy_nolidar+lidarprofile_fullspan
+# zscatter = np.reshape(testbathy.T, testbathy.T.size)
+# tt = timescatter[~np.isnan(zscatter)]
+# xx = xscatter[~np.isnan(zscatter)]
+# zz = zscatter[~np.isnan(zscatter)]
+# fig, ax = plt.subplots()
+# ph = ax.scatter(xx, tt, s=2, c=zz, vmin=0, vmax=2, cmap='viridis')
+# cbar = fig.colorbar(ph, ax=ax)
+# cbar.set_label('bathy + lidar')
 ## PROFILE PLOT OF DLA'S DATA
 # fig, ax = plt.subplots()
 zmean = np.nanmean(bathy_nolidar,axis=1)
@@ -257,6 +253,20 @@ topobathy_fullspan =ZbFull_addLidar[:]
 
 ################## PLOT FINAL RESULTS ##################
 
+# PLOT surveys from Dylan
+XX, TT = np.meshgrid(lidar_xFRF, bathysurvey_times)
+timescatter = np.reshape(TT, TT.size)
+xscatter = np.reshape(XX, XX.size)
+zscatter = np.reshape(bathysurvey_elev, bathysurvey_elev.size)
+tt = timescatter[~np.isnan(zscatter)]
+xx = xscatter[~np.isnan(zscatter)]
+zz = zscatter[~np.isnan(zscatter)]
+fig, ax = plt.subplots()
+fig.set_size_inches(15,3.)
+ph = ax.scatter(tt,xx, s=3, c=zz, cmap='rainbow',vmin=-4,vmax=8)
+cbar = fig.colorbar(ph, ax=ax)
+cbar.set_label('diff [m]')
+ax.set_title('tidally averaged topo-bathy')
 
 tplot = pd.to_datetime(time_fullspan, unit='s', origin='unix')
 XX, TT = np.meshgrid(lidar_xFRF, tplot)
