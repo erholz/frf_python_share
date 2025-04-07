@@ -12,14 +12,18 @@ import pickle
 from datetime import timedelta
 
 
-# Load processed deep-water waves from get_wavesForStormClimate
-# picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_26Nov2024/'
-# picklefile_dir = 'G:/Projects/FY24/FY24_SMARTSEED/FRF_data/processed_20Feb2025/'
-picklefile_dir = 'C:/Users/rdchlerh/Desktop/frf_data_backup/processed/processed_20Feb2025/'
-with open(picklefile_dir+'stormWaves_WISandFRF.pickle', 'rb') as file:
+################## LOAD DATA ##################
+
+picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_to_share_02Apr2025/'
+with open(picklefile_dir+'waves_WISandFRF.pickle', 'rb') as file:
     combinedHsWIS,combinedTpWIS,combinedDmWIS,combinedTimeWIS = pickle.load(file)
-with open(picklefile_dir+'stormWaves_FRF.pickle','rb') as file:
+with open(picklefile_dir+'waves_FRF.pickle','rb') as file:
     cHs,cTp,cDp,cTime = pickle.load(file)
+with open(picklefile_dir+'IO_alignedintime.pickle', 'rb') as file:
+    time_fullspan,_,_,_,_,_,_,_,_,_,_,_,_ = pickle.load(file)
+
+
+################## DEFINE STORM ##################
 
 def moving_average(a, n=3) :
     ret = np.cumsum(a, dtype=float)
@@ -32,19 +36,19 @@ hs95 = np.nanpercentile(combinedHsWIS,95)
 hs94 = np.nanpercentile(combinedHsWIS,94)
 hs90 = np.nanpercentile(combinedHsWIS,90)
 hs85 = np.nanpercentile(combinedHsWIS,85)
+
 hsSmooth = moving_average(cHs,3)#np.asarray([avgHs,moving_average(hs,3),avgHs])
 hsSmoothWIS = moving_average(combinedHsWIS,3)#np.asarray([avgHs,moving_average(hs,3),avgHs])
-# stormHsInd = np.where((hsSmooth > 1.5))
 stormHsIndWIS = np.where((hsSmoothWIS > hs94))
 stormHsListWIS = [list(group) for group in mit.consecutive_groups(stormHsIndWIS[0])]
 stormHsInd = np.where((hsSmooth > hs94))
 stormHsList = [list(group) for group in mit.consecutive_groups(stormHsInd[0])]
 
 
+################## GET STORM STATISTICS FROM FRF DATA ##################
+
 stormLengths = np.asarray([len(tt) for tt in stormHsList])
 over12HourStorms = np.where(stormLengths>=23)
-
-
 hsStormList = []
 hsMaxStormList = []
 tpStormList = []
@@ -116,10 +120,10 @@ for yy in np.arange(len(over12HourStorms[0])-1):
         endTimeStormList.append(int(dt.datetime.timestamp(t2)))
 
 
+################## GET STORM STATISTICS FROM WIS DATA ##################
+
 stormLengthsWIS = np.asarray([len(tt) for tt in stormHsListWIS])
 over12HourStormsWIS = np.where(stormLengthsWIS>=23)
-
-
 hsStormListWIS = []
 hsMaxStormListWIS = []
 tpStormListWIS = []
@@ -190,111 +194,48 @@ for yy in range(len(over12HourStormsWIS[0])-1):
         endTimeStormListWIS.append(int(dt.datetime.timestamp(t2)))
 
 
-plt.figure()
-plot1 = plt.subplot2grid((2,1),(0,0))
-plot1.plot(combinedTimeWIS,combinedHsWIS)
-for qq in range(len(hsStormListWIS)):
-    plot1.plot(timeStormListWIS[qq],hsStormListWIS[qq],'.',color='orange')
-plot1.set_ylabel('Hs (m)')
-plot2 = plt.subplot2grid((2,1),(1,0))
-# plot2.plot(cTime,cHs)
-# for qq in range(len(hsStormList)):
-plot2.scatter(np.asarray(peakTimeStormListWIS),np.asarray(wavePowerStormListWIS))
-# plot2.ylabel('Hs (m)')
+################## MAKE STORMY_FULLSPAN ##################
 
-plt.figure()
-cp = plt.scatter(np.asarray(durationStormListWIS),np.asarray(hsMaxStormListWIS),c=np.asarray(wavePowerStormListWIS),vmin=0,vmax=30000)
-cb = plt.colorbar(cp)
-cb.set_label('Cumulative Wave Power')
-plt.ylabel('Max Hs (m)')
-plt.xlabel('Duration (hrs)')
+stormy_fullspan = np.empty(shape=time_fullspan.shape)        # BINARY - stormy == 1, calm/non-stormy = nan
+stormy_fullspan[:] = 0
 
-afterStormWIS = (np.asarray(endTimeStormListWIS)[1:]-np.asarray(startTimeStormListWIS)[0:-1])/60/60/24
-plt.figure()
-cp = plt.scatter(np.asarray(durationStormListWIS)[0:-1],np.asarray(hsMaxStormListWIS)[0:-1],c=np.asarray(afterStormWIS),vmin=0,vmax=60)
-cb = plt.colorbar(cp)
-cb.set_label('Recovery Time After (days)')
-plt.ylabel('Max Hs (m)')
-plt.xlabel('Duration (hrs)')
+## Remove storms outside of general time of interest
+storm_start = np.array(startTimeStormList[:])
+storm_end = np.array(endTimeStormList[:])
+storm_startWIS = np.array(startTimeStormListWIS[:])
+storm_endWIS = np.array(endTimeStormListWIS[:])
+storm_start = storm_start[(storm_start >= time_fullspan[0]) & (storm_start < time_fullspan[-1])]
+storm_end = storm_end[(storm_end > time_fullspan[0]) & (storm_end <= time_fullspan[-1])]
+storm_startWIS = storm_startWIS[(storm_startWIS >= time_fullspan[0]) & (storm_startWIS < time_fullspan[-1])]
+storm_endWIS = storm_endWIS[(storm_endWIS > time_fullspan[0]) & (storm_endWIS <= time_fullspan[-1])]
 
+## Identify times when FRF or WIS data says stormy
+for jj in np.arange(len(storm_start)):
+    tt_during_storm = (time_fullspan >= storm_start[jj]) & (time_fullspan <= storm_end[jj])
+    stormy_fullspan[tt_during_storm] = 1
+for jj in np.arange(len(storm_startWIS)):
+    tt_during_storm = (time_fullspan >= storm_startWIS[jj]) & (time_fullspan <= storm_endWIS[jj])
+    stormy_fullspan[tt_during_storm] = 1
 
-
-plt.figure()
-plot1 = plt.subplot2grid((2,1),(0,0))
-plot1.plot(cTime,cHs)
-for qq in range(len(hsStormList)):
-    plot1.plot(timeStormList[qq],hsStormList[qq],'.',color='orange')
-plot1.set_ylabel('Hs (m)')
-plot2 = plt.subplot2grid((2,1),(1,0))
-# plot2.plot(cTime,cHs)
-# for qq in range(len(hsStormList)):
-plot2.scatter(startTimeStormList,wavePowerStormList)
-# plot2.ylabel('Hs (m)')
+storm_timeend_all = []
+storm_timestart_all = []
+storm_iiend_all = []
+storm_iistart_all = []
+stormy_fullspan[stormy_fullspan == 0] = -1
+iicross = np.where(stormy_fullspan[1:]*stormy_fullspan[0:-1] < 0)[0]
+for jj in np.arange(iicross.size):
+    if (stormy_fullspan[iicross[jj]] == -1) & (stormy_fullspan[iicross[jj]+1] == 1):
+        storm_timestart_all = np.append(storm_timestart_all,time_fullspan[iicross[jj]])
+        storm_iistart_all = np.append(storm_iistart_all,int(iicross[jj]+1))
+    elif (stormy_fullspan[iicross[jj]] == 1) & (stormy_fullspan[iicross[jj]+1] == -1):
+        storm_timeend_all = np.append(storm_timeend_all, time_fullspan[iicross[jj]])
+        storm_iiend_all = np.append(storm_iiend_all,int(iicross[jj]+1))
+    else:
+        print('help')
 
 
+################## SAVE DATA ##################
 
-
-plt.figure()
-cp = plt.scatter(np.asarray(durationStormList),np.asarray(hsMaxStormList),c=np.asarray(wavePowerStormList),vmin=0,vmax=30000)
-cb = plt.colorbar(cp)
-cb.set_label('Cumulative Wave Power')
-plt.ylabel('Max Hs (m)')
-plt.xlabel('Duration (hrs)')
-
-afterStorm = (np.asarray(endTimeStormList)[1:]-np.asarray(startTimeStormList)[0:-1])/60/60/24
-plt.figure()
-cp = plt.scatter(np.asarray(durationStormList)[0:-1],np.asarray(hsMaxStormList)[0:-1],c=np.asarray(afterStorm),vmin=0,vmax=60)
-cb = plt.colorbar(cp)
-cb.set_label('Recovery time available [days]')
-plt.ylabel('Max $H_s$ [m]')
-plt.xlabel('Duration [hrs]')
-
-
-
-clusterPickle = 'stormHs95_Over12Hours.pickle'
-output = {}
-output['timeStormList'] = timeStormList
-output['hsStormList'] = hsStormList
-output['hsMaxStormList'] = hsMaxStormList
-output['tpStormList'] = tpStormList
-output['dmStormList'] = dmStormList
-output['hourStormList'] = hourStormList
-output['indStormList'] = indStormList
-output['durationStormList'] = durationStormList
-output['wavePowerStormList'] = wavePowerStormList
-output['longshorePowerStormList'] = longshorePowerStormList
-output['startTimeStormList'] = startTimeStormList
-output['endTimeStormList'] = endTimeStormList
-output['cHs'] = cHs
-output['cTp'] = cTp
-output['cDp'] = cDp     # waves are normalized to FRF shoreline
-output['cTime'] = cTime
-output['peakTimeStormList'] = peakTimeStormList
-output['timeStormListWIS'] = timeStormListWIS
-output['hsStormListWIS'] = hsStormListWIS
-output['hsMaxStormListWIS'] = hsMaxStormListWIS
-output['tpStormListWIS'] = tpStormListWIS
-output['dmStormListWIS'] = dmStormListWIS
-output['hourStormListWIS'] = hourStormListWIS
-output['indStormListWIS'] = indStormListWIS
-output['durationStormListWIS'] = durationStormListWIS
-output['wavePowerStormListWIS'] = wavePowerStormListWIS
-output['longshorePowerStormListWIS'] = longshorePowerStormListWIS
-output['startTimeStormListWIS'] = startTimeStormListWIS
-output['endTimeStormListWIS'] = endTimeStormListWIS
-output['combinedHsWIS'] = combinedHsWIS
-output['combinedTpWIS'] = combinedTpWIS
-output['combinedDmWIS'] = combinedDmWIS # waves are normalized to FRF shoreline
-output['combinedTimeWIS'] = combinedTimeWIS
-output['peakTimeStormListWIS'] = peakTimeStormListWIS
-
-
-# picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data/processed_26Nov2024/'
-picklefile_dir = 'G:/Projects/FY24/FY24_SMARTSEED/FRF_data/processed_20Feb2025/'
-# with open(picklefile_dir+clusterPickle,'wb') as f:
-#     pickle.dump(output, f)
-
-
-
-
+with open(picklefile_dir+'stormy_times_fullspan.pickle','wb') as file:
+    pickle.dump([time_fullspan,stormy_fullspan,storm_timestart_all,storm_timeend_all],file)
 
