@@ -170,7 +170,12 @@ ax.set_xlabel('x [m]')
 ax.set_ylabel('Percent Not-Nan')
 
 
-########## SAVE BLENDED TOPO-BATHY ##########
+########## SAVE FILLED TOPO-BATHY AND HYDRO ##########
 
+hydro_fullspan = np.empty((4,time_fullspan.size))
+hydro_fullspan[0,:] = watlev_fullspan
+hydro_fullspan[1,:] = Hs8m_fullspan
+hydro_fullspan[2,:] = Tp8m_fullspan
+hydro_fullspan[3,:] = dir8m_fullspan
 with open(picklefile_dir+'preppedHydroTopobathy.pickle', 'wb') as file:
-   pickle.dump([lidar_xFRF, time_fullspan, topobathy_fullspan_gapfilled, xplot_shift, topobathy_fullspan_gapfilled_shift],file)
+   pickle.dump([lidar_xFRF, time_fullspan, topobathy_fullspan_gapfilled, xplot_shift, topobathy_fullspan_gapfilled_shift, hydro_fullspan],file)

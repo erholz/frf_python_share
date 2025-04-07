@@ -19,7 +19,7 @@ import seaborn as sns
 picklefile_dir = 'C:/Users/rdchlerh/Desktop/FRF_data_backup/processed/processed_to_share_02Apr2025/'
 
 with open(picklefile_dir+'preppedHydroTopobathy.pickle', 'rb') as file:
-   lidar_xFRF, time_fullspan, topobathy_fullspan_gapfilled, xplot_shift, topobathy_fullspan_gapfilled_shift = pickle.load(file)
+   lidar_xFRF, time_fullspan, topobathy_fullspan_gapfilled, xplot_shift, topobathy_fullspan_gapfilled_shift, _ = pickle.load(file)
 
 ################## ISOLATE PROFILES FOR PCA ##################
 
@@ -131,7 +131,7 @@ nPercent = variance / np.sum(variance)  # this is the percent explained (the fir
 APEV = np.cumsum(variance) / np.sum(variance) * 100.0   # this is the cumulative variance
 nterm = np.where(APEV <= 0.95 * 100)[0][-1]
 
-PCs_fullspan = np.empty((time_fullspan.size,numx))
+PCs_fullspan = np.empty((time_fullspan.size,numx))*np.nan
 PCs_fullspan[ii_minlengthmet & ii_volthreshmet,:] = PCs
 
 
