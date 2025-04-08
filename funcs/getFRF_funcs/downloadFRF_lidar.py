@@ -83,6 +83,18 @@ years = np.arange(2015,2025)
 # local_dir = local_base + '/waves_lidar/lidar_wavegauge140/'
 # years = np.arange(2015,2025)
 
+
+# # For waverider-26m
+# request_url = 'catalog/frf/oceanography/waves/waverider-26m/'
+# local_dir = '/volumes/macDrive/FRF_Data/waverider-26m/'
+# years = np.arange(2008,2025)
+
+# For WIS
+request_url = 'catalog/wis/Pacific/ST84065/'
+local_dir = '/volumes/anderson/WIS84065/'
+years = np.arange(1980,2024)
+
+
 def get_elements(url, tag_name, attribute_name):
     """Get elements from an XML file"""
     # usock = urllib2.urlopen(url)

@@ -4,7 +4,7 @@ import numpy as np
 from funcs.get_timeinfo import get_TimeInfo
 
 
-def run_lidarcollect(lidarfloc, lidarext):
+def run_lidarcollect(lidarfloc, lidarext):#,epoch_beg,epoch_end,tzinfo):
     floc = lidarfloc
     ext = lidarext
 
@@ -14,6 +14,14 @@ def run_lidarcollect(lidarfloc, lidarext):
 
     # Get the data names of the LIDAR files...
     fname_in_range = find_files_in_range(floc, ext, epoch_beg, epoch_end, tzinfo)
+
+    if np.size(fname_in_range) == 0:
+        lidarelev = []
+        lidartime = []
+        lidar_xFRF = []
+        lidarelevstd = []
+        lidarmissing = []
+        return lidarelev, lidartime, lidar_xFRF, lidarelevstd, lidarmissing
 
     # Process the LIDAR files within range of interest
     lidartime = []
