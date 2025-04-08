@@ -1,5 +1,4 @@
-def getthredds_waves(full_path):
-
+def getthredds_waves8m(full_path):
     """
 
     :param full_path: consists of floc (path after .../thredds/dodsC/frf/) + filename
@@ -16,8 +15,6 @@ def getthredds_waves(full_path):
     yr_str = full_path[len(full_path)-9:len(full_path)-5]
 
     ## Wave dataset
-    # print(mon_str)
-    # print(frf_base)
     ds = Dataset(frf_base + full_path, "r")
     qaqc_fac = ds.variables["qcFlagE"][:]
     wave_peakdir = ds.variables["wavePrincipleDirection"][:]
@@ -72,9 +69,7 @@ def getthredds_waves(full_path):
     return qaqc_fac, wave_peakdir, wave_Tp, wave_Hs, wave_time, src_WL, wave_WL
 
 
-
-
-def getlocal_waves(full_path):
+def getlocal_waves8m(full_path):
 
     """
 
@@ -85,16 +80,17 @@ def getlocal_waves(full_path):
     import datetime as dt
     import numpy as np
     from netCDF4 import Dataset
+    from funcs.get_timeinfo import get_FileInfo
+
+    picklefile_dir = 'C:/Users/rdchlerh/PycharmProjects/frf_python_share'
+    local_base, lidarfloc, lidarext, noaawlfloc, noaawlext, lidarhydrofloc, lidarhydroext = get_FileInfo(picklefile_dir)
 
     ## Get the date information from the input file name
-    # local_base = 'D:/Projects/FY24/FY24_SMARTSEED/FRF_data/'
-    # local_base = 'F:/Projects/FY24/FY24_SMARTSEED/FRF_data/'
-    local_base = 'C:/Users/rdchlerh/Desktop/FRF_data/'
     mon_str = full_path[len(full_path)-5:len(full_path)-3]
     yr_str = full_path[len(full_path)-9:len(full_path)-5]
 
     ## Wave dataset
-    ds = Dataset(local_base + full_path, "r")
+    ds = Dataset(full_path, "r")
     qaqc_fac = ds.variables["qcFlagE"][:]
     wave_peakdir = ds.variables["wavePrincipleDirection"][:]
     wave_Tp = ds.variables["waveTp"][:]
@@ -108,7 +104,7 @@ def getlocal_waves(full_path):
     try:
         ## Try EOP
         ds2 = Dataset(local_base
-                      + "/waterlevel/"
+                      + "/waterlevel/eopNOAA/"
                       + "/FRF-ocean_waterlevel_eopNoaaTide_"
                       + yr_str
                       + mon_str
@@ -121,10 +117,14 @@ def getlocal_waves(full_path):
         src_WL = 1
     except:
         ## If no EOP, grab from 8m array
-        waterlevel = ds.variables["waterLevel"][:]
+        if np.isin('waterLevel',list(ds.variables)):
+            waterlevel = ds.variables["waterLevel"][:]
+        elif np.isin('gaugeDepth',list(ds.variables)):
+            waterlevel = ds.variables["gaugeDepth"][:]
         thredds_time_WL = np.asarray(ds.variables["time"][:])
         # print("Water level sourced from 8m array")
         src_WL = 0
+
 
 
     for tt in range(len(wave_time)):
@@ -144,3 +144,112 @@ def getlocal_waves(full_path):
             wave_WL[tt] = round(waterlevel[ind_WL], 2)
 
     return qaqc_fac, wave_peakdir, wave_Tp, wave_Hs, wave_time, src_WL, wave_WL
+
+
+
+def getthredds_waves17m(full_path):
+
+    """
+
+    :param full_path: consists of floc (path after .../thredds/dodsC/frf/) + filename
+    :return: wave_Tp, wave_Hs, wave_time, wave_depth, wave_dir
+    """
+
+    import datetime as dt
+    import numpy as np
+    from netCDF4 import Dataset
+
+    ## Get the date information from the input file name
+    frf_base = "https://chlthredds.erdc.dren.mil/thredds/dodsC/frf/"
+
+    ## Wave dataset
+    ds = Dataset(frf_base + full_path, "r")
+    wave_Tp = ds.variables["waveTp"][:]
+    wave_Hs = ds.variables["waveHs"][:]
+    wave_time = ds.variables["time"][:]
+    wave_dir = ds.variables["wavePeakDirectionPeakFrequency"][:]
+
+    is_Hs_masked = np.ma.isMA(wave_Hs)
+    if is_Hs_masked:
+        wave_Tp = wave_Tp.filled(fill_value=np.NaN)
+        wave_Hs = wave_Hs.filled(fill_value=np.NaN)
+        wave_time = wave_time.filled(fill_value=np.NaN)
+        wave_depth = wave_depth.filled(fill_value=np.NaN)
+        wave_dir = wave_dir.filled(fill_value=np.NaN)
+
+
+    return wave_Tp, wave_Hs, wave_time, wave_dir
+
+
+def getlocal_waves17m(full_path):
+    """
+
+    :param full_path: consists of floc (path after .../FY24_SMARTSEED/FRF_data/) + filename
+    :return: wave_Tp, wave_Hs, wave_time, wave_depth, wave_dir
+    """
+
+    import datetime as dt
+    import numpy as np
+    from netCDF4 import Dataset
+
+    ## Wave dataset
+    ds = Dataset(full_path, "r")
+    wave_Tp = ds.variables["waveTp"][:]
+    wave_Hs = ds.variables["waveHs"][:]
+    wave_time = ds.variables["time"][:]
+    wave_dir = ds.variables["wavePeakDirectionPeakFrequency"][:]
+
+    is_Hs_masked = np.ma.isMA(wave_Hs)
+    if is_Hs_masked:
+        wave_Tp = wave_Tp.filled(fill_value=np.NaN)
+        wave_Hs = wave_Hs.filled(fill_value=np.NaN)
+        wave_time = wave_time.filled(fill_value=np.NaN)
+        wave_dir = wave_dir.filled(fill_value=np.NaN)
+
+    return wave_Tp, wave_Hs, wave_time, wave_dir
+
+
+
+def getthredds_waves26m(full_path):
+
+    """
+
+    :param full_path: consists of floc (path after .../thredds/dodsC/frf/) + filename
+    :return: wave_Tp, wave_Hs, wave_time, wave_depth, wave_dir
+    """
+
+    import datetime as dt
+    import numpy as np
+    from netCDF4 import Dataset
+
+    ## Get the date information from the input file name
+    # frf_base = "https://chlthredds.erdc.dren.mil/thredds/dodsC/frf/"
+    frf_base = "https://chlthredds.erdc.dren.mil/thredds/catalog/frf/"
+
+    ## Wave dataset
+    ds = Dataset(frf_base + full_path, "r")
+    wave_dir = ds.variables["wavePrincipleDirection"][:]
+    wave_Tp = ds.variables["waveTp"][:]
+    wave_Hs = ds.variables["waveHs"][:]
+    wave_time = ds.variables["time"][:]
+    output_dict = dict()
+    output_dict['wave_dir'] = wave_dir
+    output_dict['wave_Tp'] = wave_Tp
+    output_dict['wave_Hs'] = wave_Hs
+    output_dict['wave_time'] = wave_time
+
+
+    is_Hs_masked = np.ma.isMA(wave_Hs)
+    if is_Hs_masked:
+        wave_Tp = wave_Tp.filled(fill_value=np.NaN)
+        wave_Hs = wave_Hs.filled(fill_value=np.NaN)
+        wave_time = wave_time.filled(fill_value=np.NaN)
+        wave_dir = wave_dir.filled(fill_value=np.NaN)
+
+
+    return output_dict, wave_Tp, wave_Hs, wave_time, wave_dir
+
+
+
+
+

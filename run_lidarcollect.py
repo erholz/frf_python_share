@@ -9,7 +9,8 @@ def run_lidarcollect(lidarfloc, lidarext):#,epoch_beg,epoch_end,tzinfo):
     ext = lidarext
 
     # Get timing info from run_code.py
-    tzinfo, time_format, time_beg, time_end, epoch_beg, epoch_end, TOI_duration = get_TimeInfo()
+    picklefile_dir = './'
+    tzinfo, time_format, time_beg, time_end, epoch_beg, epoch_end, TOI_duration = get_TimeInfo(picklefile_dir)
 
     # Get the data names of the LIDAR files...
     fname_in_range = find_files_in_range(floc, ext, epoch_beg, epoch_end, tzinfo)
