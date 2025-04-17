@@ -42,6 +42,10 @@ with open(picklefile_dir+'preppedHydroTopobathy.pickle', 'rb') as file:
 with open(picklefile_dir+'PCAoutput.pickle', 'rb') as file:
    xplot, _, dataNorm_fullspan, dataMean, dataStd, PCs_fullspan, EOFs, APEV = pickle.load(file)
 
+with open(picklefile_dir+'stormy_times_fullspan.pickle','rb') as file:
+    _, stormy_fullspan, storm_timestart_all, storm_timeend_all = pickle.load(file)
+
+
 
 dataNormT = dataNorm_fullspan.T
 dataT = dataNormT * dataStd.T + dataMean.T
@@ -68,7 +72,8 @@ for jj in np.arange(time_fullspan.size):
 
 ########## CALCULATE BEACH STATS ##########
 
-prof_fullspan = obs_profile
+prof_fullspan = pca_profile
+prof_fullspan[:,stormy_fullspan == 1] = np.nan
 
 # Calculate beach volume and width
 mlw = -0.62
@@ -77,19 +82,19 @@ zero = 0
 mhw = 0.36
 dune_toe = 3.22
 upper_lim = 5.95
-cont_elev = np.array([mlw,mwl,mhw,dune_toe,upper_lim]) #np.arange(0,2.5,0.5)   # <<< MUST BE POSITIVELY INCREASING
+cont_elev = np.array([mlw,mwl,mhw,dune_toe]) #np.arange(0,2.5,0.5)   # <<< MUST BE POSITIVELY INCREASING
 cont_ts, cmean, cstd = create_contours(prof_fullspan.T,time_fullspan,xplot,cont_elev)
 beachVol, beachVol_xc, dBeachVol_dt, total_beachVol, total_dBeachVol_dt, total_obsBeachWid = calculate_beachvol(prof_fullspan.T,time_fullspan,xplot,cont_elev,cont_ts)
 total_beachVol[total_beachVol == 0] = np.nan
 mhw_xc = cont_ts[2,:]
 mlw_xc = cont_ts[0,:]
 dunetoe_xc = cont_ts[3,:]
-beachWid = dunetoe_xc - mlw_xc
+beachWid = mlw_xc - dunetoe_xc
 
 
 ########## DEFINE AND SCALE INPUT DATA ##########
 
-beachstat_fullspan = mhw_xc[:]
+beachstat_fullspan = total_beachVol[:]
 beachstat_max = np.nanmax(beachstat_fullspan)
 beachstat_min = np.nanmin(beachstat_fullspan)
 beachstat_scaled = (beachstat_fullspan - beachstat_min) / (beachstat_max - beachstat_min)
@@ -109,9 +114,7 @@ for nn in np.arange(4):
 
 ############### CREATE INPUT DATASETS W/ VARIABLE NLOOK ###############
 
-
-
-Nlook = int(5)
+Nlook = 4
 num_steps = Nlook-1
 numhydro = 4
 numPCs = 1
@@ -173,15 +176,14 @@ test_y[:] = outputData[iitest,:]
 
 ############### DESIGN AND FIT NETWORK ###############
 
-
 # design network
 model = Sequential()
-model.add(LSTM(20, input_shape=(train_X.shape[1], train_X.shape[2]), dropout=0.25))
+model.add(LSTM(15, input_shape=(train_X.shape[1], train_X.shape[2]), dropout=0.15))
 model.add(Dense(numPCs))
 model.compile(loss='mae', optimizer='adam')
 
 # fit network
-history = model.fit(train_X, train_y, epochs=60, batch_size=24, validation_data=(test_X, test_y), verbose=2,
+history = model.fit(train_X, train_y, epochs=80, batch_size=24, validation_data=(test_X, test_y), verbose=2,
                     shuffle=False)
 
 # plot history
@@ -208,20 +210,20 @@ ax.grid()
 
 ############### TEST TIME SERIES PREDICTION ###############
 
-picklefile_dir = 'G:/Projects/FY24/FY24_SMARTSEED/FRF_data/processed_20Feb2025/'
-with open(picklefile_dir+'stormy_times_fullspan.pickle','rb') as file:
-   _,storm_flag,storm_timestart_all,storm_timeend_all = pickle.load(file)
+# picklefile_dir = 'G:/Projects/FY24/FY24_SMARTSEED/FRF_data/processed_20Feb2025/'
+# with open(picklefile_dir+'stormy_times_fullspan.pickle','rb') as file:
+#    _,storm_flag,storm_timestart_all,storm_timeend_all = pickle.load(file)
 
-tplot = pd.to_datetime(storm_timeend_all, unit='s', origin='unix')
+tplot = pd.to_datetime(storm_timestart_all, unit='s', origin='unix')
 plotflag = True
-for nn in np.arange(5):
+for nn in np.arange(0,storm_timestart_all.size,5):
 # for nn in np.arange(storm_timeend_all.size):
 
-    tstart = storm_timeend_all[nn] + int(1 * 24 * 3600)
+    tstart = storm_timestart_all[nn] + int(1 * 24 * 3600)
     iistart = np.where(np.isin(time_fullspan, tstart))[0].astype(int)
 
     # SHORT_TERM PREDICTION
-    Npred = 250
+    Npred = 500
 
     prev_pred = np.empty((Npred,)) * np.nan
     prev_obs = np.empty((Npred,)) * np.nan
@@ -246,7 +248,7 @@ for nn in np.arange(5):
                     plotflag = True
                     ds_beachstat = np.empty(shape=ytest.shape) * np.nan
                     yv = ytest
-                    if sum(np.isnan(yv)) > 0:
+                    if (sum(np.isnan(yv)) > 0) & (Nlook > 2):
                         print(sum(np.isnan(yv)))
                         xq = np.arange(Nlook - 1 - tt)
                         xv = xq[~np.isnan(yv)]
