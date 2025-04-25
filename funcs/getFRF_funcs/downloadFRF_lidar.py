@@ -8,7 +8,7 @@ from urllib.request import urlretrieve
 import numpy as np
 import os
 import sys
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__name__))
 sys.path.append(os.path.dirname(SCRIPT_DIR))
 from funcs.get_timeinfo import get_FileInfo
 import requests
@@ -45,7 +45,8 @@ server_url = 'https://chldata.erdc.dren.mil/thredds/'
 # For 26m-depth wave buoys
 request_url = 'catalog/frf/oceanography/waves/waverider-26m/'
 local_dir = local_base + '/waves_26mwaverider/'
-years = np.arange(2015,2025)
+years = np.arange(2015,2016)
+pem = '62effcfcdf6c711e80a18fa7f72a439b1bf0f21915fbfd7f19bcacf14f6bcbb3'
 #
 #
 # # For lidar hydro (wave stats)
@@ -100,7 +101,7 @@ def get_elements(url, tag_name, attribute_name):
 def main():
     for year in years:
         url = server_url + request_url + str(year) + '/catalog.xml'
-        r = requests.get(url)
+        r = requests.get(url,verify=False)
         if r.status_code < 400:
             print(url)
             catalog = get_elements(url, 'dataset', 'urlPath')
