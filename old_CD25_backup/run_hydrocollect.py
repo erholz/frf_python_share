@@ -82,14 +82,16 @@ def run_wavecollect17m_func(wave17mfloc, wave17mext):
 
     floc = wave17mfloc
     ext = wave17mext
-    fname_in_range = find_files_in_range(floc, ext, epoch_beg, epoch_end, tzinfo)
+    # fname_in_range = find_files_in_range(floc, ext, epoch_beg, epoch_end, tzinfo)
+    fname_in_range = find_files_thredds(floc, ext)
     wave17m_time = []
     wave17m_Tp = []
     wave17m_Hs = []
     wave17m_dir = []
     for fname_ii in fname_in_range:
         full_path = floc + fname_ii
-        wave_Tp, wave_Hs, wave_time, wave_dir = getlocal_waves17m(full_path)
+        # wave_Tp, wave_Hs, wave_time, wave_dir = getlocal_waves17m(full_path)
+        wave_Tp, wave_Hs, wave_time, wave_dir = getthredds_waves17m(full_path)
         wave17m_time = np.append(wave17m_time, wave_time, axis=0)
         wave17m_Tp = np.append(wave17m_Tp, wave_Tp, axis=0)
         wave17m_Hs = np.append(wave17m_Hs, wave_Hs, axis=0)

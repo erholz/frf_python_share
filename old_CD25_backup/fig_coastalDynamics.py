@@ -36,6 +36,14 @@ storm_end = np.array(output['endTimeStormList'])
 storm_startWIS = np.array(output['startTimeStormListWIS'])
 storm_endWIS = np.array(output['endTimeStormListWIS'])
 
+with open(picklefile_dir + 'tidalAveragedMetrics.pickle', 'rb') as file:
+    datload = pickle.load(file)
+list(datload)
+bathysurvey_elev = np.array(datload['smoothUpperTidalAverage'])
+bathysurvey_times = np.array(datload['highTideTimes'])
+
+
+
 # Plot climatology
 fig, ax = plt.subplots(3,1)
 tplot = pd.to_datetime(time_fullspan, unit='s', origin='unix')
@@ -85,7 +93,7 @@ zero = 0
 mhw = 0.36
 dune_toe = 3.22
 upper_lim = 5.95
-cont_elev = np.array([mlw,mwl,mhw,dune_toe,upper_lim]) #np.arange(0,2.5,0.5)   # <<< MUST BE POSITIVELY INCREASING
+cont_elev = np.array([mlw,mwl,zero,mhw,dune_toe,upper_lim]) #np.arange(0,2.5,0.5)   # <<< MUST BE POSITIVELY INCREASING
 cont_ts_pca, cmean, cstd = create_contours(dataPCA_fullspan.T,time_fullspan,xplot_shift,cont_elev)
 beachVol_pca, beachVol_xc_pca, dBeachVol_dt_pca, total_beachVol_pca, total_dBeachVol_dt_pca, total_obsBeachWid_pca =  calculate_beachvol(dataPCA_fullspan.T,time_fullspan,xplot_shift,cont_elev,cont_ts_pca)
 total_beachVol_pca[total_beachVol_pca == 0] = np.nan
@@ -104,9 +112,16 @@ for nn in np.arange(storm_start.size):
 ax.scatter(tplot,cont_ts_pca[2,:],3,color='tab:orange',linewidth=0.5)
 ax.set_xlim(min(tplot),max(tplot))
 # ax.grid()
-ax.set_ylabel('$Xc_{MHW}$ [m]')
+ax.set_ylabel('$Xc_{z=0}$ [m]')
 fig.set_size_inches(9.46,  1.75)
 plt.tight_layout()
+
+fig, ax = plt.subplots()
+mhw_xc = cont_ts_pca[3,:]
+mhw_xc_smoothed = np.convolve(mhw_xc,np.ones(12)/12,mode="same")
+ax.plot(tplot,mhw_xc,'o-',color='tab:orange',linewidth=0.5)
+ax.plot(tplot,mhw_xc_smoothed,'.-',color='k',linewidth=0.5)
+
 
 
 # plot all profiles
@@ -168,3 +183,25 @@ ax[0,1].set_ylim(0,4400)
 ax[0,2].set_ylim(0,4400)
 ax[1,0].set_ylim(0,4400)
 ax[1,1].set_ylim(0,4400)
+
+xplot = np.arange(bathysurvey_elev.shape[1])*dx
+XX, TT = np.meshgrid(xplot,bathysurvey_times)
+timescatter = np.reshape(TT, TT.size)
+xscatter = np.reshape(XX, XX.size)
+zscatter = np.reshape(bathysurvey_elev, bathysurvey_elev.size)
+tt = timescatter[~np.isnan(zscatter)]
+xx = xscatter[~np.isnan(zscatter)]
+zz = zscatter[~np.isnan(zscatter)]
+fig, ax = plt.subplots()
+ph = ax.scatter(tt, xx, s=1, c=zz, cmap='viridis')
+cbar = fig.colorbar(ph, ax=ax)
+cbar.set_label('z [m]')
+ax.set_ylabel('x [m]')
+ax.set_ylim(min(xplot),max(xplot))
+ax.set_xlim(min(bathysurvey_times),max(bathysurvey_times))
+fig.set_size_inches([7.5,3.4])
+plt.tight_layout()
+
+
+
+
